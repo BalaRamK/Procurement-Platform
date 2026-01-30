@@ -28,35 +28,35 @@ export function ApproverDashboard({
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">{heading}</h1>
-        <p className="mt-1 text-sm text-slate-500">{sub}</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{heading}</h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sub}</p>
       </div>
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-white/20">
+          <table className="min-w-full divide-y divide-white/20 dark:divide-white/10">
             <thead>
               <tr>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Title</th>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Requester</th>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Team</th>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Updated</th>
-                <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Requester</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Team</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Updated</th>
+                <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/20 bg-white/25">
+            <tbody className="divide-y divide-white/20 bg-white/25 dark:bg-white/5">
               {tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-5 py-12 text-center text-slate-500 dark:text-slate-400">
                     No tickets in your queue right now.
                   </td>
                 </tr>
               ) : (
                 tickets.map((t) => (
                   <tr key={t.id} className="table-row-glass transition-colors">
-                    <td className="px-5 py-4 font-medium text-slate-900">{t.title}</td>
-                    <td className="px-5 py-4 text-sm text-slate-600">{t.requester.email}</td>
-                    <td className="px-5 py-4 text-sm text-slate-600">{t.teamName}</td>
-                    <td className="px-5 py-4 text-sm text-slate-500">
+                    <td className="px-5 py-4 font-medium text-slate-900 dark:text-slate-100">{t.title}</td>
+                    <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">{t.requester.email}</td>
+                    <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">{t.teamName}</td>
+                    <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
                       {new Date(t.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     </td>
                     <td className="px-5 py-4 text-right">

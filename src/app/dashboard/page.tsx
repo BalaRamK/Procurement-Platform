@@ -84,7 +84,7 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className="card p-6 text-amber-800 backdrop-blur-md">
+    <div className="card p-6 text-amber-800 backdrop-blur-md dark:text-amber-200">
       No dashboard configured for your role. Contact an administrator.
     </div>
   );

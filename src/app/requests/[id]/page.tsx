@@ -71,23 +71,23 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   return (
     <div>
       <div className="mb-6">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900">
+        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
           ← Back to Dashboard
         </Link>
       </div>
       <div className="card overflow-hidden">
         <div className="card-header border-b px-6 py-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-xl font-bold text-slate-900">{ticket.title}</h1>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{ticket.title}</h1>
             <StatusBadge status={ticket.status} />
           </div>
-          {ticket.description && <p className="mt-2 text-sm text-slate-600">{ticket.description}</p>}
+          {ticket.description && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{ticket.description}</p>}
         </div>
         <dl className="grid gap-0 sm:grid-cols-2">
           {fields.map((f) => (
             <div key={f.label} className="border-b border-white/20 px-6 py-4 sm:border-r sm:border-r-white/20 even:sm:border-r-0">
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500">{f.label}</dt>
-              <dd className="mt-1 text-sm text-slate-900">{String(f.value)}</dd>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">{f.label}</dt>
+              <dd className="mt-1 text-sm text-slate-900 dark:text-slate-100">{String(f.value)}</dd>
             </div>
           ))}
         </dl>

@@ -37,11 +37,15 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
    **Option B — Docker**
 
+   From the project root:
+
    ```bash
-   docker run -d --name postgres-procurement -e POSTGRES_PASSWORD=Admin123 -e POSTGRES_DB=procurement -p 5432:5432 postgres:16
+   docker compose up -d
    ```
 
-   This creates the `procurement` database and matches the default `.env` (user `postgres`, password `Admin123`, port 5432).
+   Or with plain Docker: `docker run -d --name postgres-procurement -e POSTGRES_PASSWORD=Admin123 -e POSTGRES_DB=procurement -p 5432:5432 postgres:16`
+
+   This starts PostgreSQL with the `procurement` database and matches the default `.env` (user `postgres`, password `Admin123`, port 5432).
 
 4. **Database (Prisma)**
 
@@ -59,6 +63,11 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
    ```
 
    Open [http://localhost:3000](http://localhost:3000). Unauthenticated users are redirected to sign-in.
+
+## Troubleshooting
+
+- **"Can't reach database server at localhost:5432"** — PostgreSQL is not running. Start it using **Option B** above (`docker compose up -d`) or **Option A** (Windows service), then run `npx prisma db push` and try sign-in again.
+- **`url.parse()` deprecation warning** — Emitted by NextAuth.js or a dependency. It does not affect sign-in; you can ignore it or run with `node --no-deprecation` if needed.
 
 ## Roles
 

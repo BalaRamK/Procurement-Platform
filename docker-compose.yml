@@ -1,0 +1,16 @@
+# PostgreSQL for local development. Start with: docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres-procurement
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Admin123
+      POSTGRES_DB: procurement
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type AppSidebarProps = {
   userEmail: string | null | undefined;
@@ -12,12 +13,15 @@ export function AppSidebar({ userEmail, userRole }: AppSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="sidebar-glass flex w-64 flex-col rounded-r-3xl border-r border-white/25">
-      <div className="flex h-16 items-center gap-3 border-b border-white/25 px-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-600 text-sm font-semibold text-white shadow-lg shadow-primary-500/30">
-          P
+    <aside className="sidebar-glass flex w-64 flex-col rounded-r-3xl border-r border-white/25 dark:border-white/10">
+      <div className="flex h-16 items-center justify-between gap-3 border-b border-white/25 px-6 dark:border-white/10">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-600 text-sm font-semibold text-white shadow-lg shadow-primary-500/30">
+            P
+          </div>
+          <span className="text-base font-semibold text-slate-900 dark:text-slate-100">Procurement</span>
         </div>
-        <span className="text-base font-semibold text-slate-900">Procurement</span>
+        <ThemeToggle />
       </div>
       <nav className="flex-1 space-y-0.5 p-3">
         <Link
@@ -79,10 +83,10 @@ export function AppSidebar({ userEmail, userRole }: AppSidebarProps) {
           </>
         )}
       </nav>
-      <div className="border-t border-white/25 p-3">
+      <div className="border-t border-white/25 p-3 dark:border-white/10">
         <div className="glass-panel px-3 py-2.5">
-          <p className="truncate text-xs font-medium text-slate-500">Signed in as</p>
-          <p className="truncate text-sm font-medium text-slate-900">{userEmail ?? "—"}</p>
+          <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">Signed in as</p>
+          <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
         </div>
         <Link href="/api/auth/signout" className="btn-secondary mt-2 flex w-full items-center justify-center gap-2">
           Sign out

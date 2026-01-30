@@ -1,10 +1,15 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function SignInPage() {
   return (
-    <div className="relative z-10 flex min-h-screen items-center justify-center bg-[#0f0f12] px-4 py-8">
+    <div className="relative z-10 flex min-h-screen items-center justify-center bg-[#0f0f12] px-4 py-8 dark:bg-[#0f0f12]">
+      {/* Theme toggle: top-right */}
+      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
       {/* Main card: split panel, rounded, soft shadow */}
       <div className="flex w-full max-w-4xl overflow-hidden rounded-[1.5rem] bg-[#1a1a1f] shadow-2xl shadow-black/40 ring-1 ring-white/5">
         {/* Window controls (macOS style) */}
