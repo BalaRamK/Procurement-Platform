@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: 15 23 42;
+  --background: 248 250 252;
+  --primary: 79 70 229;
+  --border: 226 232 240;
+  --muted: 100 116 139;
+  /* Liquid glass: stronger blur + saturation for pronounced frosted effect */
+  --glass-blur: 28px;
+  --glass-saturate: 190%;
+  --glass-bg: rgba(255, 255, 255, 0.28);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-inner: 0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+  --glass-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  --glass-shadow-lg: 0 24px 56px -16px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+}
+
+body {
+  @apply antialiased text-slate-900;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  /* Liquid-style background: layered blobby gradients so glass panels show depth */
+  background:
+    radial-gradient(ellipse 140% 90% at 80% -10%, rgba(199, 210, 254, 0.45) 0%, transparent 55%),
+    radial-gradient(ellipse 90% 70% at 10% 90%, rgba(221, 214, 254, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 100% 80% at 50% 50%, rgba(238, 242, 255, 0.4) 0%, transparent 60%),
+    linear-gradient(165deg, #f5f3ff 0%, #faf5ff 22%, #f8fafc 48%, #f1f5f9 100%);
+  min-height: 100vh;
+  position: relative;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23e0e7ff' fill-opacity='0.08' d='M0,160L48,176C96,192,192,224,288,213.3C384,203,480,149,576,138.7C672,128,768,160,864,165.3C960,171,1056,149,1152,138.7C1248,128,1344,128,1392,128L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  background-position: 0 85%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Liquid glass backdrop: blur + saturate (adapts to background) */
+@layer utilities {
+  .backdrop-liquid {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+}
+
+@layer components {
+  /* Liquid glass inputs – translucent, strong inner highlight */
+  .input-base {
+    @apply w-full rounded-2xl border px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 transition-all duration-200;
+    background: rgba(255, 255, 255, 0.35);
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: var(--glass-inner), 0 2px 4px rgba(0, 0, 0, 0.04);
+  }
+  .input-base,
+  .input-base:focus {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+  .input-base:focus {
+    @apply outline-none ring-2 ring-primary-500/25;
+    background: rgba(255, 255, 255, 0.5);
+    border-color: rgba(199, 210, 254, 0.45);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.6) inset, 0 2px 4px rgba(0, 0, 0, 0.04);
+  }
+  .input-base:disabled {
+    @apply cursor-not-allowed text-slate-500;
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  /* Primary CTA – solid with soft inner glow */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-2xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:ring-offset-2 focus:ring-offset-white/60 disabled:opacity-50 disabled:pointer-events-none;
+    box-shadow: 0 4px 14px -2px rgba(79, 70, 229, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  }
+  .btn-primary:hover:not(:disabled) {
+    box-shadow: 0 6px 20px -2px rgba(79, 70, 229, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.25) inset;
+  }
+
+  /* Secondary – liquid glass style */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-2xl border px-4 py-2.5 text-sm font-medium text-slate-700 transition-all duration-200 hover:border-white/50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:ring-offset-2 focus:ring-offset-white/60 disabled:opacity-50;
+    background: rgba(255, 255, 255, 0.45);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: var(--glass-inner), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  }
+  .btn-secondary,
+  .btn-secondary:hover {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.6);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-2xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:ring-offset-2 focus:ring-offset-white/60 disabled:opacity-50;
+    box-shadow: 0 4px 14px -2px rgba(185, 28, 28, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  }
+
+  .btn-success {
+    @apply inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-2 focus:ring-offset-white/60 disabled:opacity-50;
+    box-shadow: 0 4px 14px -2px rgba(5, 150, 105, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  }
+
+  /* Liquid glass card – more translucent so background shows through */
+  .card {
+    @apply rounded-3xl border;
+    background: rgba(255, 255, 255, 0.32);
+    border-color: rgba(255, 255, 255, 0.25);
+    box-shadow: var(--glass-shadow);
+  }
+  .card {
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+  .card-elevated {
+    box-shadow: var(--glass-shadow-lg);
+    background: rgba(255, 255, 255, 0.36);
+  }
+
+  /* Nav: default = subtle; active = soft purple tint pill (reference “Product” style) */
+  .nav-link {
+    @apply flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200;
+  }
+  .nav-link:hover {
+    background: rgba(255, 255, 255, 0.5);
+    color: rgb(15 23 42);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+  .nav-link-active {
+    background: rgba(129, 140, 248, 0.2);
+    color: rgb(67 56 202);
+    border: 1px solid rgba(129, 140, 248, 0.28);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) inset, 0 2px 10px -2px rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+  .nav-link-active:hover {
+    background: rgba(129, 140, 248, 0.26);
+    color: rgb(55 48 163);
+  }
+
+  /* Card section header (liquid glass strip) */
+  .card-header {
+    background: rgba(255, 255, 255, 0.4);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.5) inset;
+  }
+  .card-header {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  /* Glass panel for sections inside cards / pills */
+  .glass-panel {
+    @apply rounded-2xl border;
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45) inset;
+  }
+  .glass-panel {
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  /* Sidebar glass – use for floating panels */
+  .sidebar-glass {
+    background: rgba(255, 255, 255, 0.28);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4) inset, 12px 0 32px -12px rgba(0, 0, 0, 0.08);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  /* Table row hover – subtle liquid glass */
+  .table-row-glass:hover {
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+  }
+}

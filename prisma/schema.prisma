@@ -1,0 +1,166 @@
+// Procurement Platform — PostgreSQL schema (aligned with functional requirements)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  REQUESTER
+  FUNCTIONAL_HEAD
+  L1_APPROVER
+  CFO
+  CDO
+  PRODUCTION
+}
+
+enum TeamName {
+  INNOVATION
+  ENGINEERING
+  SALES
+}
+
+enum TicketStatus {
+  DRAFT
+  PENDING_FH_APPROVAL
+  PENDING_L1_APPROVAL
+  PENDING_CFO_APPROVAL
+  PENDING_CDO_APPROVAL
+  ASSIGNED_TO_PRODUCTION
+  DELIVERED_TO_REQUESTER
+  CONFIRMED_BY_REQUESTER
+  CLOSED
+  REJECTED
+}
+
+enum CostCurrency {
+  USD
+  INR
+  EUR
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String?
+  azure_id  String?   @map("azure_id")
+  role      UserRole  @default(REQUESTER)
+  team      TeamName? // For FH and L1: which team (Innovation/Engineering/Sales)
+  status    Boolean   @default(true)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  ticketsAsRequester Ticket[]      @relation("RequesterTickets")
+  comments           Comment[]
+  approvalLogs       ApprovalLog[]
+
+  @@map("users")
+}
+
+model Ticket {
+  id                    String         @id @default(uuid())
+  title                 String
+  description           String?        // Item description
+  // Mandatory & custom fields (FR 3.1)
+  requesterName         String         @map("requester_name")
+  department            String
+  componentDescription  String?        @map("component_description")
+  itemName             String?        @map("item_name")   // From Zoho lookup
+  bomId                 String?        @map("bom_id")
+  productId            String?        @map("product_id")
+  projectCustomer      String?        @map("project_customer")
+  needByDate            DateTime?      @map("need_by_date") @db.Date
+  chargeCode           String?        @map("charge_code")
+  costCurrency         CostCurrency?  @map("cost_currency")
+  estimatedCost        Decimal?       @map("estimated_cost") @db.Decimal(12, 2)
+  rate                  Decimal?      @db.Decimal(12, 2)   // alias for cost (Zoho lookup)
+  unit                  String?
+  estimatedPODate       DateTime?      @map("estimated_po_date") @db.Date
+  placeOfDelivery      String?        @map("place_of_delivery")
+  quantity             Int?
+  dealName             String?        @map("deal_name")
+  teamName             TeamName       @map("team_name")     // Innovation / Engineering / Sales (Request Type)
+  priority             Priority       @default(MEDIUM)
+  status               TicketStatus   @default(DRAFT)
+  rejectionRemarks     String?        @map("rejection_remarks")
+  requesterId          String         @map("requester_id")
+  deliveredAt          DateTime?      @map("delivered_at")
+  confirmedAt          DateTime?      @map("confirmed_at")
+  autoClosedAt         DateTime?      @map("auto_closed_at")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  requester    User           @relation("RequesterTickets", fields: [requesterId], references: [id])
+  approvalLogs ApprovalLog[]
+  comments     Comment[]
+  notifications Notification[]
+
+  @@map("tickets")
+}
+
+model ApprovalLog {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  userEmail String   @map("user_email")
+  userId    String?  @map("user_id")
+  action    String   // approved | rejected
+  remarks   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("approval_logs")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  userId    String   @map("user_id")
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  type       String   // A: on_creation, B: assignment, C: delivered, D: closure, E: team_assignment
+  recipient  String   // email or "team"
+  sentAt     DateTime @default(now()) @map("sent_at")
+  payload    String?  @db.Text // JSON for future use
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model EmailTemplate {
+  id              String   @id @default(uuid())
+  name            String   @map("name")           // e.g. "Request created"
+  trigger         String   @map("trigger")       // request_created, request_rejected, pending_reminder_24h, etc.
+  subjectTemplate String   @map("subject_template") @db.VarChar(500)
+  bodyTemplate    String   @map("body_template")  @db.Text
+  timeline        String   @default("immediate") @map("timeline") // immediate, after_24h, after_48h, custom
+  delayMinutes    Int?     @map("delay_minutes") // for custom timeline
+  enabled         Boolean  @default(true) @map("enabled")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("email_templates")
+}
