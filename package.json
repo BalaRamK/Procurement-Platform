@@ -22,8 +22,12 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "next-auth": "^4.24.10",
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "5.22.0",
     "zod": "^3.23.8"
+  },
+  "overrides": {
+    "prisma": "5.22.0",
+    "@prisma/client": "5.22.0"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -35,7 +39,7 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.4.20",
-    "prisma": "^5.22.0",
+    "prisma": "5.22.0",
     "tsx": "^4.7.0",
     "dotenv": "^16.4.5"
   }

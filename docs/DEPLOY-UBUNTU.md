@@ -78,6 +78,8 @@ Optional: Zoho Books, Resend API key, etc.
 
 ### 2.3 Install dependencies and build
 
+Run in this order. **`npx prisma generate` must succeed** before `npm run build` (otherwise you’ll see “PrismaClient has no exported member”); see Section 7 if it fails.
+
 ```bash
 npm ci
 npx prisma generate
@@ -95,6 +97,8 @@ npx tsx scripts/grant-super-admin.ts your-admin@company.com
 ### 2.4 Run in production
 
 **Option A — PM2 (recommended)**
+
+Install PM2 first (required once per server), then start the app:
 
 ```bash
 sudo npm install -g pm2
@@ -363,3 +367,68 @@ Use the same variable in your PM2 or systemd environment so the running app trus
 | View app logs     | `pm2 logs procurement` or `journalctl -u procurement -f` |
 | Restart app       | `pm2 restart procurement` or `sudo systemctl restart procurement` |
 | After git pull    | `npm ci && npx prisma generate && npm run build && pm2 restart procurement` |
+
+---
+
+## 7. Troubleshooting
+
+### "Module '@prisma/client' has no exported member 'PrismaClient'"
+
+This means the Prisma client was not generated. **You must run `npx prisma generate` before `npm run build`**, and it must finish without errors.
+
+1. Run in order (from the app directory):
+   ```bash
+   npm ci
+   npx prisma generate
+   npx prisma db push
+   npm run build
+   ```
+2. If `prisma generate` fails (e.g. 403 when downloading engines), you are likely behind a proxy. See **Section 4 — Running behind a corporate proxy**. Use Option A (NO_PROXY for binaries.prisma.sh) or Option B (generate on another machine and copy `node_modules` and build to the VM).
+
+### Prisma P1012: "The datasource property \`url\` is no longer supported"
+
+You are running **Prisma 7** on the VM; this project uses **Prisma 5**. Prisma 7 changed how the database URL is configured, so the schema is not compatible.
+
+**Fix:** The project pins Prisma to 5.22.0 (and uses `overrides` in package.json). On the VM, pull the latest code so you have the pinned `package.json` and the repo’s `package-lock.json`, then reinstall:
+
+```bash
+cd ~/Procurement-Platform
+git pull
+rm -rf node_modules
+npm ci
+npx prisma --version   # must show 5.22.0, not 7.x
+```
+
+If it still shows 7.x, your lock file may be from an older install. Force a clean install so Prisma 5 is used:
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+npx prisma --version   # must show 5.22.0
+```
+
+Then run Prisma and build (set proxy if needed):
+
+```bash
+export HTTP_PROXY="http://10.160.0.18:3128"
+export HTTPS_PROXY="http://10.160.0.18:3128"
+export NO_PROXY="localhost,127.0.0.1,binaries.prisma.sh"
+npx prisma generate
+npx prisma db push
+npm run build
+```
+
+Do **not** upgrade this project to Prisma 7 unless you migrate to the new config (see [Prisma 7 config](https://pris.ly/d/config-datasource)).
+
+### "pm2: command not found"
+
+PM2 is not installed. Install it globally, then start the app:
+
+```bash
+sudo npm install -g pm2
+pm2 start npm --name "procurement" -- start
+pm2 save
+pm2 startup   # run the command it prints to start on boot
+```
+
+If you prefer not to use PM2, use **Option B — systemd** in Section 2.4 instead.
