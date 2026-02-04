@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { TeamName, CostCurrency, Priority } from "@prisma/client";
+import type { TeamName, CostCurrency, Priority } from "@/types/db";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 const TEAMS: { value: TeamName; label: string }[] = [

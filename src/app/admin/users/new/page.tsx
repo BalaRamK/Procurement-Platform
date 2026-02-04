@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { AddUserForm } from "@/components/admin/AddUserForm";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/constants";
-import type { UserRole } from "@prisma/client";
+import type { UserRole } from "@/types/db";
 
 const ROLES: UserRole[] = [
   "REQUESTER",

@@ -4,7 +4,7 @@ import { RequesterDashboard } from "@/components/dashboard/RequesterDashboard";
 import { ApproverDashboard } from "@/components/dashboard/ApproverDashboard";
 import { ProductionDashboard } from "@/components/dashboard/ProductionDashboard";
 import { prisma } from "@/lib/prisma";
-import { UserRole } from "@prisma/client";
+import type { UserRole } from "@/types/db";
 
 const APPROVER_ROLES: UserRole[] = [
   "FUNCTIONAL_HEAD",

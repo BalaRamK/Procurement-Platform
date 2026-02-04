@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import { prisma } from "@/lib/prisma";
-import { UserRole } from "@prisma/client";
+import type { UserRole } from "@/types/db";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -24,7 +24,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name ?? undefined,
             azure_id: account?.providerAccountId ?? undefined,
-            role: UserRole.REQUESTER,
+            role: "REQUESTER",
             status: true,
           },
         });

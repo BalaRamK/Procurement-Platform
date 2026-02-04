@@ -3,7 +3,15 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { TicketStatus, TeamName, CostCurrency, Priority } from "@prisma/client";
+import {
+  type TeamName,
+  type CostCurrency,
+  type Priority,
+  type TicketStatus,
+  TEAM_NAMES,
+  COST_CURRENCIES,
+  PRIORITIES,
+} from "@/types/db";
 import { logNotification } from "@/lib/notifications";
 import { generateRequestId } from "@/lib/request-id";
 
@@ -19,7 +27,7 @@ const createSchema = z.object({
   projectCustomer: z.string().optional(),
   needByDate: z.string().optional(),
   chargeCode: z.string().optional(),
-  costCurrency: z.nativeEnum(CostCurrency).optional(),
+  costCurrency: z.enum(COST_CURRENCIES).optional(),
   estimatedCost: z.number().optional(),
   rate: z.number().optional(),
   unit: z.string().optional(),
@@ -27,8 +35,8 @@ const createSchema = z.object({
   placeOfDelivery: z.string().optional(),
   quantity: z.number().int().positive().optional(),
   dealName: z.string().optional(),
-  teamName: z.nativeEnum(TeamName),
-  priority: z.nativeEnum(Priority).default("MEDIUM"),
+  teamName: z.enum(TEAM_NAMES),
+  priority: z.enum(PRIORITIES).default("MEDIUM"),
 });
 
 export async function GET(req: NextRequest) {

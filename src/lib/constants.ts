@@ -1,4 +1,4 @@
-import type { UserRole } from "@prisma/client";
+import type { UserRole } from "@/types/db";
 
 /**
  * User-facing role names per functional requirements:

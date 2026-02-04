@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Ticket, User, UserRole } from "@prisma/client";
-import { TeamName } from "@prisma/client";
+import type { Ticket, User, UserRole, TeamName } from "@/types/db";
 import { ROLE_LABELS } from "@/lib/constants";
 
 type TicketWithRequester = Ticket & { requester: User };

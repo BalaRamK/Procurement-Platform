@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Ticket, User } from "@prisma/client";
+import type { Ticket, User } from "@/types/db";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS } from "@/lib/constants";
 

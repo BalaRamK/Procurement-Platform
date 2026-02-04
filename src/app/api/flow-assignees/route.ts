@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { TeamName } from "@prisma/client";
+import type { TeamName } from "@/types/db";
 
 type Assignee = { name: string | null; email: string };
 

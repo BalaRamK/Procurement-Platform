@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
-import { TicketStatus, TeamName } from "@prisma/client";
+import type { TicketStatus, TeamName } from "@/types/db";
 
 function canView(
   role: string | null,

@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { User } from "@prisma/client";
-import { UserRole, TeamName } from "@prisma/client";
+import type { User, UserRole, TeamName } from "@/types/db";
 
 type UserManagementProps = {
   users: (Pick<User, "id" | "email" | "name" | "role" | "team" | "status">)[];

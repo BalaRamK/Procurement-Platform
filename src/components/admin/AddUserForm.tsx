@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { UserRole, TeamName } from "@prisma/client";
+import type { UserRole, TeamName } from "@/types/db";
 
 const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },

@@ -6,7 +6,7 @@ import { TicketActions } from "@/components/requests/TicketActions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { TeamName } from "@prisma/client";
+import type { TeamName } from "@/types/db";
 import { STATUS_LABELS } from "@/lib/constants";
 
 function canView(

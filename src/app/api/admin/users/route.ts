@@ -2,22 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { UserRole, TeamName } from "@prisma/client";
+import type { UserRole, TeamName } from "@/types/db";
+import { USER_ROLES, TEAM_NAMES } from "@/types/db";
 import { z } from "zod";
 
 const createSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.nativeEnum(UserRole),
-  team: z.nativeEnum(TeamName).nullable().optional(),
+  role: z.enum(USER_ROLES),
+  team: z.enum(TEAM_NAMES).nullable().optional(),
 });
 
 const patchSchema = z.object({
   userId: z.string().uuid(),
   email: z.string().email().optional(),
   name: z.string().optional(),
-  role: z.nativeEnum(UserRole).optional(),
-  team: z.nativeEnum(TeamName).nullable().optional(),
+  role: z.enum(USER_ROLES).optional(),
+  team: z.enum(TEAM_NAMES).nullable().optional(),
   status: z.boolean().optional(),
 });
 

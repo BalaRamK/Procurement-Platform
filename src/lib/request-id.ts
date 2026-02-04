@@ -1,4 +1,4 @@
-import type { TeamName } from "@prisma/client";
+import type { TeamName } from "@/types/db";
 import { prisma } from "@/lib/prisma";
 
 const TEAM_PREFIX: Record<TeamName, string> = {

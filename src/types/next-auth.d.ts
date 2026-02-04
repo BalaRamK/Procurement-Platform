@@ -1,4 +1,4 @@
-import { UserRole, TeamName } from "@prisma/client";
+import type { UserRole, TeamName } from "@/types/db";
 import "next-auth";
 
 declare module "next-auth" {
