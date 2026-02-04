@@ -6,7 +6,7 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
 - **Next.js 14** (App Router), TypeScript, Tailwind CSS
 - **NextAuth.js** with Azure AD provider
-- **PostgreSQL** via Prisma
+- **PostgreSQL** via `pg` (no Prisma)
 - **Zoho Books API** for item lookup (Phase 4)
 
 ## Setup
@@ -47,19 +47,19 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
    This starts PostgreSQL with the `procurement` database and matches the default `.env` (user `postgres`, password `Admin123`, port 5432).
 
-4. **Database (Prisma)**
+4. **Database**
 
    Ensure `DATABASE_URL` in `.env` points at your running PostgreSQL, then run:
 
    ```bash
-   npx prisma generate
-   npx prisma db push
+   npm run db:init
    ```
 
-   **Request ID (optional):** New tickets get an auto-generated Request ID (e.g. `IN123456`, `EN654321`, `SA111222`) based on Team. To backfill existing tickets, stop the dev server and run:
+   This applies the schema in `sql/schema.sql`. Optional: seed sample data and grant super admin:
 
    ```bash
-   npx tsx scripts/backfill-request-ids.ts
+   npm run db:seed
+   npx tsx scripts/grant-super-admin.ts your-admin@company.com
    ```
 
 5. **Run**
@@ -72,7 +72,7 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
 ## Troubleshooting
 
-- **"Can't reach database server at localhost:5432"** — PostgreSQL is not running. Start it using **Option B** above (`docker compose up -d`) or **Option A** (Windows service), then run `npx prisma db push` and try sign-in again.
+- **"Can't reach database server at localhost:5432"** — PostgreSQL is not running. Start it using **Option B** above (`docker compose up -d`) or **Option A** (Windows service), then run `npm run db:init` and try sign-in again.
 - **`url.parse()` deprecation warning** — Emitted by NextAuth.js or a dependency. It does not affect sign-in; you can ignore it or run with `node --no-deprecation` if needed.
 - **ChunkLoadError: Loading chunk app/layout failed (timeout)** — Often caused by a stale or corrupted `.next` build, or by OneDrive syncing/locking the project folder. **Fix:** Stop the dev server, run `npm run clean`, then `npm run dev` again. If the project is under OneDrive, exclude the `.next` folder from sync or move the project outside OneDrive.
 

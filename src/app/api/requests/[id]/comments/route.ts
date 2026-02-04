@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query, queryOne } from "@/lib/db";
 
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await queryOne<{ requesterId: string }>(
+    "SELECT requester_id AS \"requesterId\" FROM tickets WHERE id = $1",
+    [ticketId]
+  );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isRequester = ticket.requesterId === session.user.id;
@@ -26,12 +29,26 @@ export async function GET(
     role === "PRODUCTION";
   if (!canView) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const comments = await prisma.comment.findMany({
-    where: { ticketId },
-    include: { user: { select: { email: true, name: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-  return NextResponse.json(comments);
+  const comments = await query<Record<string, unknown>>(
+    `SELECT c.id, c.ticket_id AS "ticketId", c.user_id AS "userId", c.body, c.created_at AS "createdAt",
+            u.email AS "uEmail", u.name AS "uName"
+     FROM comments c
+     JOIN users u ON c.user_id = u.id
+     WHERE c.ticket_id = $1
+     ORDER BY c.created_at ASC`,
+    [ticketId]
+  );
+
+  const mapped = comments.map((c) => ({
+    id: c.id,
+    ticketId: c.ticketId,
+    userId: c.userId,
+    body: c.body,
+    createdAt: c.createdAt,
+    user: { email: c.uEmail, name: c.uName },
+  }));
+
+  return NextResponse.json(mapped);
 }
 
 export async function POST(
@@ -42,7 +59,10 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await queryOne<{ requesterId: string }>(
+    "SELECT requester_id AS \"requesterId\" FROM tickets WHERE id = $1",
+    [ticketId]
+  );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isRequester = ticket.requesterId === session.user.id;
@@ -62,13 +82,18 @@ export async function POST(
     return NextResponse.json({ error: "Comment body required" }, { status: 400 });
   }
 
-  const comment = await prisma.comment.create({
-    data: {
-      ticketId,
-      userId: session.user.id,
-      body: body.body.trim(),
-    },
-    include: { user: { select: { email: true, name: true } } },
-  });
-  return NextResponse.json(comment);
+  const rows = await query<Record<string, unknown>>(
+    `INSERT INTO comments (ticket_id, user_id, body) VALUES ($1, $2, $3)
+     RETURNING id, ticket_id AS "ticketId", user_id AS "userId", body, created_at AS "createdAt"`,
+    [ticketId, session.user.id, body.body.trim()]
+  );
+  const comment = rows[0];
+  if (!comment) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
+
+  const user = await queryOne<{ email: string; name: string | null }>(
+    "SELECT email, name FROM users WHERE id = $1",
+    [session.user.id]
+  );
+  const out = { ...comment, user: user ? { email: user.email, name: user.name } : null };
+  return NextResponse.json(out);
 }

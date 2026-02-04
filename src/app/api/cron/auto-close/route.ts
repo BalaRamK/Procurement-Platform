@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { query } from "@/lib/db";
 import { logNotification } from "@/lib/notifications";
 
 const AUTO_CLOSE_HOURS = 48;
 
-/**
- * Auto-close tickets in DELIVERED_TO_REQUESTER for more than 48 hours
- * without confirmation. Call from a cron job (e.g. every hour).
- * FR 3.4: "The ticket to be auto closed after 48 hours if no confirmation from requester"
- */
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (process.env.CRON_SECRET && authHeader !== "Bearer " + process.env.CRON_SECRET) {
@@ -16,25 +11,24 @@ export async function GET(req: NextRequest) {
   }
 
   const cutoff = new Date(Date.now() - AUTO_CLOSE_HOURS * 60 * 60 * 1000);
-  const tickets = await prisma.ticket.findMany({
-    where: {
-      status: "DELIVERED_TO_REQUESTER",
-      deliveredAt: { lt: cutoff },
-    },
-    include: { requester: true },
-  });
+  const tickets = await query<{ id: string; title: string; requesterEmail: string | null }>(
+    `SELECT t.id, t.title, u.email AS "requesterEmail"
+     FROM tickets t
+     JOIN users u ON t.requester_id = u.id
+     WHERE t.status = 'DELIVERED_TO_REQUESTER' AND t.delivered_at < $1`,
+    [cutoff]
+  );
 
   let closed = 0;
   for (const t of tickets) {
-    await prisma.ticket.update({
-      where: { id: t.id },
-      data: { status: "CLOSED", autoClosedAt: new Date() },
-    });
-    if (t.requester.email) {
+    await query("UPDATE tickets SET status = 'CLOSED', auto_closed_at = now(), updated_at = now() WHERE id = $1", [
+      t.id,
+    ]);
+    if (t.requesterEmail) {
       await logNotification({
         ticketId: t.id,
         type: "closure",
-        recipient: t.requester.email,
+        recipient: t.requesterEmail,
         payload: { title: t.title, autoClosed: true },
       });
     }

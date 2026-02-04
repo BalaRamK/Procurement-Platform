@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
-import { prisma } from "@/lib/prisma";
-import type { UserRole } from "@/types/db";
+import { query, queryOne } from "@/lib/db";
+import type { UserRole, TeamName } from "@/types/db";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -14,53 +14,52 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email) return false;
-      const existing = await prisma.user.findUnique({
-        where: { email: user.email },
-      });
+      const existing = await queryOne<{ id: string; status: boolean; azureId: string | null }>(
+        'SELECT id, status, azure_id AS "azureId" FROM users WHERE email = $1',
+        [user.email]
+      );
       if (existing && !existing.status) return false;
       if (!existing) {
-        await prisma.user.create({
-          data: {
-            email: user.email,
-            name: user.name ?? undefined,
-            azure_id: account?.providerAccountId ?? undefined,
-            role: "REQUESTER",
-            status: true,
-          },
-        });
-      } else if (account?.providerAccountId && !existing.azure_id) {
-        await prisma.user.update({
-          where: { id: existing.id },
-          data: { azure_id: account.providerAccountId, name: user.name ?? undefined },
-        });
+        await query(
+          `INSERT INTO users (email, name, azure_id, role, status)
+           VALUES ($1, $2, $3, 'REQUESTER', true)`,
+          [user.email, user.name ?? null, account?.providerAccountId ?? null]
+        );
+      } else if (account?.providerAccountId && !existing.azureId) {
+        await query(
+          'UPDATE users SET azure_id = $1, name = COALESCE($2, name), updated_at = now() WHERE id = $3',
+          [account.providerAccountId, user.name ?? null, existing.id]
+        );
       }
       return true;
     },
-    async jwt({ token, account, profile, user }) {
+    async jwt({ token, user }) {
       if (user?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        });
+        const dbUser = await queryOne<{ id: string; role: string; team: string | null }>(
+          'SELECT id, role, team FROM users WHERE email = $1',
+          [user.email]
+        );
         if (dbUser) {
-          token.role = dbUser.role;
+          token.role = dbUser.role as UserRole;
           token.id = dbUser.id;
-          token.team = dbUser.team ?? undefined;
+          token.team = (dbUser.team as TeamName) ?? undefined;
         }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user?.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: session.user.email },
-        });
+        const dbUser = await queryOne<{ id: string; role: string; team: string | null }>(
+          'SELECT id, role, team FROM users WHERE email = $1',
+          [session.user.email]
+        );
         if (dbUser) {
-          session.user.role = dbUser.role;
+          session.user.role = dbUser.role as UserRole;
           session.user.id = dbUser.id;
-          session.user.team = dbUser.team ?? null;
+          session.user.team = (dbUser.team ?? null) as TeamName | null;
         } else {
-          session.user.role = token.role ?? null;
-          session.user.team = token.team ?? null;
+          session.user.role = (token.role as UserRole) ?? null;
+          session.user.team = (token.team as TeamName) ?? null;
           session.user.id = token.id ?? undefined;
         }
       }

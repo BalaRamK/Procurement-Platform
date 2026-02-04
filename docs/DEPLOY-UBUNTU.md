@@ -78,12 +78,11 @@ Optional: Zoho Books, Resend API key, etc.
 
 ### 2.3 Install dependencies and build
 
-Run in this order. **`npx prisma generate` must succeed** before `npm run build` (otherwise you’ll see “PrismaClient has no exported member”); see Section 7 if it fails.
+The app uses PostgreSQL with the `pg` driver (no Prisma). Run in this order; `db:init` applies the schema in `sql/schema.sql`. **`npx prisma generate` must succeed** before `npm run build` (otherwise you’ll see “PrismaClient has no exported member”); see Section 7 if it fails.
 
 ```bash
 npm ci
-npx prisma generate
-npx prisma db push
+npm run db:init
 npm run build
 ```
 
@@ -353,7 +352,7 @@ Use the same variable in your PM2 or systemd environment so the running app trus
 - [ ] Database and user created, `DATABASE_URL` in `.env`
 - [ ] Repo cloned, `.env` filled (Azure AD, NEXTAUTH_SECRET, NEXTAUTH_URL)
 - [ ] Azure AD redirect URI added for the app URL
-- [ ] `npm ci`, Prisma generate + db push, `npm run build`
+- [ ] `npm ci`, `npm run db:init`, `npm run build`
 - [ ] App run with PM2 or systemd
 - [ ] Firewall or Nginx (and optionally SSL) configured
 - [ ] Open app URL and sign in with Azure AD
@@ -366,7 +365,7 @@ Use the same variable in your PM2 or systemd environment so the running app trus
 |-------------------|--------|
 | View app logs     | `pm2 logs procurement` or `journalctl -u procurement -f` |
 | Restart app       | `pm2 restart procurement` or `sudo systemctl restart procurement` |
-| After git pull    | `npm ci && npx prisma generate && npm run build && pm2 restart procurement` |
+| After git pull    | `npm ci && npm run db:init && npm run build && pm2 restart procurement` |
 
 ---
 
@@ -419,6 +418,50 @@ npm run build
 ```
 
 Do **not** upgrade this project to Prisma 7 unless you migrate to the new config (see [Prisma 7 config](https://pris.ly/d/config-datasource)).
+
+### Prisma engine download failed (request to `binaries.prisma.sh` failed)
+
+The proxy is blocking or timing out when Prisma tries to download the database engines. Try in order:
+
+**1. Bypass proxy for Prisma (same shell, then generate):**
+
+```bash
+export HTTP_PROXY="http://10.160.0.18:3128"
+export HTTPS_PROXY="http://10.160.0.18:3128"
+export NO_PROXY="localhost,127.0.0.1,binaries.prisma.sh"
+npx prisma generate
+npx prisma db push
+npm run build
+```
+
+If that still fails (e.g. VM has no direct path to the internet), use **2** below.
+
+**2. Generate on a machine with internet, then copy to the VM**
+
+On your **local machine** (or any host with internet and Node 20), from the repo root:
+
+```bash
+git clone https://github.com/BalaRamK/Procurement-Platform.git
+cd Procurement-Platform
+npm install
+npx prisma generate
+npm run build
+```
+
+Then copy the project to the VM (including `node_modules` and `.next`), e.g. from your machine:
+
+```bash
+rsync -avz --progress ./Procurement-Platform/ admin_@procurement-vm:~/Procurement-Platform/
+```
+
+On the **VM**, only set `.env` and start the app (no `prisma generate` or `npm run build`):
+
+```bash
+cd ~/Procurement-Platform
+# ensure .env has correct DATABASE_URL, NEXTAUTH_*, etc.
+npx prisma db push   # only if DB is on VM and not yet migrated
+npm start
+```
 
 ### "pm2: command not found"
 

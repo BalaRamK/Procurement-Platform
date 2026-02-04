@@ -1,8 +1,5 @@
-import { prisma } from "@/lib/prisma";
+import { queryOne, query } from "@/lib/db";
 
-/**
- * Map internal notification types to email template triggers (Admin configurable).
- */
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
   assignment: "assigned_to_production",
@@ -30,39 +27,36 @@ function replacePlaceholders(text: string, context: EmailContext): string {
   return out;
 }
 
-/**
- * Find an enabled email template for the given trigger and timeline.
- * Only "immediate" is used for sending now; after_24h/after_48h can be used by a cron later.
- */
 export async function getTemplateForTrigger(
   trigger: string,
   timeline: "immediate" | "after_24h" | "after_48h" = "immediate"
 ) {
-  const template = await prisma.emailTemplate.findFirst({
-    where: { trigger, timeline, enabled: true },
-    orderBy: { updatedAt: "desc" },
-  });
+  const template = await queryOne<{
+    id: string;
+    subjectTemplate: string;
+    bodyTemplate: string;
+    trigger: string;
+    timeline: string;
+    enabled: boolean;
+  }>(
+    `SELECT id, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+            trigger, timeline, enabled
+     FROM email_templates
+     WHERE trigger = $1 AND timeline = $2 AND enabled = true
+     ORDER BY updated_at DESC LIMIT 1`,
+    [trigger, timeline]
+  );
   return template;
 }
 
-/**
- * Stub: send email. Log to console when no provider is configured.
- * Set SMTP_* or RESEND_API_KEY (etc.) and implement real send here when ready.
- */
 async function sendEmail(to: string, subject: string, body: string): Promise<void> {
   if (!to || !to.includes("@")) return;
-  // TODO: Integrate Resend, SendGrid, Nodemailer, etc. when env is set
   if (process.env.RESEND_API_KEY) {
-    // Example: await Resend.emails.send({ from: "...", to, subject, html: body });
+    // TODO: Integrate Resend when ready
   }
-  // Log for now so admins can verify templates are triggered
   console.log("[Email stub]", { to: to.slice(0, 3) + "…", subject, bodyLength: body.length });
 }
 
-/**
- * Load ticket data for placeholders, find template by trigger, replace placeholders, send.
- * Called after logNotification or on rejection. Only sends for "immediate" timeline.
- */
 export async function sendNotificationEmail(
   trigger: string,
   recipient: string,
@@ -71,12 +65,25 @@ export async function sendNotificationEmail(
 ): Promise<void> {
   if (!recipient?.includes("@")) return;
   try {
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId },
-      include: { requester: true },
-    });
+    const ticket = await queryOne<{
+      id: string;
+      title: string;
+      status: string;
+      rejectionRemarks: string | null;
+      requesterName: string | null;
+    }>(
+      `SELECT t.id, t.title, t.status, t.rejection_remarks AS "rejectionRemarks",
+              t.requester_name AS "requesterName"
+       FROM tickets t
+       WHERE t.id = $1`,
+      [ticketId]
+    );
+    const requesterName = await queryOne<{ name: string | null }>(
+      "SELECT name FROM users u JOIN tickets t ON t.requester_id = u.id WHERE t.id = $1",
+      [ticketId]
+    );
     const context: EmailContext = {
-      requesterName: ticket?.requester?.name ?? ticket?.requesterName ?? "",
+      requesterName: requesterName?.name ?? ticket?.requesterName ?? "",
       ticketId: ticket?.id ?? ticketId,
       ticketTitle: ticket?.title ?? "",
       status: ticket?.status ?? "",
@@ -93,9 +100,6 @@ export async function sendNotificationEmail(
   }
 }
 
-/**
- * Map notification type to trigger and send if template exists.
- */
 export async function sendNotificationEmailByType(
   type: string,
   recipient: string,

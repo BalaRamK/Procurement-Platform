@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query } from "@/lib/db";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -20,9 +20,11 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const templates = await prisma.emailTemplate.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  const templates = await query<Record<string, unknown>>(
+    `SELECT id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+            timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM email_templates ORDER BY created_at DESC`
+  );
   return NextResponse.json(templates);
 }
 
@@ -42,16 +44,14 @@ export async function POST(req: NextRequest) {
   }
 
   const { name, trigger, subjectTemplate, bodyTemplate, timeline, delayMinutes, enabled } = parsed.data;
-  const template = await prisma.emailTemplate.create({
-    data: {
-      name,
-      trigger,
-      subjectTemplate,
-      bodyTemplate,
-      timeline,
-      delayMinutes: timeline === "custom" ? delayMinutes ?? null : null,
-      enabled,
-    },
-  });
+  const rows = await query<Record<string, unknown>>(
+    `INSERT INTO email_templates (name, trigger, subject_template, body_template, timeline, delay_minutes, enabled)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+               timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"`,
+    [name, trigger, subjectTemplate, bodyTemplate, timeline, timeline === "custom" ? delayMinutes ?? null : null, enabled]
+  );
+  const template = rows[0];
+  if (!template) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
   return NextResponse.json(template);
 }

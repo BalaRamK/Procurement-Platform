@@ -1,29 +1,27 @@
 /**
  * One-off script: grant SUPER_ADMIN role to a user by email.
- * Usage: npx tsx scripts/grant-super-admin.ts
- * Requires DATABASE_URL in .env (from project root)
+ * Usage: npx tsx scripts/grant-super-admin.ts your@email.com
+ * Requires DATABASE_URL in .env
  */
 import { config } from "dotenv";
 config({ path: ".env" });
 config({ path: ".env.local" });
-import { PrismaClient } from "@prisma/client";
+import { query, queryOne } from "../src/lib/db";
 
-const EMAIL = "bala.k@qnulabs.com";
+const EMAIL = process.argv[2] ?? "bala.k@qnulabs.com";
 
 async function main() {
-  const prisma = new PrismaClient();
-  const user = await prisma.user.upsert({
-    where: { email: EMAIL },
-    update: { role: "SUPER_ADMIN" },
-    create: {
-      email: EMAIL,
-      name: "Bala K",
-      role: "SUPER_ADMIN",
-      status: true,
-    },
-  });
-  console.log("Granted SUPER_ADMIN to:", user.email);
-  await prisma.$disconnect();
+  const existing = await queryOne<{ id: string }>("SELECT id FROM users WHERE email = $1", [EMAIL]);
+  if (existing) {
+    await query("UPDATE users SET role = 'SUPER_ADMIN', updated_at = now() WHERE id = $1", [existing.id]);
+    console.log("Granted SUPER_ADMIN to:", EMAIL);
+  } else {
+    await query(
+      `INSERT INTO users (email, name, role, status) VALUES ($1, $2, 'SUPER_ADMIN', true)`,
+      [EMAIL, EMAIL.split("@")[0]]
+    );
+    console.log("Created user with SUPER_ADMIN:", EMAIL);
+  }
 }
 
 main().catch((e) => {

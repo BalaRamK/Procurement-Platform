@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query, queryOne } from "@/lib/db";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
@@ -23,24 +23,52 @@ function canView(
   return false;
 }
 
+const TICKET_SELECT = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
+  component_description AS "componentDescription", item_name AS "itemName", bom_id AS "bomId", product_id AS "productId",
+  project_customer AS "projectCustomer", need_by_date AS "needByDate", charge_code AS "chargeCode",
+  cost_currency AS "costCurrency", estimated_cost AS "estimatedCost", rate, unit, estimated_po_date AS "estimatedPoDate",
+  place_of_delivery AS "placeOfDelivery", quantity, deal_name AS "dealName", team_name AS "teamName", priority, status,
+  rejection_remarks AS "rejectionRemarks", requester_id AS "requesterId", delivered_at AS "deliveredAt",
+  confirmed_at AS "confirmedAt", auto_closed_at AS "autoClosedAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
+
+const TICKET_JOIN_REQ = `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
+  t.department, t.component_description AS "componentDescription", t.item_name AS "itemName", t.bom_id AS "bomId",
+  t.product_id AS "productId", t.project_customer AS "projectCustomer", t.need_by_date AS "needByDate",
+  t.charge_code AS "chargeCode", t.cost_currency AS "costCurrency", t.estimated_cost AS "estimatedCost", t.rate, t.unit,
+  t.estimated_po_date AS "estimatedPoDate", t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName",
+  t.team_name AS "teamName", t.priority, t.status, t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
+  t.delivered_at AS "deliveredAt", t.confirmed_at AS "confirmedAt", t.auto_closed_at AS "autoClosedAt",
+  t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+  u.id AS "rId", u.email AS "rEmail", u.name AS "rName"
+  FROM tickets t LEFT JOIN users u ON t.requester_id = u.id`;
+
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const ticket = await prisma.ticket.findUnique({
-    where: { id },
-    include: { requester: true },
-  });
-  if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const rows = await query<Record<string, unknown>>(
+    `${TICKET_JOIN_REQ} WHERE t.id = $1`,
+    [id]
+  );
+  const row = rows[0];
+  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const ticket = {
+    ...row,
+    requester: (row.rId != null) ? { id: row.rId, email: row.rEmail, name: row.rName } : null,
+  } as Record<string, unknown>;
+  delete ticket.rId;
+  delete ticket.rEmail;
+  delete ticket.rName;
 
   const role = session.user.role ?? "REQUESTER";
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  if (!canView(role, userTeam, ticket) && !isRequester) {
+  if (!canView(role, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }) && !isRequester) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -77,12 +105,18 @@ export async function PATCH(
   if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-  if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const ticketRow = await queryOne<{
+    status: string;
+    requesterId: string;
+    teamName: string;
+    title: string;
+  }>(`SELECT status, requester_id AS "requesterId", team_name AS "teamName", title FROM tickets WHERE id = $1`, [id]);
+  if (!ticketRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as ApprovalBody;
   const role = session.user.role ?? "";
   const userTeam = session.user.team ?? null;
+  const ticket = ticketRow;
 
   if (body.action === "submit") {
     if (ticket.status !== "DRAFT") {
@@ -93,16 +127,8 @@ export async function PATCH(
     }
     const initialStatus: TicketStatus =
       ticket.teamName === "SALES" ? "PENDING_L1_APPROVAL" : "PENDING_FH_APPROVAL";
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: initialStatus },
-    });
-    await logNotification({
-      ticketId: id,
-      type: "assignment",
-      recipient: "agent",
-      payload: { status: initialStatus },
-    });
+    await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [initialStatus, id]);
+    await logNotification({ ticketId: id, type: "assignment", recipient: "agent", payload: { status: initialStatus } });
     return NextResponse.json({ ok: true, status: initialStatus });
   }
 
@@ -110,18 +136,16 @@ export async function PATCH(
     if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || role !== "PRODUCTION") {
       return NextResponse.json({ error: "Only Production can mark as delivered" }, { status: 403 });
     }
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: "DELIVERED_TO_REQUESTER", deliveredAt: new Date() },
-    });
-    const t = await prisma.ticket.findUnique({ where: { id }, include: { requester: true } });
-    if (t?.requester.email) {
-      await logNotification({
-        ticketId: id,
-        type: "delivered",
-        recipient: t.requester.email,
-        payload: { title: t.title },
-      });
+    await query(
+      "UPDATE tickets SET status = 'DELIVERED_TO_REQUESTER', delivered_at = now(), updated_at = now() WHERE id = $1",
+      [id]
+    );
+    const t = await queryOne<{ email: string | null }>(
+      "SELECT u.email FROM tickets tk JOIN users u ON tk.requester_id = u.id WHERE tk.id = $1",
+      [id]
+    );
+    if (t?.email) {
+      await logNotification({ ticketId: id, type: "delivered", recipient: t.email, payload: { title: ticket.title } });
     }
     return NextResponse.json({ ok: true, status: "DELIVERED_TO_REQUESTER" });
   }
@@ -130,14 +154,11 @@ export async function PATCH(
     if (ticket.status !== "DELIVERED_TO_REQUESTER" || ticket.requesterId !== session.user.id) {
       return NextResponse.json({ error: "Only the requester can confirm receipt" }, { status: 403 });
     }
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: "CONFIRMED_BY_REQUESTER", confirmedAt: new Date() },
-    });
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: "CLOSED" },
-    });
+    await query(
+      "UPDATE tickets SET status = 'CONFIRMED_BY_REQUESTER', confirmed_at = now(), updated_at = now() WHERE id = $1",
+      [id]
+    );
+    await query("UPDATE tickets SET status = 'CLOSED', updated_at = now() WHERE id = $1", [id]);
     await logNotification({
       ticketId: id,
       type: "closure",
@@ -147,7 +168,6 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "CLOSED" });
   }
 
-  // Cast status from Prisma result so it can index our Record<TicketStatus, ...> maps
   const status = ticket.status as TicketStatus;
   const allowed = roleAndTeamForStatus[status];
   if (!allowed || allowed.role !== role) {
@@ -172,14 +192,11 @@ export async function PATCH(
   });
 
   if (body.action === "rejected") {
-    await prisma.ticket.update({
-      where: { id },
-      data: { status: "REJECTED", rejectionRemarks: body.remarks ?? undefined },
-    });
-    const requester = await prisma.user.findUnique({
-      where: { id: ticket.requesterId },
-      select: { email: true },
-    });
+    await query(
+      "UPDATE tickets SET status = 'REJECTED', rejection_remarks = $1, updated_at = now() WHERE id = $2",
+      [body.remarks ?? null, id]
+    );
+    const requester = await queryOne<{ email: string | null }>("SELECT email FROM users WHERE id = $1", [ticket.requesterId]);
     if (requester?.email) {
       sendNotificationEmail("request_rejected", requester.email, id, {
         rejectionRemarks: body.remarks ?? "",
@@ -191,10 +208,7 @@ export async function PATCH(
   const nextStatus = nextStatusOnApproval[status];
   if (!nextStatus) return NextResponse.json({ ok: true, status: ticket.status });
 
-  await prisma.ticket.update({
-    where: { id },
-    data: { status: nextStatus },
-  });
+  await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [nextStatus, id]);
 
   if (nextStatus === "ASSIGNED_TO_PRODUCTION") {
     await logNotification({

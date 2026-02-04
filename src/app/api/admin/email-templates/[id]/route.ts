@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query, queryOne } from "@/lib/db";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -24,9 +24,12 @@ export async function GET(
   }
 
   const { id } = await params;
-  const template = await prisma.emailTemplate.findUnique({
-    where: { id },
-  });
+  const template = await queryOne<Record<string, unknown>>(
+    `SELECT id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+            timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM email_templates WHERE id = $1`,
+    [id]
+  );
   if (!template) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(template);
 }
@@ -53,11 +56,55 @@ export async function PATCH(
   const data = { ...parsed.data };
   if (data.timeline !== undefined && data.timeline !== "custom") data.delayMinutes = null;
 
-  const template = await prisma.emailTemplate.update({
-    where: { id },
-    data,
-  });
-  return NextResponse.json(template);
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+  let i = 1;
+  if (data.name !== undefined) {
+    setClauses.push(`name = $${i++}`);
+    values.push(data.name);
+  }
+  if (data.trigger !== undefined) {
+    setClauses.push(`trigger = $${i++}`);
+    values.push(data.trigger);
+  }
+  if (data.subjectTemplate !== undefined) {
+    setClauses.push(`subject_template = $${i++}`);
+    values.push(data.subjectTemplate);
+  }
+  if (data.bodyTemplate !== undefined) {
+    setClauses.push(`body_template = $${i++}`);
+    values.push(data.bodyTemplate);
+  }
+  if (data.timeline !== undefined) {
+    setClauses.push(`timeline = $${i++}`);
+    values.push(data.timeline);
+  }
+  if (data.delayMinutes !== undefined) {
+    setClauses.push(`delay_minutes = $${i++}`);
+    values.push(data.delayMinutes);
+  }
+  if (data.enabled !== undefined) {
+    setClauses.push(`enabled = $${i++}`);
+    values.push(data.enabled);
+  }
+
+  if (setClauses.length === 0) {
+    const template = await queryOne<Record<string, unknown>>(
+      `SELECT id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+              timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
+       FROM email_templates WHERE id = $1`,
+      [id]
+    );
+    return NextResponse.json(template);
+  }
+
+  setClauses.push("updated_at = now()");
+  values.push(id);
+  const rows = await query<Record<string, unknown>>(
+    `UPDATE email_templates SET ${setClauses.join(", ")} WHERE id = $${i} RETURNING id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate", timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"`,
+    values
+  );
+  return NextResponse.json(rows[0]);
 }
 
 export async function DELETE(
@@ -70,8 +117,6 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  await prisma.emailTemplate.delete({
-    where: { id },
-  });
+  await query("DELETE FROM email_templates WHERE id = $1", [id]);
   return NextResponse.json({ ok: true });
 }

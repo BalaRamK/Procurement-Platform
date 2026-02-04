@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { queryOne } from "@/lib/db";
 import { EditUserForm } from "@/components/admin/EditUserForm";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/constants";
-import type { UserRole } from "@/types/db";
+import type { UserRole, User } from "@/types/db";
 
 const ROLES: UserRole[] = [
   "SUPER_ADMIN",
@@ -27,10 +27,10 @@ export default async function EditUserPage({
   if (session.user.role !== "SUPER_ADMIN") redirect("/dashboard");
 
   const { id } = await params;
-  const user = await prisma.user.findUnique({
-    where: { id },
-    select: { id: true, email: true, name: true, role: true, team: true, status: true },
-  });
+  const user = await queryOne<User>(
+    "SELECT id, email, name, role, team, status FROM users WHERE id = $1",
+    [id]
+  );
   if (!user) notFound();
 
   return (
@@ -46,7 +46,7 @@ export default async function EditUserPage({
           Update email, name, role, team, or status. Disabled users cannot sign in.
         </p>
       </div>
-      <EditUserForm user={user} roleLabels={ROLE_LABELS} roles={ROLES} />
+      <EditUserForm user={user as User} roleLabels={ROLE_LABELS} roles={ROLES} />
     </div>
   );
 }

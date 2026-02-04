@@ -1,29 +1,39 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query } from "@/lib/db";
 
-/**
- * GET /api/notifications
- * Returns notifications for the current user only (recipient = user email), newest first.
- * RBAC: each user sees only their own notifications.
- */
 export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const notifications = await prisma.notification.findMany({
-    where: { recipient: session.user.email },
-    orderBy: { sentAt: "desc" },
-    take: 20,
-    include: {
-      ticket: {
-        select: { id: true, title: true, requestId: true, status: true },
-      },
+  const rows = await query<Record<string, unknown>>(
+    `SELECT n.id, n.ticket_id AS "ticketId", n.type, n.recipient, n.sent_at AS "sentAt", n.payload,
+            t.id AS "tId", t.title AS "tTitle", t.request_id AS "tRequestId", t.status AS "tStatus"
+     FROM notifications n
+     JOIN tickets t ON n.ticket_id = t.id
+     WHERE n.recipient = $1
+     ORDER BY n.sent_at DESC
+     LIMIT 20`,
+    [session.user.email]
+  );
+
+  const notifications = rows.map((r) => ({
+    id: r.id,
+    ticketId: r.ticketId,
+    type: r.type,
+    recipient: r.recipient,
+    sentAt: r.sentAt,
+    payload: r.payload,
+    ticket: {
+      id: r.tId,
+      title: r.tTitle,
+      requestId: r.tRequestId,
+      status: r.tStatus,
     },
-  });
+  }));
 
   return NextResponse.json(notifications);
 }

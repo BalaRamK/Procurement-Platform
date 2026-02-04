@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query } from "@/lib/db";
+import type { User } from "@/types/db";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ROLE_LABELS } from "@/lib/constants";
 
 export default async function AdminUsersPage() {
   const session = await getServerSession(authOptions);
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  const users = await query<User>(
+    `SELECT id, email, name, role, team, status, created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM users ORDER BY created_at DESC`
+  );
 
   return (
     <div>

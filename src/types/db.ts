@@ -1,8 +1,6 @@
 /**
- * Local mirror of Prisma enums and minimal model types.
- * Use these instead of importing from "@prisma/client" so the Next.js build
- * succeeds when the Prisma client is not generated (e.g. on CI/VM behind proxy).
- * Runtime still uses the real Prisma client from lib/prisma.ts.
+ * Shared enum and model types for the app.
+ * Database access uses PostgreSQL via pg (src/lib/db.ts).
  */
 
 export const USER_ROLES = [

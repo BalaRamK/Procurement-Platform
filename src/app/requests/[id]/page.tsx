@@ -1,13 +1,12 @@
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { query } from "@/lib/db";
 import { TicketActions } from "@/components/requests/TicketActions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import type { TeamName } from "@/types/db";
-import { STATUS_LABELS } from "@/lib/constants";
 
 function canView(
   role: string,
@@ -29,11 +28,30 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   if (!session?.user?.id) redirect("/auth/signin");
 
   const { id } = await params;
-  const ticket = await prisma.ticket.findUnique({
-    where: { id },
-    include: { requester: true },
-  });
-  if (!ticket) notFound();
+  const rows = await query<Record<string, unknown>>(
+    `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
+     t.department, t.component_description AS "componentDescription", t.item_name AS "itemName", t.team_name AS "teamName",
+     t.priority, t.status, t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
+     t.need_by_date AS "needByDate", t.charge_code AS "chargeCode", t.estimated_cost AS "estimatedCost",
+     t.cost_currency AS "costCurrency", t.rate, t.unit, t.estimated_po_date AS "estimatedPoDate",
+     t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName", t.bom_id AS "bomId", t.product_id AS "productId",
+     t.project_customer AS "projectCustomer", t.created_at AS "createdAt", t.delivered_at AS "deliveredAt", t.updated_at AS "updatedAt",
+     u.id AS "rId", u.email AS "rEmail", u.name AS "rName"
+     FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
+    [id]
+  );
+  const row = rows[0];
+  if (!row) notFound();
+
+  const ticketRaw = {
+    ...row,
+    requester: row.rId != null ? { id: row.rId, email: row.rEmail, name: row.rName } : null,
+  } as Record<string, unknown>;
+  delete ticketRaw.rId;
+  delete ticketRaw.rEmail;
+  delete ticketRaw.rName;
+  type TicketDetail = { requesterId: string; status: string; teamName: TeamName; title: string; id: string; requestId?: string; requesterName: string; department: string; description?: string; componentDescription?: string; itemName?: string; priority: string; rejectionRemarks?: string; needByDate?: string; chargeCode?: string; estimatedCost?: string | number; costCurrency?: string; rate?: string | number; unit?: string; estimatedPoDate?: string | null; placeOfDelivery?: string; quantity?: number; dealName?: string; bomId?: string; productId?: string; projectCustomer?: string; createdAt: string; updatedAt: string; requester: { id: string; email: string; name: string | null } | null };
+  const ticket = ticketRaw as TicketDetail;
 
   const role = session.user.role ?? "REQUESTER";
   const userTeam = session.user.team ?? null;
@@ -63,7 +81,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     { label: "Need by date", value: ticket.needByDate ? new Date(ticket.needByDate).toLocaleDateString() : undefined },
     { label: "Charge code", value: ticket.chargeCode ?? undefined },
     { label: "Cost", value: ticket.estimatedCost != null ? `${String(ticket.estimatedCost)} ${ticket.costCurrency ?? ""}` : (ticket.rate != null ? `${String(ticket.rate)} ${ticket.unit ?? ""}` : undefined) },
-    { label: "Estimated PO date", value: ticket.estimatedPODate ? new Date(ticket.estimatedPODate).toLocaleDateString() : undefined },
+    { label: "Estimated PO date", value: ticket.estimatedPoDate ? new Date(ticket.estimatedPoDate as string).toLocaleDateString() : undefined },
     { label: "Place of delivery", value: ticket.placeOfDelivery ?? undefined },
     { label: "Quantity", value: ticket.quantity ?? undefined },
     { label: "Deal name", value: ticket.dealName ?? undefined },

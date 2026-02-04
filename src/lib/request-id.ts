@@ -1,5 +1,5 @@
 import type { TeamName } from "@/types/db";
-import { prisma } from "@/lib/prisma";
+import { queryOne } from "@/lib/db";
 
 const TEAM_PREFIX: Record<TeamName, string> = {
   INNOVATION: "IN",
@@ -11,12 +11,12 @@ const TEAM_PREFIX: Record<TeamName, string> = {
 export async function generateRequestId(teamName: TeamName): Promise<string> {
   const prefix = TEAM_PREFIX[teamName];
   for (let attempt = 0; attempt < 50; attempt++) {
-    const num = Math.floor(100000 + Math.random() * 900000); // 100000–999999
+    const num = Math.floor(100000 + Math.random() * 900000);
     const requestId = `${prefix}${num}`;
-    const existing = await prisma.ticket.findUnique({
-      where: { requestId },
-      select: { id: true },
-    });
+    const existing = await queryOne<{ id: string }>(
+      "SELECT id FROM tickets WHERE request_id = $1",
+      [requestId]
+    );
     if (!existing) return requestId;
   }
   throw new Error("Could not generate unique requestId");
