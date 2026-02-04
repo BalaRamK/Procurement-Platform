@@ -21,6 +21,8 @@ const LIFECYCLE_ORDER = [
 
 type StatusKey = (typeof LIFECYCLE_ORDER)[number];
 
+type TicketRow = { id: string; title: string; status: string; updatedAt: Date; requester: { email: string | null } };
+
 export default async function AdminReportsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
@@ -33,7 +35,7 @@ export default async function AdminReportsPage() {
 
   const byStatus = LIFECYCLE_ORDER.reduce(
     (acc, status) => {
-      acc[status] = tickets.filter((t) => t.status === status).length;
+      acc[status] = tickets.filter((t: { status: string }) => t.status === status).length;
       return acc;
     },
     {} as Record<StatusKey, number>
@@ -131,7 +133,7 @@ export default async function AdminReportsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20 bg-white/25 dark:bg-white/5">
-              {tickets.slice(0, 50).map((t) => (
+              {tickets.slice(0, 50).map((t: TicketRow) => (
                 <tr key={t.id} className="table-row-glass transition-colors">
                   <td className="px-5 py-4 font-medium text-slate-900 dark:text-slate-100">{t.title}</td>
                   <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">{t.requester.email}</td>
