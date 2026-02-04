@@ -156,7 +156,7 @@ export function EmailTemplateManager() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-200">
             Configure auto emails and when they are sent. Use placeholders in subject and body.
           </p>
         </div>
@@ -168,7 +168,7 @@ export function EmailTemplateManager() {
       {formOpen && (
         <div className="card mb-8 overflow-hidden">
           <div className="card-header border-b px-6 py-4">
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
               {editingId ? "Edit template" : "Add template"}
             </h2>
           </div>
@@ -176,7 +176,7 @@ export function EmailTemplateManager() {
             <div className="space-y-4 px-6 py-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Name *</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Name *</label>
                   <input
                     type="text"
                     value={form.name}
@@ -187,7 +187,7 @@ export function EmailTemplateManager() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-700">Trigger *</label>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Trigger *</label>
                   <select
                     value={form.trigger}
                     onChange={(e) => setForm((f) => ({ ...f, trigger: e.target.value }))}
@@ -200,7 +200,7 @@ export function EmailTemplateManager() {
                 </div>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Timeline *</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Timeline *</label>
                 <select
                   value={form.timeline}
                   onChange={(e) => setForm((f) => ({ ...f, timeline: e.target.value as typeof form.timeline }))}
@@ -220,12 +220,12 @@ export function EmailTemplateManager() {
                       className="input-base w-32"
                       placeholder="Minutes"
                     />
-                    <span className="ml-2 text-sm text-slate-500">minutes after trigger</span>
+                    <span className="ml-2 text-sm text-slate-500 dark:text-slate-300">minutes after trigger</span>
                   </div>
                 )}
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Subject *</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Subject *</label>
                 <input
                   type="text"
                   value={form.subjectTemplate}
@@ -234,10 +234,10 @@ export function EmailTemplateManager() {
                   placeholder="e.g. Procurement request {{ticketId}} created"
                   required
                 />
-                <p className="mt-1 text-xs text-slate-500">{placeholderHelp}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{placeholderHelp}</p>
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-slate-700">Body *</label>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Body *</label>
                 <textarea
                   value={form.bodyTemplate}
                   onChange={(e) => setForm((f) => ({ ...f, bodyTemplate: e.target.value }))}
@@ -245,7 +245,7 @@ export function EmailTemplateManager() {
                   placeholder="Hi {{requesterName}}, your request {{ticketTitle}} has been created..."
                   required
                 />
-                <p className="mt-1 text-xs text-slate-500">{placeholderHelp}</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{placeholderHelp}</p>
               </div>
               <div>
                 <label className="flex items-center gap-2">
@@ -273,14 +273,14 @@ export function EmailTemplateManager() {
       )}
 
       <div className="card overflow-hidden">
-        <div className="card-header border-b px-6 py-4">
-          <h2 className="text-lg font-semibold text-slate-900">Email templates</h2>
-          <p className="mt-1 text-sm text-slate-500">Templates are used when sending automated emails at each stage.</p>
+          <div className="card-header border-b px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Email templates</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Templates are used when sending automated emails at each stage.</p>
         </div>
         {loading ? (
-          <div className="px-6 py-8 text-center text-slate-500">Loading…</div>
+          <div className="px-6 py-8 text-center text-slate-500 dark:text-slate-300">Loading…</div>
         ) : templates.length === 0 ? (
-          <div className="px-6 py-8 text-center text-slate-500">
+          <div className="px-6 py-8 text-center text-slate-500 dark:text-slate-200">
             No templates yet. Click &quot;Add template&quot; to create one.
           </div>
         ) : (
@@ -288,12 +288,12 @@ export function EmailTemplateManager() {
             <table className="min-w-full divide-y divide-white/20">
               <thead>
                 <tr>
-                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Name</th>
-                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Trigger</th>
-                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Timeline</th>
-                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Subject</th>
-                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Enabled</th>
-                  <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Actions</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Name</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trigger</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Timeline</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Subject</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Enabled</th>
+                  <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/20 bg-white/25">

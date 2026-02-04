@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Ticket, User } from "@prisma/client";
+import { Ticket, User, UserRole } from "@prisma/client";
 import { TeamName } from "@prisma/client";
 import { ROLE_LABELS } from "@/lib/constants";
 
@@ -15,7 +15,7 @@ export function ApproverDashboard({
   subtitle,
 }: {
   tickets: TicketWithRequester[];
-  role: string;
+  role: UserRole;
   teamName?: TeamName | null;
   title?: string;
   subtitle?: string;
@@ -29,38 +29,40 @@ export function ApproverDashboard({
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{heading}</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{sub}</p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">{sub}</p>
       </div>
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-white/20 dark:divide-white/10">
             <thead>
               <tr>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Requester</th>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Team</th>
-                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Updated</th>
-                <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Actions</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Request ID</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Title</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Requester</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Team</th>
+                <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Updated</th>
+                <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/20 bg-white/25 dark:bg-white/5">
               {tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-slate-500 dark:text-slate-400">
+                  <td colSpan={6} className="px-5 py-12 text-center text-slate-500 dark:text-slate-300">
                     No tickets in your queue right now.
                   </td>
                 </tr>
               ) : (
                 tickets.map((t) => (
                   <tr key={t.id} className="table-row-glass transition-colors">
+                    <td className="px-5 py-4 text-sm font-medium text-slate-700 dark:text-slate-200">{t.requestId ?? "—"}</td>
                     <td className="px-5 py-4 font-medium text-slate-900 dark:text-slate-100">{t.title}</td>
                     <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">{t.requester.email}</td>
                     <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">{t.teamName}</td>
-                    <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-400">
+                    <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-300">
                       {new Date(t.updatedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <Link href={"/requests/" + t.id} className="btn-primary inline-flex py-2 text-sm">Review</Link>
+                      <Link href={"/requests/" + t.id} className="btn-primary inline-flex py-2 text-sm dark:text-white">Review</Link>
                     </td>
                   </tr>
                 ))

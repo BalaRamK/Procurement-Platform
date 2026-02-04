@@ -1,7 +1,8 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export default async function DashboardLayout({
   children,
@@ -16,13 +17,16 @@ export default async function DashboardLayout({
       <AppSidebar userEmail={session.user.email} userRole={session.user.role} />
       <main className="flex-1 overflow-auto">
         <div className="sticky top-0 z-20 mx-auto max-w-6xl px-6 pt-6 pb-2">
-          <div className="backdrop-liquid rounded-2xl border border-white/25 bg-white/30 px-4 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.45)_inset] dark:border-white/10 dark:bg-white/10 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset]">
-            <input
-              type="search"
-              placeholder="Search requests, tickets…"
-              className="w-full bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none dark:text-slate-200 dark:placeholder-slate-500"
-              aria-label="Search"
-            />
+          <div className="flex items-center gap-3">
+            <div className="backdrop-liquid flex-1 rounded-2xl border border-white/25 bg-white/30 px-4 py-2.5 shadow-[0_0_0_1px_rgba(255,255,255,0.45)_inset] dark:border-white/10 dark:bg-white/10 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset]">
+              <input
+                type="search"
+                placeholder="Search requests, tickets…"
+                className="w-full bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none dark:text-slate-200 dark:placeholder-slate-400"
+                aria-label="Search"
+              />
+            </div>
+            <NotificationBell />
           </div>
         </div>
         <div className="mx-auto max-w-6xl px-6 pb-8">{children}</div>

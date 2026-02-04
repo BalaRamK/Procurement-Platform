@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { TicketStatus, TeamName, CostCurrency, Priority } from "@prisma/client";
 import { logNotification } from "@/lib/notifications";
+import { generateRequestId } from "@/lib/request-id";
 
 const createSchema = z.object({
   title: z.string().min(1),
@@ -109,9 +110,12 @@ export async function POST(req: NextRequest) {
   delete (data as Record<string, unknown>).needByDate;
   delete (data as Record<string, unknown>).estimatedPODate;
 
+  const requestId = await generateRequestId(data.teamName);
+
   const ticket = await prisma.ticket.create({
     data: {
       ...data,
+      requestId,
       needByDate,
       estimatedPODate,
       requesterId: session.user.id,

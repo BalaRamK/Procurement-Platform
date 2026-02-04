@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -15,8 +15,8 @@ export default async function AdminUsersPage() {
     <div>
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">User management</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">User management</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">
             Add, edit, or delete users. Edit email, name, role, team, and status. Delete deactivates the user (they cannot sign in).
           </p>
         </div>

@@ -1,11 +1,11 @@
 import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { TicketActions } from "@/components/requests/TicketActions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
-import Link from "next/link";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { TeamName } from "@prisma/client";
 import { STATUS_LABELS } from "@/lib/constants";
 
@@ -50,6 +50,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   if (!canView(role, userTeam, ticket) && !isRequester) redirect("/dashboard");
 
   const fields: { label: string; value: string | number | null | undefined }[] = [
+    { label: "Request ID", value: ticket.requestId ?? undefined },
     { label: "Requester", value: ticket.requesterName },
     { label: "Department", value: ticket.department },
     { label: "Team (Request type)", value: ticket.teamName },
@@ -69,24 +70,25 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   ].filter((f) => f.value != null && f.value !== "");
 
   return (
-    <div>
-      <div className="mb-6">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
-          ← Back to Dashboard
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader backHref="/dashboard" backLabel="Back to Dashboard" />
       <div className="card overflow-hidden">
         <div className="card-header border-b px-6 py-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{ticket.title}</h1>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{ticket.title}</h1>
+              {ticket.requestId && (
+                <p className="mt-0.5 text-sm font-medium text-slate-500 dark:text-slate-400">Request ID: {ticket.requestId}</p>
+              )}
+            </div>
             <StatusBadge status={ticket.status} />
           </div>
-          {ticket.description && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{ticket.description}</p>}
+          {ticket.description && <p className="mt-2 text-sm text-slate-600 dark:text-slate-200">{ticket.description}</p>}
         </div>
         <dl className="grid gap-0 sm:grid-cols-2">
           {fields.map((f) => (
             <div key={f.label} className="border-b border-white/20 px-6 py-4 sm:border-r sm:border-r-white/20 even:sm:border-r-0">
-              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">{f.label}</dt>
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-300">{f.label}</dt>
               <dd className="mt-1 text-sm text-slate-900 dark:text-slate-100">{String(f.value)}</dd>
             </div>
           ))}

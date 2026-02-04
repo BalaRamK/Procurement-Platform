@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { RequesterDashboard } from "@/components/dashboard/RequesterDashboard";
 import { ApproverDashboard } from "@/components/dashboard/ApproverDashboard";
 import { ProductionDashboard } from "@/components/dashboard/ProductionDashboard";

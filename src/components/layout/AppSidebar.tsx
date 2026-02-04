@@ -85,7 +85,7 @@ export function AppSidebar({ userEmail, userRole }: AppSidebarProps) {
       </nav>
       <div className="border-t border-white/25 p-3 dark:border-white/10">
         <div className="glass-panel px-3 py-2.5">
-          <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">Signed in as</p>
+          <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-300">Signed in as</p>
           <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
         </div>
         <Link href="/api/auth/signout" className="btn-secondary mt-2 flex w-full items-center justify-center gap-2">

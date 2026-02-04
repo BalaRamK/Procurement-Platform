@@ -70,6 +70,7 @@ model User {
 
 model Ticket {
   id                    String         @id @default(uuid())
+  requestId             String?        @unique @map("request_id") // e.g. IN123456, EN654321, SA111222
   title                 String
   description           String?        // Item description
   // Mandatory & custom fields (FR 3.1)

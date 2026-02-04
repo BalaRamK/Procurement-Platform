@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 
 export default async function AdminLayout({
@@ -21,7 +21,7 @@ export default async function AdminLayout({
             <input
               type="search"
               placeholder="Search users, templates, reports…"
-              className="w-full bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none dark:text-slate-200 dark:placeholder-slate-500"
+              className="w-full bg-transparent text-sm text-slate-700 placeholder-slate-400 outline-none dark:text-slate-200 dark:placeholder-slate-400"
               aria-label="Search"
             />
           </div>

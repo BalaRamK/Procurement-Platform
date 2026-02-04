@@ -56,6 +56,12 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
    npx prisma db push
    ```
 
+   **Request ID (optional):** New tickets get an auto-generated Request ID (e.g. `IN123456`, `EN654321`, `SA111222`) based on Team. To backfill existing tickets, stop the dev server and run:
+
+   ```bash
+   npx tsx scripts/backfill-request-ids.ts
+   ```
+
 5. **Run**
 
    ```bash
@@ -68,6 +74,7 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
 - **"Can't reach database server at localhost:5432"** — PostgreSQL is not running. Start it using **Option B** above (`docker compose up -d`) or **Option A** (Windows service), then run `npx prisma db push` and try sign-in again.
 - **`url.parse()` deprecation warning** — Emitted by NextAuth.js or a dependency. It does not affect sign-in; you can ignore it or run with `node --no-deprecation` if needed.
+- **ChunkLoadError: Loading chunk app/layout failed (timeout)** — Often caused by a stale or corrupted `.next` build, or by OneDrive syncing/locking the project folder. **Fix:** Stop the dev server, run `npm run clean`, then `npm run dev` again. If the project is under OneDrive, exclude the `.next` folder from sync or move the project outside OneDrive.
 
 ## Roles
 
@@ -75,6 +82,17 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 - **Requester** — Create and view own requests
 - **Functional Head**, **L1 Approver**, **CFO**, **CDO** — Approve at respective stage
 - **Production** — View tickets assigned to production
+
+## Data access (RBAC)
+
+Data access is enforced in **application code** (API routes and server components), not via PostgreSQL RLS:
+
+- **Tickets**: Requesters see only their own (`requesterId`); approvers see only tickets in their queue (by `status` and `teamName`); Super Admin sees all.
+- **Notifications**: Each user sees only notifications where `recipient` equals their email.
+- **Admin (users, reports, email templates)**: Restricted to Super Admin.
+- **Create ticket**: Allowed only for REQUESTER and SUPER_ADMIN.
+
+All API routes validate the session and apply the above filters before returning data.
 
 ## Documentation
 
