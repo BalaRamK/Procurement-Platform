@@ -147,7 +147,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "CLOSED" });
   }
 
-  const allowed = roleAndTeamForStatus[ticket.status];
+  const allowed = roleAndTeamForStatus[ticket.status as TicketStatus];
   if (!allowed || allowed.role !== role) {
     return NextResponse.json({ error: "Not your stage to approve" }, { status: 403 });
   }
