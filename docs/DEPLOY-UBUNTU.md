@@ -226,18 +226,56 @@ cd ~/Procurement-Platform   # or your app path
 npm ci
 ```
 
-If **Prisma engine download fails with 403 Forbidden** (common when the proxy blocks or alters requests to `binaries.prisma.sh`), use the checksum-ignore flag and retry:
+If **Prisma engine download fails with 403 Forbidden** (the proxy often blocks `binaries.prisma.sh`), try in order:
+
+**Option A — Bypass proxy for Prisma only** (if the VM has direct internet as well as proxy):
+
+```bash
+export NO_PROXY="localhost,127.0.0.1,binaries.prisma.sh"
+npx prisma generate
+npx prisma db push
+```
+
+**Option B — Generate on another machine, then copy to the VM**
+
+When the proxy blocks the engine download, generate on a machine that can reach the internet (e.g. your laptop, WSL, or another server), then copy the project to the VM so the VM already has the engines.
+
+On the **machine with internet** (same Node version as VM, e.g. Node 20):
+
+```bash
+git clone YOUR_REPO_URL Procurement-Platform
+cd Procurement-Platform
+cp .env.example .env
+# Edit .env with real DATABASE_URL (can point to VM IP if DB is on VM, or use a temp DB)
+npm ci
+npx prisma generate
+npx prisma db push   # optional: only if this machine can reach the VM's DB
+npm run build
+```
+
+Then copy the whole folder to the VM (including `node_modules` and `.next`):
+
+```bash
+# From the machine with internet (replace VM_USER and VM_IP)
+rsync -avz --progress ./Procurement-Platform/ VM_USER@VM_IP:~/Procurement-Platform/
+# Or use scp -r Procurement-Platform VM_USER@VM_IP:~/
+```
+
+On the **VM**, you only need to run the app (no `prisma generate` or `npm run build`):
+
+```bash
+cd ~/Procurement-Platform
+# Ensure .env on VM has correct DATABASE_URL and other vars
+npm start
+# or: pm2 start npm --name "procurement" -- start
+```
+
+**Option C — Checksum ignore** (only helps if the download succeeds but checksum file is blocked):
 
 ```bash
 export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
 npx prisma generate
 npx prisma db push
-```
-
-Unset it after if you prefer not to leave it set:
-
-```bash
-unset PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
 ```
 
 ### 4.3 Make the app use the proxy at runtime
