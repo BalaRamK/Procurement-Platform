@@ -5,9 +5,8 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS } from "@/lib/constants";
-import type { TicketStatus } from "@prisma/client";
 
-const LIFECYCLE_ORDER: TicketStatus[] = [
+const LIFECYCLE_ORDER = [
   "DRAFT",
   "PENDING_FH_APPROVAL",
   "PENDING_L1_APPROVAL",
@@ -18,7 +17,9 @@ const LIFECYCLE_ORDER: TicketStatus[] = [
   "CONFIRMED_BY_REQUESTER",
   "CLOSED",
   "REJECTED",
-];
+] as const;
+
+type StatusKey = (typeof LIFECYCLE_ORDER)[number];
 
 export default async function AdminReportsPage() {
   const session = await getServerSession(authOptions);
@@ -35,7 +36,7 @@ export default async function AdminReportsPage() {
       acc[status] = tickets.filter((t) => t.status === status).length;
       return acc;
     },
-    {} as Record<TicketStatus, number>
+    {} as Record<StatusKey, number>
   );
 
   const total = tickets.length;
