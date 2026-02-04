@@ -142,11 +142,11 @@ sudo systemctl status procurement
 ### 3.1 Firewall only (dev / internal)
 
 ```bash
-sudo ufw allow 3000/tcp
+sudo ufw allow 3001/tcp
 sudo ufw enable
 ```
 
-Access at `http://VM_IP:3000`. Set **NEXTAUTH_URL** to that URL and add the same redirect URI in Azure AD.
+Access at `http://VM_IP:3001`. Set **NEXTAUTH_URL** to that URL and add the same redirect URI in Azure AD.
 
 ### 3.2 Nginx reverse proxy (recommended for production)
 
@@ -164,7 +164,7 @@ server {
     server_name procurement.yourdomain.com;   # or VM_IP
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3001;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -197,7 +197,115 @@ Then set **NEXTAUTH_URL** to `https://procurement.yourdomain.com` and add this r
 
 ---
 
-## 4. Checklist
+## 4. Running behind a corporate proxy
+
+If the VM uses an HTTP/HTTPS proxy for outbound traffic, set proxy environment variables so **npm**, **Prisma**, and the **Node app** can reach the internet.
+
+### 4.1 Set proxy for your shell (replace with your proxy URL and port)
+
+```bash
+export HTTP_PROXY="http://proxy.company.com:8080"
+export HTTPS_PROXY="http://proxy.company.com:8080"
+export NO_PROXY="localhost,127.0.0.1"
+```
+
+If the proxy requires authentication:
+
+```bash
+export HTTP_PROXY="http://user:password@proxy.company.com:8080"
+export HTTPS_PROXY="http://user:password@proxy.company.com:8080"
+export NO_PROXY="localhost,127.0.0.1"
+```
+
+### 4.2 Install dependencies and Prisma with proxy
+
+Run these **after** exporting the proxy variables (same shell):
+
+```bash
+cd ~/Procurement-Platform   # or your app path
+npm ci
+```
+
+If **Prisma engine download fails with 403 Forbidden** (common when the proxy blocks or alters requests to `binaries.prisma.sh`), use the checksum-ignore flag and retry:
+
+```bash
+export PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1
+npx prisma generate
+npx prisma db push
+```
+
+Unset it after if you prefer not to leave it set:
+
+```bash
+unset PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING
+```
+
+### 4.3 Make the app use the proxy at runtime
+
+The app needs the proxy for outbound calls (e.g. Azure AD sign-in, Zoho API). Set the same proxy variables when starting the app.
+
+**With PM2:** create an ecosystem file so the proxy is always set:
+
+```bash
+nano ecosystem.config.js
+```
+
+Add (adjust proxy URL):
+
+```javascript
+module.exports = {
+  apps: [{
+    name: 'procurement',
+    script: 'npm',
+    args: 'start',
+    cwd: '/home/admin_/Procurement-Platform',
+    env: {
+      NODE_ENV: 'production',
+      HTTP_PROXY: 'http://proxy.company.com:8080',
+      HTTPS_PROXY: 'http://proxy.company.com:8080',
+      NO_PROXY: 'localhost,127.0.0.1',
+    },
+  }],
+};
+```
+
+Then start with:
+
+```bash
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+**With systemd:** add the proxy variables to the service file:
+
+```ini
+[Service]
+Environment=HTTP_PROXY=http://proxy.company.com:8080
+Environment=HTTPS_PROXY=http://proxy.company.com:8080
+Environment=NO_PROXY=localhost,127.0.0.1
+```
+
+### 4.4 Optional: persist proxy for npm (current user)
+
+```bash
+npm config set proxy http://proxy.company.com:8080
+npm config set https-proxy http://proxy.company.com:8080
+npm config set no-proxy localhost,127.0.0.1
+```
+
+### 4.5 If the proxy uses a custom CA certificate
+
+If you get SSL errors (e.g. "unable to get local issuer certificate"), set:
+
+```bash
+export NODE_EXTRA_CA_CERTS="/path/to/company-ca-bundle.pem"
+```
+
+Use the same variable in your PM2 or systemd environment so the running app trusts the proxy’s certificate.
+
+---
+
+## 5. Checklist
 
 - [ ] Node 20, PostgreSQL, Git installed
 - [ ] Database and user created, `DATABASE_URL` in `.env`
@@ -210,7 +318,7 @@ Then set **NEXTAUTH_URL** to `https://procurement.yourdomain.com` and add this r
 
 ---
 
-## 5. Useful commands
+## 6. Useful commands
 
 | Task              | Command |
 |-------------------|--------|
