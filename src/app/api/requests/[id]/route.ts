@@ -147,7 +147,9 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "CLOSED" });
   }
 
-  const allowed = roleAndTeamForStatus[ticket.status as TicketStatus];
+  // Cast status from Prisma result so it can index our Record<TicketStatus, ...> maps
+  const status = ticket.status as TicketStatus;
+  const allowed = roleAndTeamForStatus[status];
   if (!allowed || allowed.role !== role) {
     return NextResponse.json({ error: "Not your stage to approve" }, { status: 403 });
   }
@@ -186,7 +188,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "REJECTED" });
   }
 
-  const nextStatus = nextStatusOnApproval[ticket.status];
+  const nextStatus = nextStatusOnApproval[status];
   if (!nextStatus) return NextResponse.json({ ok: true, status: ticket.status });
 
   await prisma.ticket.update({
