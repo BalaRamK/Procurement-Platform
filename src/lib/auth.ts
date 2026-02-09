@@ -15,6 +15,15 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
       ...(proxyAgent && { httpOptions: { agent: proxyAgent } }),
+      // Use token claims only; skip Microsoft Graph profile-photo fetch (avoids fetch failures behind proxy).
+      profile(profile: { sub?: string; name?: string; email?: string; preferred_username?: string }) {
+        return {
+          id: profile.sub ?? "",
+          name: profile.name ?? profile.preferred_username ?? null,
+          email: profile.email ?? profile.preferred_username ?? null,
+          image: null,
+        };
+      },
     }),
   ],
   callbacks: {
