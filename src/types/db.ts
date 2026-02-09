@@ -73,7 +73,7 @@ export function hasRole(roles: UserRole[] | null | undefined, role: UserRole): b
 /** Normalize DB/session roles to an array (handles legacy single role string or array). */
 export function asRolesArray(roles: unknown): UserRole[] {
   if (Array.isArray(roles)) {
-    return roles.filter((r): r is UserRole => typeof r === "string" && USER_ROLES.includes(r));
+    return roles.filter((r): r is UserRole => typeof r === "string" && (USER_ROLES as readonly string[]).includes(r));
   }
   if (typeof roles === "string" && USER_ROLES.includes(roles as UserRole)) {
     return [roles as UserRole];
