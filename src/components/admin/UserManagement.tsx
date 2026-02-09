@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { User, UserRole, TeamName } from "@/types/db";
+import { asRolesArray } from "@/types/db";
 
 type UserManagementProps = {
   users: (Pick<User, "id" | "email" | "name" | "roles" | "team" | "status">)[];
@@ -104,7 +105,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
                   {(user.roles ?? []).map((r) => roleLabels[r]).join(", ") || "—"}
                 </td>
                 <td className="whitespace-nowrap px-5 py-4">
-                  {showTeam(user.roles ?? []) ? (
+                  {showTeam(asRolesArray(user.roles)) ? (
                     <select
                       value={user.team ?? ""}
                       disabled={!!updating}

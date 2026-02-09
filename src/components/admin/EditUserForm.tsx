@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserRole, TeamName } from "@/types/db";
+import { asRolesArray } from "@/types/db";
 
 const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },
@@ -29,7 +30,7 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState(user.email);
   const [name, setName] = useState(user.name ?? "");
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(user.roles ?? []);
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(asRolesArray(user.roles));
   const [team, setTeam] = useState<TeamName | "">(user.team ?? "");
   const [status, setStatus] = useState(user.status);
   const [loading, setLoading] = useState(false);

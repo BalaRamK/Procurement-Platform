@@ -3,6 +3,7 @@ import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import { query, queryOne } from "@/lib/db";
 import type { UserRole, TeamName } from "@/types/db";
+import { asRolesArray } from "@/types/db";
 import { getProxyAgent } from "@/lib/node-proxy-agent";
 
 const proxyAgent = getProxyAgent();
@@ -59,11 +60,11 @@ export const authOptions: NextAuthOptions = {
           [session.user.email]
         );
         if (dbUser) {
-          session.user.roles = (dbUser.roles ?? []) as UserRole[];
+          session.user.roles = asRolesArray(dbUser.roles);
           session.user.id = dbUser.id;
           session.user.team = (dbUser.team ?? null) as TeamName | null;
         } else {
-          session.user.roles = (token.roles as UserRole[]) ?? null;
+          session.user.roles = asRolesArray(token.roles);
           session.user.team = (token.team as TeamName) ?? null;
           session.user.id = token.id ?? undefined;
         }

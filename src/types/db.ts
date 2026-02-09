@@ -70,6 +70,17 @@ export function hasRole(roles: UserRole[] | null | undefined, role: UserRole): b
   return Array.isArray(roles) && roles.includes(role);
 }
 
+/** Normalize DB/session roles to an array (handles legacy single role string or array). */
+export function asRolesArray(roles: unknown): UserRole[] {
+  if (Array.isArray(roles)) {
+    return roles.filter((r): r is UserRole => typeof r === "string" && USER_ROLES.includes(r));
+  }
+  if (typeof roles === "string" && USER_ROLES.includes(roles as UserRole)) {
+    return [roles as UserRole];
+  }
+  return [];
+}
+
 /** Minimal Ticket shape for component props (matches Prisma Ticket) */
 export interface Ticket {
   id: string;

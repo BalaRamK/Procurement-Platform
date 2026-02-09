@@ -6,6 +6,7 @@ import { EditUserForm } from "@/components/admin/EditUserForm";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { UserRole, User } from "@/types/db";
+import { asRolesArray } from "@/types/db";
 
 const ROLES: UserRole[] = [
   "SUPER_ADMIN",
@@ -46,7 +47,7 @@ export default async function EditUserPage({
           Update email, name, role, team, or status. Disabled users cannot sign in.
         </p>
       </div>
-      <EditUserForm user={user as User} roleLabels={ROLE_LABELS} roles={ROLES} />
+      <EditUserForm user={user} roleLabels={ROLE_LABELS} roles={ROLES} />
     </div>
   );
 }
