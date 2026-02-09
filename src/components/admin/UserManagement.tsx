@@ -102,7 +102,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
                 <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{user.email}</td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.name ?? "—"}</td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700 dark:text-slate-200">
-                  {(user.roles ?? []).map((r) => roleLabels[r]).join(", ") || "—"}
+                  {asRolesArray(user.roles).map((r) => roleLabels[r]).join(", ") || "—"}
                 </td>
                 <td className="whitespace-nowrap px-5 py-4">
                   {showTeam(asRolesArray(user.roles)) ? (

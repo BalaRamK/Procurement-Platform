@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { asRolesArray } from "@/types/db";
 
 type AppSidebarProps = {
   userEmail: string | null | undefined;
@@ -10,7 +11,8 @@ type AppSidebarProps = {
 };
 
 export function AppSidebar({ userEmail, userRoles }: AppSidebarProps) {
-  const isSuperAdmin = Array.isArray(userRoles) && userRoles.includes("SUPER_ADMIN");
+  const roles = asRolesArray(userRoles);
+  const isSuperAdmin = roles.includes("SUPER_ADMIN");
   const pathname = usePathname();
 
   return (

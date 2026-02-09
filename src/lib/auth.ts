@@ -46,7 +46,7 @@ export const authOptions: NextAuthOptions = {
           [user.email]
         );
         if (dbUser) {
-          token.roles = (dbUser.roles ?? []) as UserRole[];
+          token.roles = asRolesArray(dbUser.roles);
           token.id = dbUser.id;
           token.team = (dbUser.team as TeamName) ?? undefined;
         }
