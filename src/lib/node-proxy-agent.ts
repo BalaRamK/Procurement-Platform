@@ -1,46 +1,33 @@
 /**
- * A proxy agent that extends Node's native https.Agent so it has getName() and
- * is accepted by Node's http(s).request. openid-client (used by NextAuth) passes
- * the agent to https.request(); passing agent-base-based agents can cause
- * "this.getName is not a function" because Node expects a real http.Agent.
- *
- * This class extends https.Agent and overrides createConnection to tunnel
- * through an HTTP(S) proxy via CONNECT.
+ * Proxy agent for Node's https.request used by openid-client (NextAuth Azure AD).
+ * We attach createConnection to a real Node https.Agent instance at runtime so
+ * the method is never lost to bundling (subclassing in bundled code can break).
  */
 
 import * as net from "net";
 import * as tls from "tls";
-import * as https from "https";
 import type { Duplex } from "stream";
-import { URL } from "url";
 
 const PROXY_RESPONSE_END = Buffer.from("\r\n\r\n");
 
-function parseProxyResponse(buffer: Buffer): { statusCode: number; buffered: Buffer } {
+function parseProxyResponse(buffer: Buffer): { statusCode: number } {
   const end = buffer.indexOf(PROXY_RESPONSE_END);
   if (end === -1) throw new Error("Proxy response headers incomplete");
   const headerBlock = buffer.subarray(0, end).toString("ascii");
   const firstLine = headerBlock.split("\r\n")[0];
   const statusCode = parseInt(firstLine?.split(" ")[1] ?? "0", 10);
-  return { statusCode, buffered: buffer };
+  return { statusCode };
 }
 
-export class NodeHttpsProxyAgent extends https.Agent {
-  private proxyUrl: URL;
-
-  constructor(proxy: string | URL, agentOptions?: https.AgentOptions) {
-    super(agentOptions);
-    this.proxyUrl = typeof proxy === "string" ? new URL(proxy) : proxy;
-  }
-
-  override createConnection(
+function makeCreateConnection(proxyUrl: URL) {
+  return function createConnection(
+    this: unknown,
     options: tls.ConnectionOptions & { host: string; port: number },
     callback?: (err: Error | null, stream: Duplex) => void
   ): net.Socket | null {
     if (!callback) {
-      throw new Error("NodeHttpsProxyAgent requires callback form of createConnection");
+      throw new Error("Proxy agent requires callback form of createConnection");
     }
-    const proxyUrl = this.proxyUrl;
     const host = options.host;
     const port = options.port ?? 443;
     const isHttpsProxy = proxyUrl.protocol === "https:";
@@ -85,7 +72,7 @@ export class NodeHttpsProxyAgent extends https.Agent {
         proxySocket.removeListener("error", onError);
         proxySocket.removeListener("end", onEnd);
         try {
-          const { statusCode, buffered } = parseProxyResponse(full);
+          const { statusCode } = parseProxyResponse(full);
           if (statusCode !== 200) {
             proxySocket.destroy();
             callback(new Error(`Proxy CONNECT refused: ${statusCode}`), undefined!);
@@ -122,31 +109,34 @@ export class NodeHttpsProxyAgent extends https.Agent {
     };
 
     if (isHttpsProxy) {
-      const proxyTlsSocket = tls.connect({
-        ...connectOpts,
-        servername: proxyHost,
-      } as tls.ConnectionOptions, () => {
-        onProxySocket(null, proxyTlsSocket as unknown as net.Socket);
-      });
+      const proxyTlsSocket = tls.connect(
+        { ...connectOpts, servername: proxyHost } as tls.ConnectionOptions,
+        () => onProxySocket(null, proxyTlsSocket as unknown as net.Socket)
+      );
       proxyTlsSocket.on("error", (err) => callback(err, undefined!));
     } else {
-      const socket = net.connect(connectOpts, () => {
-        onProxySocket(null, socket);
-      });
+      const socket = net.connect(connectOpts, () => onProxySocket(null, socket));
       socket.on("error", (err) => callback(err, undefined!));
     }
-    return null; // connection is established asynchronously via callback
-  }
+    return null;
+  };
 }
 
 /**
- * Returns an agent that tunnels HTTPS through the proxy, or undefined if no proxy is set.
- * Use this for openid-client / NextAuth httpOptions.agent so Node never receives
- * a non-Agent (avoids "this.getName is not a function").
+ * Returns a Node https.Agent that tunnels through HTTP_PROXY/HTTPS_PROXY, or undefined.
+ * Uses require('https') at runtime so the base Agent is always Node's native one;
+ * createConnection is attached as an instance property so bundling cannot drop it.
  */
-export function getProxyAgent(): NodeHttpsProxyAgent | undefined {
+export function getProxyAgent(): import("http").Agent | undefined {
   if (typeof window !== "undefined") return undefined;
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   if (!proxy?.trim()) return undefined;
-  return new NodeHttpsProxyAgent(proxy);
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const https = require("https") as typeof import("https");
+  const proxyUrl = new URL(proxy);
+  const agent = new https.Agent();
+  (agent as unknown as { createConnection: ReturnType<typeof makeCreateConnection> }).createConnection =
+    makeCreateConnection(proxyUrl);
+  return agent as import("http").Agent;
 }

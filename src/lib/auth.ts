@@ -4,7 +4,6 @@ import AzureADProvider from "next-auth/providers/azure-ad";
 import { query, queryOne } from "@/lib/db";
 import type { UserRole, TeamName } from "@/types/db";
 import { getProxyAgent } from "@/lib/node-proxy-agent";
-import type { Agent } from "http";
 
 const proxyAgent = getProxyAgent();
 
@@ -14,9 +13,7 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
-      ...(proxyAgent && {
-        httpOptions: { agent: proxyAgent as Agent },
-      }),
+      ...(proxyAgent && { httpOptions: { agent: proxyAgent } }),
     }),
   ],
   callbacks: {
