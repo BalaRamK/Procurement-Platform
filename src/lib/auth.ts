@@ -1,3 +1,4 @@
+import "@/lib/proxy"; // apply HTTP/HTTPS proxy from env before any outbound requests
 import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import { query, queryOne } from "@/lib/db";

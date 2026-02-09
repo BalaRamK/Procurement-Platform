@@ -283,7 +283,7 @@ npx prisma db push
 
 ### 4.3 Make the app use the proxy at runtime
 
-The app needs the proxy for outbound calls (e.g. Azure AD sign-in, Zoho API). Set the same proxy variables when starting the app.
+The app needs the proxy for outbound calls (e.g. Azure AD sign-in, Zoho API). The app configures Node’s fetch (via undici’s proxy agent) to use **HTTP_PROXY** and **HTTPS_PROXY** when set, so Azure AD sign-in works correctly behind a corporate proxy. Set the same proxy variables when starting the app.
 
 **With PM2:** create an ecosystem file so the proxy is always set:
 
@@ -468,10 +468,8 @@ npm start
 PM2 is not installed. Install it globally, then start the app:
 
 ```bash
-sudo npm install -g pm2
-pm2 start npm --name "procurement" -- start
-pm2 save
-pm2 startup   # run the command it prints to start on boot
+
+   # run the command it prints to start on boot
 ```
 
 If you prefer not to use PM2, use **Option B — systemd** in Section 2.4 instead.
