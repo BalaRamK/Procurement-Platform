@@ -26,8 +26,8 @@ export const authOptions: NextAuthOptions = {
       if (existing && !existing.status) return false;
       if (!existing) {
         await query(
-          `INSERT INTO users (email, name, azure_id, role, status)
-           VALUES ($1, $2, $3, 'REQUESTER', true)`,
+          `INSERT INTO users (email, name, azure_id, roles, status)
+           VALUES ($1, $2, $3, ARRAY['REQUESTER']::"UserRole"[], true)`,
           [user.email, user.name ?? null, account?.providerAccountId ?? null]
         );
       } else if (account?.providerAccountId && !existing.azureId) {
@@ -40,12 +40,12 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user }) {
       if (user?.email) {
-        const dbUser = await queryOne<{ id: string; role: string; team: string | null }>(
-          'SELECT id, role, team FROM users WHERE email = $1',
+        const dbUser = await queryOne<{ id: string; roles: string[]; team: string | null }>(
+          'SELECT id, roles, team FROM users WHERE email = $1',
           [user.email]
         );
         if (dbUser) {
-          token.role = dbUser.role as UserRole;
+          token.roles = (dbUser.roles ?? []) as UserRole[];
           token.id = dbUser.id;
           token.team = (dbUser.team as TeamName) ?? undefined;
         }
@@ -54,16 +54,16 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user?.email) {
-        const dbUser = await queryOne<{ id: string; role: string; team: string | null }>(
-          'SELECT id, role, team FROM users WHERE email = $1',
+        const dbUser = await queryOne<{ id: string; roles: string[]; team: string | null }>(
+          'SELECT id, roles, team FROM users WHERE email = $1',
           [session.user.email]
         );
         if (dbUser) {
-          session.user.role = dbUser.role as UserRole;
+          session.user.roles = (dbUser.roles ?? []) as UserRole[];
           session.user.id = dbUser.id;
           session.user.team = (dbUser.team ?? null) as TeamName | null;
         } else {
-          session.user.role = (token.role as UserRole) ?? null;
+          session.user.roles = (token.roles as UserRole[]) ?? null;
           session.user.team = (token.team as TeamName) ?? null;
           session.user.id = token.id ?? undefined;
         }

@@ -19,7 +19,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+  if (!session?.user || !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -39,7 +39,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+  if (!session?.user || !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -112,7 +112,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+  if (!session?.user || !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

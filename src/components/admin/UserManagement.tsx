@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { User, UserRole, TeamName } from "@/types/db";
 
 type UserManagementProps = {
-  users: (Pick<User, "id" | "email" | "name" | "role" | "team" | "status">)[];
+  users: (Pick<User, "id" | "email" | "name" | "roles" | "team" | "status">)[];
   roleLabels: Record<UserRole, string>;
   currentUserId?: string;
 };
@@ -30,21 +30,6 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
   const [users, setUsers] = useState(initialUsers);
   const [updating, setUpdating] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
-
-  async function updateRole(userId: string, role: UserRole) {
-    setUpdating(userId);
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, role }),
-      });
-      if (!res.ok) throw new Error("Failed to update");
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-    } finally {
-      setUpdating(null);
-    }
-  }
 
   async function updateTeam(userId: string, team: TeamName | null) {
     setUpdating(userId);
@@ -93,7 +78,8 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
     }
   }
 
-  const showTeam = (role: UserRole) => role === "FUNCTIONAL_HEAD" || role === "L1_APPROVER";
+  const showTeam = (roles: UserRole[]) =>
+    roles?.includes("FUNCTIONAL_HEAD") || roles?.includes("L1_APPROVER");
 
   return (
     <div className="card overflow-hidden">
@@ -103,7 +89,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
             <tr>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Email</th>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Name</th>
-              <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Role</th>
+              <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Roles</th>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Team</th>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Status</th>
               <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Actions</th>
@@ -114,20 +100,11 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
               <tr key={user.id} className="table-row-glass transition-colors">
                 <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{user.email}</td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.name ?? "—"}</td>
-                <td className="whitespace-nowrap px-5 py-4">
-                  <select
-                    value={user.role}
-                    disabled={!!updating}
-                    onChange={(e) => updateRole(user.id, e.target.value as UserRole)}
-                    className="input-base w-auto min-w-[160px] py-2"
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{roleLabels[r]}</option>
-                    ))}
-                  </select>
+                <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700 dark:text-slate-200">
+                  {(user.roles ?? []).map((r) => roleLabels[r]).join(", ") || "—"}
                 </td>
                 <td className="whitespace-nowrap px-5 py-4">
-                  {showTeam(user.role) ? (
+                  {showTeam(user.roles ?? []) ? (
                     <select
                       value={user.team ?? ""}
                       disabled={!!updating}

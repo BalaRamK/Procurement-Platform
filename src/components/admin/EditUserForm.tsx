@@ -14,7 +14,7 @@ type UserForEdit = {
   id: string;
   email: string;
   name: string | null;
-  role: UserRole;
+  roles: UserRole[];
   team: TeamName | null;
   status: boolean;
 };
@@ -29,17 +29,27 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState(user.email);
   const [name, setName] = useState(user.name ?? "");
-  const [role, setRole] = useState<UserRole>(user.role);
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(user.roles ?? []);
   const [team, setTeam] = useState<TeamName | "">(user.team ?? "");
   const [status, setStatus] = useState(user.status);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const needsTeam = role === "FUNCTIONAL_HEAD" || role === "L1_APPROVER";
+  const needsTeam = selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
+
+  function toggleRole(r: UserRole) {
+    setSelectedRoles((prev) =>
+      prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (selectedRoles.length === 0) {
+      setError("Select at least one role.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/admin/users", {
@@ -49,7 +59,7 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
           userId: user.id,
           email: email.trim().toLowerCase(),
           name: name.trim() || null,
-          role,
+          roles: selectedRoles,
           team: needsTeam && team ? team : null,
           status,
         }),
@@ -93,12 +103,20 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Role *</label>
-          <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="input-base" required>
+          <label className="mb-1.5 block text-sm font-medium text-slate-700">Roles * (select one or more)</label>
+          <div className="flex flex-wrap gap-4 rounded-xl border border-white/25 bg-white/20 p-4 dark:border-white/10 dark:bg-white/5">
             {roles.map((r) => (
-              <option key={r} value={r}>{roleLabels[r]}</option>
+              <label key={r} className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={selectedRoles.includes(r)}
+                  onChange={() => toggleRole(r)}
+                  className="h-4 w-4 rounded border-white/50 text-primary-600 focus:ring-primary-500/30"
+                />
+                <span className="text-sm text-slate-700 dark:text-slate-200">{roleLabels[r]}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
         {needsTeam && (
           <div>

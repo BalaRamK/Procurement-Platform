@@ -9,7 +9,13 @@ import { z } from "zod";
 const createSchema = z.object({
   email: z.string().email(),
   name: z.string().optional(),
-  role: z.enum(USER_ROLES),
+  roles: z.array(z.enum(USER_ROLES)).min(1),
+  team: z.enum(TEAM_NAMES).nullable().optional(),
+});
+
+const bulkCreateSchema = z.object({
+  emails: z.array(z.string().email()).min(1).max(200),
+  roles: z.array(z.enum(USER_ROLES)).min(1),
   team: z.enum(TEAM_NAMES).nullable().optional(),
 });
 
@@ -17,18 +23,43 @@ const patchSchema = z.object({
   userId: z.string().uuid(),
   email: z.string().email().optional(),
   name: z.string().optional(),
-  role: z.enum(USER_ROLES).optional(),
+  roles: z.array(z.enum(USER_ROLES)).min(1).optional(),
   team: z.enum(TEAM_NAMES).nullable().optional(),
   status: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+  if (!session?.user || !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const body = await req.json();
+
+  const bulkParsed = bulkCreateSchema.safeParse(body);
+  if (bulkParsed.success) {
+    const { emails, roles, team } = bulkParsed.data;
+    const results: { email: string; created: boolean; updated: boolean }[] = [];
+    for (const raw of emails) {
+      const normalizedEmail = raw.trim().toLowerCase();
+      const existing = await queryOne<{ id: string }>("SELECT id FROM users WHERE email = $1", [normalizedEmail]);
+      if (existing) {
+        await query(
+          "UPDATE users SET roles = $1, team = $2, status = true, updated_at = now() WHERE id = $3",
+          [roles, team ?? null, existing.id]
+        );
+        results.push({ email: normalizedEmail, created: false, updated: true });
+      } else {
+        await query(
+          `INSERT INTO users (email, name, roles, team, status) VALUES ($1, NULL, $2, $3, true)`,
+          [normalizedEmail, roles, team ?? null]
+        );
+        results.push({ email: normalizedEmail, created: true, updated: false });
+      }
+    }
+    return NextResponse.json({ ok: true, bulk: true, results });
+  }
+
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -37,7 +68,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, name, role, team } = parsed.data;
+  const { email, name, roles, team } = parsed.data;
   const normalizedEmail = email.trim().toLowerCase();
 
   const existing = await queryOne<{ id: string; name: string | null; team: string | null }>(
@@ -46,15 +77,15 @@ export async function POST(req: NextRequest) {
   );
   if (existing) {
     await query(
-      "UPDATE users SET name = COALESCE($1, name), role = $2, team = $3, status = true, updated_at = now() WHERE id = $4",
-      [name ?? existing.name, role, team ?? existing.team, existing.id]
+      "UPDATE users SET name = COALESCE($1, name), roles = $2, team = $3, status = true, updated_at = now() WHERE id = $4",
+      [name ?? existing.name, roles, team ?? existing.team, existing.id]
     );
-    return NextResponse.json({ ok: true, user: { ...existing, role, team }, updated: true });
+    return NextResponse.json({ ok: true, user: { ...existing, roles, team }, updated: true });
   }
 
-  const rows = await query<{ id: string; email: string; name: string | null; role: string; team: string | null }>(
-    `INSERT INTO users (email, name, role, team, status) VALUES ($1, $2, $3, $4, true) RETURNING id, email, name, role, team`,
-    [normalizedEmail, name ?? null, role, team ?? null]
+  const rows = await query<{ id: string; email: string; name: string | null; roles: string[]; team: string | null }>(
+    `INSERT INTO users (email, name, roles, team, status) VALUES ($1, $2, $3, $4, true) RETURNING id, email, name, roles, team`,
+    [normalizedEmail, name ?? null, roles, team ?? null]
   );
   const user = rows[0];
   if (!user) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
@@ -63,7 +94,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+  if (!session?.user || !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -76,7 +107,7 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, email, name, role, team, status } = parsed.data;
+  const { userId, email, name, roles, team, status } = parsed.data;
   const update: string[] = [];
   const params: unknown[] = [];
   let i = 1;
@@ -97,9 +128,9 @@ export async function PATCH(req: NextRequest) {
     update.push(`name = $${i++}`);
     params.push(name || null);
   }
-  if (role !== undefined) {
-    update.push(`role = $${i++}`);
-    params.push(role);
+  if (roles !== undefined) {
+    update.push(`roles = $${i++}`);
+    params.push(roles);
   }
   if (team !== undefined) {
     update.push(`team = $${i++}`);
@@ -122,7 +153,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user || session.user.role !== "SUPER_ADMIN") {
+  if (!session?.user || !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

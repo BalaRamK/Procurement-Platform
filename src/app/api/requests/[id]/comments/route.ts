@@ -18,15 +18,15 @@ export async function GET(
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isRequester = ticket.requesterId === session.user.id;
-  const role = session.user.role ?? "";
+  const roles = session.user.roles ?? [];
   const canView =
-    role === "SUPER_ADMIN" ||
+    roles.includes("SUPER_ADMIN") ||
     isRequester ||
-    role === "FUNCTIONAL_HEAD" ||
-    role === "L1_APPROVER" ||
-    role === "CFO" ||
-    role === "CDO" ||
-    role === "PRODUCTION";
+    roles.includes("FUNCTIONAL_HEAD") ||
+    roles.includes("L1_APPROVER") ||
+    roles.includes("CFO") ||
+    roles.includes("CDO") ||
+    roles.includes("PRODUCTION");
   if (!canView) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const comments = await query<Record<string, unknown>>(
@@ -66,15 +66,15 @@ export async function POST(
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const isRequester = ticket.requesterId === session.user.id;
-  const role = session.user.role ?? "";
+  const roles = session.user.roles ?? [];
   const canComment =
-    role === "SUPER_ADMIN" ||
+    roles.includes("SUPER_ADMIN") ||
     isRequester ||
-    role === "FUNCTIONAL_HEAD" ||
-    role === "L1_APPROVER" ||
-    role === "CFO" ||
-    role === "CDO" ||
-    role === "PRODUCTION";
+    roles.includes("FUNCTIONAL_HEAD") ||
+    roles.includes("L1_APPROVER") ||
+    roles.includes("CFO") ||
+    roles.includes("CDO") ||
+    roles.includes("PRODUCTION");
   if (!canComment) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = (await req.json()) as { body: string };

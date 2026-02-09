@@ -18,13 +18,13 @@ DO $$ BEGIN
   CREATE TYPE "Priority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Users
+-- Users (roles = array of roles per user)
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL UNIQUE,
   name TEXT,
   azure_id TEXT,
-  role "UserRole" NOT NULL DEFAULT 'REQUESTER',
+  roles "UserRole"[] NOT NULL DEFAULT ARRAY['REQUESTER']::"UserRole"[],
   team "TeamName",
   status BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

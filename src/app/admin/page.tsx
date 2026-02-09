@@ -6,11 +6,22 @@ import type { User } from "@/types/db";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ROLE_LABELS } from "@/lib/constants";
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams = {},
+}: {
+  searchParams?: Promise<{ q?: string }> | { q?: string };
+}) {
   const session = await getServerSession(authOptions);
+  const resolved = searchParams && typeof (searchParams as Promise<unknown>).then === "function"
+    ? await (searchParams as Promise<{ q?: string }>)
+    : (searchParams as { q?: string }) ?? {};
+  const q = (resolved.q ?? "").trim();
+  const where = q ? `WHERE (email ILIKE $1 OR name ILIKE $1)` : "";
+  const args = q ? [`%${q}%`] : [];
   const users = await query<User>(
-    `SELECT id, email, name, role, team, status, created_at AS "createdAt", updated_at AS "updatedAt"
-     FROM users ORDER BY created_at DESC`
+    `SELECT id, email, name, roles, team, status, created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM users ${where} ORDER BY created_at DESC`,
+    args
   );
 
   return (

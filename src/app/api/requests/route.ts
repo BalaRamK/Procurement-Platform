@@ -9,6 +9,7 @@ import {
   TEAM_NAMES,
   COST_CURRENCIES,
   PRIORITIES,
+  getPrimaryRole,
 } from "@/types/db";
 import { logNotification } from "@/lib/notifications";
 import { generateRequestId } from "@/lib/request-id";
@@ -69,7 +70,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const role = session.user.role ?? "REQUESTER";
+  const role = getPrimaryRole(session.user.roles);
   const userId = session.user.id;
   const userTeam = session.user.team ?? null;
 
@@ -124,7 +125,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (session.user.role !== "REQUESTER" && session.user.role !== "SUPER_ADMIN") {
+  if (!session.user.roles?.includes("REQUESTER") && !session.user.roles?.includes("SUPER_ADMIN")) {
     return NextResponse.json({ error: "Only requesters can create tickets" }, { status: 403 });
   }
 

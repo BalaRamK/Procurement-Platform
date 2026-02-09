@@ -6,7 +6,7 @@ import { PurchaseRequestForm } from "@/components/requests/PurchaseRequestForm";
 export default async function NewRequestPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
-  if (session.user.role !== "REQUESTER" && session.user.role !== "SUPER_ADMIN") {
+  if (!session.user.roles?.includes("REQUESTER") && !session.user.roles?.includes("SUPER_ADMIN")) {
     redirect("/dashboard");
   }
 

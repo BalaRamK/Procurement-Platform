@@ -24,11 +24,11 @@ export default async function EditUserPage({
 }) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
-  if (session.user.role !== "SUPER_ADMIN") redirect("/dashboard");
+  if (!session.user.roles?.includes("SUPER_ADMIN")) redirect("/dashboard");
 
   const { id } = await params;
   const user = await queryOne<User>(
-    "SELECT id, email, name, role, team, status FROM users WHERE id = $1",
+    "SELECT id, email, name, roles, team, status FROM users WHERE id = $1",
     [id]
   );
   if (!user) notFound();

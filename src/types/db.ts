@@ -37,14 +37,37 @@ export type CostCurrency = (typeof COST_CURRENCIES)[number];
 export const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
-/** Minimal User shape for component props (matches Prisma User) */
+/** Minimal User shape for component props */
 export interface User {
   id: string;
   email: string;
   name: string | null;
-  role: UserRole;
+  roles: UserRole[];
   team: TeamName | null;
   status: boolean;
+}
+
+/** Primary role for dashboard view (highest privilege in list) */
+const ROLE_ORDER: UserRole[] = [
+  "SUPER_ADMIN",
+  "PRODUCTION",
+  "CDO",
+  "CFO",
+  "L1_APPROVER",
+  "FUNCTIONAL_HEAD",
+  "REQUESTER",
+];
+
+export function getPrimaryRole(roles: UserRole[] | null | undefined): UserRole {
+  if (!roles?.length) return "REQUESTER";
+  for (const r of ROLE_ORDER) {
+    if (roles.includes(r)) return r;
+  }
+  return roles[0];
+}
+
+export function hasRole(roles: UserRole[] | null | undefined, role: UserRole): boolean {
+  return Array.isArray(roles) && roles.includes(role);
 }
 
 /** Minimal Ticket shape for component props (matches Prisma Ticket) */

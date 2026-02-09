@@ -19,7 +19,7 @@ const ROLES: UserRole[] = [
 export default async function AddUserPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
-  if (session.user.role !== "SUPER_ADMIN") redirect("/dashboard");
+  if (!session.user.roles?.includes("SUPER_ADMIN")) redirect("/dashboard");
 
   return (
     <div>

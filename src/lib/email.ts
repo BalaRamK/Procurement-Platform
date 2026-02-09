@@ -51,9 +51,35 @@ export async function getTemplateForTrigger(
 
 async function sendEmail(to: string, subject: string, body: string): Promise<void> {
   if (!to || !to.includes("@")) return;
-  if (process.env.RESEND_API_KEY) {
-    // TODO: Integrate Resend when ready
+
+  const host = process.env.SENDGRID_SMTP_HOST;
+  const port = process.env.SENDGRID_SMTP_PORT;
+  const from = process.env.SENDGRID_MAIL;
+  const user = process.env.SENDGRID_API_KEY_ID ?? process.env.SENDGRID_MAIL;
+  const pass = process.env.SENDGRID_API_KEY_SECRET;
+
+  if (host && port && from && user && pass) {
+    try {
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.default.createTransport({
+        host,
+        port: parseInt(port, 10) || 587,
+        secure: false,
+        auth: { user, pass },
+      });
+      await transporter.sendMail({
+        from,
+        to,
+        subject,
+        text: body,
+        html: body.replace(/\n/g, "<br>"),
+      });
+      return;
+    } catch (e) {
+      console.error("[sendEmail] SMTP failed", e);
+    }
   }
+
   console.log("[Email stub]", { to: to.slice(0, 3) + "…", subject, bodyLength: body.length });
 }
 

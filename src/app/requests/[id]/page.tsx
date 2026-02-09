@@ -6,20 +6,21 @@ import { TicketActions } from "@/components/requests/TicketActions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
-import type { TeamName } from "@/types/db";
+import type { TeamName, UserRole } from "@/types/db";
+import { hasRole } from "@/types/db";
 
 function canView(
-  role: string,
+  roles: UserRole[] | null | undefined,
   userTeam: TeamName | null,
   ticket: { requesterId: string; status: string; teamName: TeamName }
 ) {
-  if (role === "SUPER_ADMIN") return true;
-  if (ticket.requesterId && role === "REQUESTER") return true;
-  if (role === "PRODUCTION" && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
-  if (role === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") return true;
-  if (role === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") return true;
-  if (role === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") return true;
-  if (role === "CDO" && ticket.status === "PENDING_CDO_APPROVAL") return true;
+  if (hasRole(roles, "SUPER_ADMIN")) return true;
+  if (ticket.requesterId && hasRole(roles, "REQUESTER")) return true;
+  if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
+  if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") return true;
+  if (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") return true;
+  if (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") return true;
+  if (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL") return true;
   return false;
 }
 
@@ -53,19 +54,19 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   type TicketDetail = { requesterId: string; status: string; teamName: TeamName; title: string; id: string; requestId?: string; requesterName: string; department: string; description?: string; componentDescription?: string; itemName?: string; priority: string; rejectionRemarks?: string; needByDate?: string; chargeCode?: string; estimatedCost?: string | number; costCurrency?: string; rate?: string | number; unit?: string; estimatedPoDate?: string | null; placeOfDelivery?: string; quantity?: number; dealName?: string; bomId?: string; productId?: string; projectCustomer?: string; createdAt: string; updatedAt: string; requester: { id: string; email: string; name: string | null } | null };
   const ticket = ticketRaw as TicketDetail;
 
-  const role = session.user.role ?? "REQUESTER";
+  const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  const isProduction = role === "PRODUCTION";
+  const isProduction = hasRole(roles, "PRODUCTION");
   const canShowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
     (isProduction && ticket.status === "ASSIGNED_TO_PRODUCTION") ||
-    (role === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
-    (role === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
-    (role === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
-    (role === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
+    (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
+    (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
+    (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") ||
+    (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL");
 
-  if (!canView(role, userTeam, ticket) && !isRequester) redirect("/dashboard");
+  if (!canView(roles, userTeam, ticket) && !isRequester) redirect("/dashboard");
 
   const fields: { label: string; value: string | number | null | undefined }[] = [
     { label: "Request ID", value: ticket.requestId ?? undefined },

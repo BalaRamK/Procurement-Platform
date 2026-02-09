@@ -5,21 +5,21 @@ import { query, queryOne } from "@/lib/db";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
-import type { TicketStatus, TeamName } from "@/types/db";
+import type { TicketStatus, TeamName, UserRole } from "@/types/db";
+import { hasRole } from "@/types/db";
 
 function canView(
-  role: string | null,
+  roles: UserRole[] | null | undefined,
   userTeam: TeamName | null,
   ticket: { requesterId: string; status: TicketStatus; teamName: TeamName }
 ) {
-  if (role === "SUPER_ADMIN") return true;
-  if (ticket.requesterId && role === "REQUESTER") return true;
-  if (role === "PRODUCTION" && ticket.status === "ASSIGNED_TO_PRODUCTION") return true;
-  if (role === "PRODUCTION" && ticket.status === "DELIVERED_TO_REQUESTER") return true;
-  if (role === "FUNCTIONAL_HEAD" && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_FH_APPROVAL") return true;
-  if (role === "L1_APPROVER" && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_L1_APPROVAL") return true;
-  if (role === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") return true;
-  if (role === "CDO" && ticket.status === "PENDING_CDO_APPROVAL") return true;
+  if (hasRole(roles, "SUPER_ADMIN")) return true;
+  if (ticket.requesterId && hasRole(roles, "REQUESTER")) return true;
+  if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
+  if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_FH_APPROVAL") return true;
+  if (hasRole(roles, "L1_APPROVER") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_L1_APPROVAL") return true;
+  if (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") return true;
+  if (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL") return true;
   return false;
 }
 
@@ -65,10 +65,10 @@ export async function GET(
   delete ticket.rEmail;
   delete ticket.rName;
 
-  const role = session.user.role ?? "REQUESTER";
+  const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  if (!canView(role, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }) && !isRequester) {
+  if (!canView(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }) && !isRequester) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -114,7 +114,7 @@ export async function PATCH(
   if (!ticketRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as ApprovalBody;
-  const role = session.user.role ?? "";
+  const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
   const ticket = ticketRow;
 
@@ -133,7 +133,7 @@ export async function PATCH(
   }
 
   if (body.action === "mark_delivered") {
-    if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || role !== "PRODUCTION") {
+    if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || !roles.includes("PRODUCTION")) {
       return NextResponse.json({ error: "Only Production can mark as delivered" }, { status: 403 });
     }
     await query(
@@ -170,7 +170,7 @@ export async function PATCH(
 
   const status = ticket.status as TicketStatus;
   const allowed = roleAndTeamForStatus[status];
-  if (!allowed || allowed.role !== role) {
+  if (!allowed || !roles.includes(allowed.role as UserRole)) {
     return NextResponse.json({ error: "Not your stage to approve" }, { status: 403 });
   }
   if (allowed.teamRequired && userTeam !== ticket.teamName) {

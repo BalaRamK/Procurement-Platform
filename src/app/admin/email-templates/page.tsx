@@ -7,7 +7,7 @@ import { EmailTemplateManager } from "@/components/admin/EmailTemplateManager";
 export default async function AdminEmailTemplatesPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
-  if (session.user.role !== "SUPER_ADMIN") redirect("/dashboard");
+  if (!session.user.roles?.includes("SUPER_ADMIN")) redirect("/dashboard");
 
   return (
     <div>

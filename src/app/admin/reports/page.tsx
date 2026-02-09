@@ -24,7 +24,7 @@ type StatusKey = (typeof LIFECYCLE_ORDER)[number];
 export default async function AdminReportsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
-  if (session.user.role !== "SUPER_ADMIN") redirect("/dashboard");
+  if (!session.user.roles?.includes("SUPER_ADMIN")) redirect("/dashboard");
 
   const tickets = await query<Record<string, unknown>>(
     `SELECT t.id, t.title, t.status, t.updated_at AS "updatedAt", t.request_id AS "requestId", u.email AS "requesterEmail"

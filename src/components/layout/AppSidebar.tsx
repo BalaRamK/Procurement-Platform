@@ -6,10 +6,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 type AppSidebarProps = {
   userEmail: string | null | undefined;
-  userRole: string | null | undefined;
+  userRoles: string[] | null | undefined;
 };
 
-export function AppSidebar({ userEmail, userRole }: AppSidebarProps) {
+export function AppSidebar({ userEmail, userRoles }: AppSidebarProps) {
+  const isSuperAdmin = Array.isArray(userRoles) && userRoles.includes("SUPER_ADMIN");
   const pathname = usePathname();
 
   return (
@@ -51,7 +52,7 @@ export function AppSidebar({ userEmail, userRole }: AppSidebarProps) {
           </svg>
           New request
         </Link>
-        {userRole === "SUPER_ADMIN" && (
+        {isSuperAdmin && (
           <>
             <Link
               href="/admin"

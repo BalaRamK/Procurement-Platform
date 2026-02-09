@@ -6,6 +6,7 @@ import { ApproverDashboard } from "@/components/dashboard/ApproverDashboard";
 import { ProductionDashboard } from "@/components/dashboard/ProductionDashboard";
 import { query } from "@/lib/db";
 import type { Ticket, User } from "@/types/db";
+import { getPrimaryRole } from "@/types/db";
 
 const TICKET_JOIN_REQ = `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
   t.department, t.component_description AS "componentDescription", t.item_name AS "itemName", t.bom_id AS "bomId",
@@ -30,7 +31,7 @@ export default async function PendingApprovalsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/auth/signin");
 
-  const role = session.user.role ?? "REQUESTER";
+  const role = getPrimaryRole(session.user.roles);
   const userTeam = session.user.team ?? null;
 
   if (role === "REQUESTER") {

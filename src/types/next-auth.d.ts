@@ -8,7 +8,7 @@ declare module "next-auth" {
       email?: string | null;
       name?: string | null;
       image?: string | null;
-      role?: UserRole | null;
+      roles?: UserRole[] | null;
       team?: TeamName | null;
     };
   }
@@ -16,7 +16,7 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT {
-    role?: UserRole | null;
+    roles?: UserRole[] | null;
     team?: TeamName | null;
     id?: string;
   }
