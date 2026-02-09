@@ -3,6 +3,11 @@ import type { NextAuthOptions } from "next-auth";
 import AzureADProvider from "next-auth/providers/azure-ad";
 import { query, queryOne } from "@/lib/db";
 import type { UserRole, TeamName } from "@/types/db";
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+const azureProxyAgent = new HttpsProxyAgent(
+  process.env.HTTPS_PROXY || process.env.HTTP_PROXY!
+);
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -10,6 +15,11 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.AZURE_AD_CLIENT_ID!,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
       tenantId: process.env.AZURE_AD_TENANT_ID!,
+
+      httpOptions: {
+        agent: azureProxyAgent,
+      },
+      
     }),
   ],
   callbacks: {
