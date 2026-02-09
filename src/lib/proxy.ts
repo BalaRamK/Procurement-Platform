@@ -4,7 +4,9 @@
  * dispatcher so fetch() calls (e.g. NextAuth Azure AD token exchange) use the proxy.
  * Load this module early on the server (e.g. from auth.ts) so sign-in works behind a corporate proxy.
  */
-function setupProxy() {
+
+/**
+ * function setupProxy() {
   if (typeof window !== "undefined") return; // browser: skip
   const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   if (!proxy) return;
@@ -28,3 +30,4 @@ function setupProxy() {
 }
 
 setupProxy();
+**/
