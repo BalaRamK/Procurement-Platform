@@ -9,6 +9,7 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "db:init": "tsx scripts/init-db.ts",
+    "db:migrate-roles": "tsx scripts/migrate-roles-array.ts",
     "db:seed": "tsx scripts/seed.ts",
     "grant-super-admin": "tsx scripts/grant-super-admin.ts"
   },

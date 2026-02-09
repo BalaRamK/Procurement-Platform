@@ -86,8 +86,9 @@ npm run db:init
 npm run build
 ```
 
-**If upgrading** from an install that had a single `role` per user, run the roles migration once:  
-`psql $DATABASE_URL -f sql/migrate-roles-array.sql`
+**If upgrading** from an install that had a single `role` per user, run the roles migration once (uses `.env` so no need to set DATABASE_URL in the shell):  
+`npm run db:migrate-roles`  
+Or with psql: `export DATABASE_URL=$(grep '^DATABASE_URL=' .env | sed 's/^DATABASE_URL=//' | tr -d '"'); psql "$DATABASE_URL" -f sql/migrate-roles-array.sql`
 
 Optional: seed and grant super admin (replace with a real user email):
 
