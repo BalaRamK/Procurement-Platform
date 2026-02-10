@@ -105,8 +105,6 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [dealName, setDealName] = useState("");
   const [dealId, setDealId] = useState("");
   const [teamName, setTeamName] = useState<TeamName>("ENGINEERING");
-
-  const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [zohoLocked, setZohoLocked] = useState(false);
   const [manualAddMode, setManualAddMode] = useState(false); // + Add Component: user enters details manually (not in Zoho)
@@ -120,6 +118,8 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+
+  const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
 
   useEffect(() => {
     let cancelled = false;
