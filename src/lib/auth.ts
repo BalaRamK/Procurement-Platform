@@ -60,14 +60,27 @@ export const authOptions: NextAuthOptions = {
       }
       if (user?.email) {
         const email = (user.email as string).trim().toLowerCase();
-        const profiles = await query<{ id: string; roles: string[]; team: string | null }>(
-          'SELECT id, roles, team FROM users WHERE email = $1 ORDER BY created_at ASC',
-          [email]
-        );
+        let profiles: { id: string; roles?: unknown; role?: unknown; team: string | null }[] = [];
+        try {
+          profiles = await query(
+            'SELECT id, roles, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+            [email]
+          );
+        } catch {
+          try {
+            profiles = await query(
+              'SELECT id, role, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+              [email]
+            );
+          } catch {
+            // run db:migrate-roles
+          }
+        }
         if (profiles.length > 0) {
           const selected = profiles[0];
+          const rolesVal = (selected as { roles?: unknown; role?: unknown }).roles ?? (selected as { role?: unknown }).role;
           token.selectedUserId = selected.id;
-          token.roles = asRolesArray(selected.roles);
+          token.roles = asRolesArray(rolesVal);
           token.id = selected.id;
           token.team = (selected.team as TeamName) ?? undefined;
         }
@@ -78,28 +91,45 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         const selectedId = token.selectedUserId as string | undefined;
         const email = session.user.email?.trim().toLowerCase();
+        let rolesFromDb: UserRole[] = [];
+        let userId: string | undefined;
+        let team: TeamName | null = null;
+
         if (email) {
-          const profiles = await query<{ id: string; roles: string[]; team: string | null }>(
-            'SELECT id, roles, team FROM users WHERE email = $1 ORDER BY created_at ASC',
-            [email]
-          );
-          const selected = selectedId
-            ? profiles.find((p) => p.id === selectedId)
-            : profiles[0];
-          if (selected) {
-            session.user.roles = asRolesArray(selected.roles);
-            session.user.id = selected.id;
-            session.user.team = (selected.team ?? null) as TeamName | null;
-          } else {
-            session.user.roles = asRolesArray(token.roles);
-            session.user.team = (token.team as TeamName) ?? null;
-            session.user.id = token.id ?? undefined;
+          try {
+            const profiles = await query<{ id: string; roles?: unknown; role?: unknown; team: string | null }>(
+              'SELECT id, roles, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+              [email]
+            );
+            const selected = selectedId
+              ? profiles.find((p) => p.id === selectedId)
+              : profiles[0];
+            if (selected) {
+              rolesFromDb = asRolesArray(selected.roles ?? selected.role);
+              userId = selected.id;
+              team = (selected.team ?? null) as TeamName | null;
+            }
+          } catch {
+            try {
+              const legacy = await query<{ id: string; role: unknown; team: string | null }>(
+                'SELECT id, role, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+                [email]
+              );
+              const selected = selectedId ? legacy.find((p) => p.id === selectedId) : legacy[0];
+              if (selected) {
+                rolesFromDb = asRolesArray(selected.role);
+                userId = selected.id;
+                team = (selected.team ?? null) as TeamName | null;
+              }
+            } catch {
+              // columns missing: run db:migrate-roles
+            }
           }
-        } else {
-          session.user.roles = asRolesArray(token.roles);
-          session.user.id = token.id ?? undefined;
-          session.user.team = (token.team as TeamName) ?? null;
         }
+
+        session.user.roles = rolesFromDb.length > 0 ? rolesFromDb : asRolesArray(token.roles);
+        session.user.id = userId ?? token.id ?? undefined;
+        session.user.team = team ?? (token.team as TeamName) ?? null;
       }
       return session;
     },
