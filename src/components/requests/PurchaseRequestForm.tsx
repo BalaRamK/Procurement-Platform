@@ -105,10 +105,18 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [dealName, setDealName] = useState("");
   const [dealId, setDealId] = useState("");
   const [teamName, setTeamName] = useState<TeamName>("ENGINEERING");
+
+  const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [zohoLocked, setZohoLocked] = useState(false);
   const [manualAddMode, setManualAddMode] = useState(false); // + Add Component: user enters details manually (not in Zoho)
   const [flowAssignees, setFlowAssignees] = useState<FlowAssignees | null>(null);
+  const [projectNames, setProjectNames] = useState<string[]>([]);
+  const [chargeCodesByTeam, setChargeCodesByTeam] = useState<Record<TeamName, string[]>>({
+    INNOVATION: [],
+    ENGINEERING: [],
+    SALES: [],
+  });
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
@@ -125,6 +133,19 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       });
     return () => { cancelled = true; };
   }, [teamName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/request-options")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        if (data?.projectNames) setProjectNames(data.projectNames);
+        if (data?.chargeCodesByTeam) setChargeCodesByTeam(data.chargeCodesByTeam);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const lookupSku = useCallback(async (sku: string) => {
     if (!sku.trim()) return;
@@ -255,7 +276,14 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             <FormField label="Team" required>
               <select
                 value={teamName}
-                onChange={(e) => setTeamName(e.target.value as TeamName)}
+                onChange={(e) => {
+                  const next = e.target.value as TeamName;
+                  setTeamName(next);
+                  const nextCodes = chargeCodesByTeam[next] ?? [];
+                  if (chargeCode && nextCodes.length > 0 && !nextCodes.includes(chargeCode)) {
+                    setChargeCode("");
+                  }
+                }}
                 className="input-base"
                 required
               >
@@ -459,11 +487,17 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               <div className="relative">
                 <input
                   type="text"
+                  list="project-customer-list"
                   value={projectCustomer}
                   onChange={(e) => setProjectCustomer(e.target.value)}
                   className="input-base pr-10"
-                  placeholder="Zoho CRM"
+                  placeholder={projectNames.length ? "Search or select..." : "Add options in Admin → Products & charge codes"}
                 />
+                <datalist id="project-customer-list">
+                  {projectNames.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -472,13 +506,28 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               </div>
             </FormField>
             <FormField label="Charge Code">
-              <input
-                type="text"
-                value={chargeCode}
-                onChange={(e) => setChargeCode(e.target.value)}
-                className="input-base"
-                placeholder="Autofill from Zoho CRM"
-              />
+              {currentChargeCodes.length > 0 ? (
+                <select
+                  value={chargeCode}
+                  onChange={(e) => setChargeCode(e.target.value)}
+                  className="input-base"
+                >
+                  <option value="">Select charge code</option>
+                  {currentChargeCodes.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={chargeCode}
+                  onChange={(e) => setChargeCode(e.target.value)}
+                  className="input-base"
+                  placeholder="Add charge codes in Admin for this team"
+                />
+              )}
             </FormField>
             <FormField label="Deal Name">
               <input

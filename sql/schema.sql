@@ -108,6 +108,25 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient);
 
+-- Request options (project/customer names and charge codes for New request dropdowns; managed by super admin)
+CREATE TABLE IF NOT EXISTS project_customer_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS charge_code_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL,
+  team_name "TeamName" NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(code, team_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_charge_code_options_team ON charge_code_options(team_name);
+
 -- Email templates
 CREATE TABLE IF NOT EXISTS email_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

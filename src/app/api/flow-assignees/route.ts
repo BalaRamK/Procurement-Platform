@@ -17,18 +17,18 @@ export async function GET(req: NextRequest) {
 
   const [functionalHead, l1Approver, cfo, cdo] = await Promise.all([
     queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE role = 'FUNCTIONAL_HEAD' AND team = $1 AND status = true LIMIT 1",
+      "SELECT name, email FROM users WHERE roles @> ARRAY['FUNCTIONAL_HEAD']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
     ),
     queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE role = 'L1_APPROVER' AND team = $1 AND status = true LIMIT 1",
+      "SELECT name, email FROM users WHERE roles @> ARRAY['L1_APPROVER']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
     ),
     queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE role = 'CFO' AND status = true LIMIT 1"
+      "SELECT name, email FROM users WHERE roles @> ARRAY['CFO']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
     queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE role = 'CDO' AND status = true LIMIT 1"
+      "SELECT name, email FROM users WHERE roles @> ARRAY['CDO']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
   ]);
 
