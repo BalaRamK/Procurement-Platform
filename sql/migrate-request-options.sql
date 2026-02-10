@@ -1,5 +1,5 @@
 -- Migration: add project_customer_options and charge_code_options for New request dropdowns
--- Run once on existing DBs: psql $DATABASE_URL -f sql/migrate-request-options.sql
+-- Run once on existing DBs: npm run db:migrate-request-options (loads DATABASE_URL from .env)
 
 CREATE TABLE IF NOT EXISTS project_customer_options (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -12,7 +12,7 @@
     "db:migrate-roles": "tsx scripts/migrate-roles-array.ts",
     "db:migrate-profiles": "tsx scripts/migrate-profile-name.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "db:migrate-request-options": "psql $DATABASE_URL -f sql/migrate-request-options.sql",
+    "db:migrate-request-options": "tsx scripts/migrate-request-options.ts",
     "db:seed-request-options": "tsx scripts/seed-request-options.ts",
     "grant-super-admin": "tsx scripts/grant-super-admin.ts",
     "deploy": "npm run clean && npm ci && npm run build"
