@@ -16,7 +16,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="relative z-10 flex min-h-screen">
-      <AppSidebar userEmail={session.user.email} userRoles={session.user.roles} />
+      <AppSidebar userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} />
       <main className="flex-1 overflow-auto">
         <div className="sticky top-0 z-20 mx-auto max-w-6xl px-6 pt-6 pb-2">
           <div className="flex items-center gap-3">

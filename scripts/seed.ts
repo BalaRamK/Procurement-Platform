@@ -18,25 +18,25 @@ async function main() {
   }
 
   const superAdmin = await queryOne<{ id: string }>(
-    `INSERT INTO users (email, name, role, status) VALUES ('admin@qnulabs.com', 'Super Admin', 'SUPER_ADMIN', true) RETURNING id`
+    `INSERT INTO users (email, profile_name, name, roles, status) VALUES ('admin@qnulabs.com', 'Default', 'Super Admin', ARRAY['SUPER_ADMIN']::"UserRole"[], true) RETURNING id`
   );
   if (!superAdmin) throw new Error("Failed to create super admin");
 
   const requester = await queryOne<{ id: string }>(
-    `INSERT INTO users (email, name, role, status) VALUES ('requester@qnulabs.com', 'Jane Requester', 'REQUESTER', true) RETURNING id`
+    `INSERT INTO users (email, profile_name, name, roles, status) VALUES ('requester@qnulabs.com', 'Default', 'Jane Requester', ARRAY['REQUESTER']::"UserRole"[], true) RETURNING id`
   );
   if (!requester) throw new Error("Failed to create requester");
 
   await query(
-    `INSERT INTO users (email, name, role, team, status) VALUES 
-     ('fh-innovation@qnulabs.com', 'FH Innovation', 'FUNCTIONAL_HEAD', 'INNOVATION', true),
-     ('fh-engineering@qnulabs.com', 'FH Engineering', 'FUNCTIONAL_HEAD', 'ENGINEERING', true),
-     ('l1-sales@qnulabs.com', 'L1 Sales (Prem)', 'L1_APPROVER', 'SALES', true),
-     ('l1-innovation@qnulabs.com', 'L1 Innovation (Dilip)', 'L1_APPROVER', 'INNOVATION', true),
-     ('l1-engineering@qnulabs.com', 'L1 Engineering (Dilip)', 'L1_APPROVER', 'ENGINEERING', true),
-     ('cfo@qnulabs.com', 'CFO', 'CFO', null, true),
-     ('cdo@qnulabs.com', 'CDO', 'CDO', null, true),
-     ('production@qnulabs.com', 'Production Team', 'PRODUCTION', null, true)`
+    `INSERT INTO users (email, profile_name, name, roles, team, status) VALUES 
+     ('fh-innovation@qnulabs.com', 'Default', 'FH Innovation', ARRAY['FUNCTIONAL_HEAD']::"UserRole"[], 'INNOVATION', true),
+     ('fh-engineering@qnulabs.com', 'Default', 'FH Engineering', ARRAY['FUNCTIONAL_HEAD']::"UserRole"[], 'ENGINEERING', true),
+     ('l1-sales@qnulabs.com', 'Default', 'L1 Sales (Prem)', ARRAY['L1_APPROVER']::"UserRole"[], 'SALES', true),
+     ('l1-innovation@qnulabs.com', 'Default', 'L1 Innovation (Dilip)', ARRAY['L1_APPROVER']::"UserRole"[], 'INNOVATION', true),
+     ('l1-engineering@qnulabs.com', 'Default', 'L1 Engineering (Dilip)', ARRAY['L1_APPROVER']::"UserRole"[], 'ENGINEERING', true),
+     ('cfo@qnulabs.com', 'Default', 'CFO', ARRAY['CFO']::"UserRole"[], null, true),
+     ('cdo@qnulabs.com', 'Default', 'CDO', ARRAY['CDO']::"UserRole"[], null, true),
+     ('production@qnulabs.com', 'Default', 'Production Team', ARRAY['PRODUCTION']::"UserRole"[], null, true)`
   );
 
   await query(

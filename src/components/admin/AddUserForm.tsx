@@ -19,6 +19,7 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
   const router = useRouter();
   const [mode, setMode] = useState<"single" | "multiple">("single");
   const [email, setEmail] = useState("");
+  const [profileName, setProfileName] = useState("");
   const [name, setName] = useState("");
   const [emailsText, setEmailsText] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(["REQUESTER"]);
@@ -83,6 +84,7 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim().toLowerCase(),
+          profileName: profileName.trim() || undefined,
           name: name.trim() || undefined,
           roles: selectedRoles,
           team: needsTeam && team ? team : null,
@@ -140,6 +142,19 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
                 placeholder="user@company.com"
                 required
               />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Profile name</label>
+              <input
+                type="text"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                className="input-base"
+                placeholder="Default (use e.g. Admin or Requester to add another profile for same email)"
+              />
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
+                Same email can have multiple profiles; pick a name to add another (e.g. Admin, Requester).
+              </p>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Name</label>

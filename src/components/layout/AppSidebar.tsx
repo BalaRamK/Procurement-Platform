@@ -1,19 +1,46 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { asRolesArray } from "@/types/db";
+import { useState, useEffect } from "react";
+
+type ProfileOption = { id: string; profileName: string; roles: string[] };
 
 type AppSidebarProps = {
   userEmail: string | null | undefined;
   userRoles: string[] | null | undefined;
+  currentUserId?: string | null;
 };
 
-export function AppSidebar({ userEmail, userRoles }: AppSidebarProps) {
+export function AppSidebar({ userEmail, userRoles, currentUserId }: AppSidebarProps) {
   const roles = asRolesArray(userRoles);
   const isSuperAdmin = roles.includes("SUPER_ADMIN");
   const pathname = usePathname();
+  const router = useRouter();
+  const { update: updateSession } = useSession();
+  const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [switching, setSwitching] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/profiles")
+      .then((r) => r.json())
+      .then((d) => setProfiles(d.profiles ?? []))
+      .catch(() => setProfiles([]));
+  }, [currentUserId]);
+
+  async function switchProfile(userId: string) {
+    if (userId === currentUserId || switching) return;
+    setSwitching(true);
+    try {
+      await updateSession({ selectedUserId: userId });
+      router.refresh();
+    } finally {
+      setSwitching(false);
+    }
+  }
 
   return (
     <aside className="sidebar-glass flex w-64 flex-col rounded-r-3xl border-r border-white/25 dark:border-white/10">
@@ -99,6 +126,23 @@ export function AppSidebar({ userEmail, userRoles }: AppSidebarProps) {
         <div className="glass-panel px-3 py-2.5">
           <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-300">Signed in as</p>
           <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
+          {profiles.length > 1 && (
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Profile</label>
+              <select
+                value={currentUserId ?? ""}
+                onChange={(e) => switchProfile(e.target.value)}
+                disabled={switching}
+                className="input-base w-full py-1.5 text-sm"
+              >
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.profileName} ({p.roles.join(", ")})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <Link href="/api/auth/signout" className="btn-secondary mt-2 flex w-full items-center justify-center gap-2">
           Sign out

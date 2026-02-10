@@ -79,9 +79,10 @@ After pulling the latest code on the server you **must** rebuild; otherwise the 
    npm run deploy
    ```
    Or step by step: `npm run clean` then `npm ci` then `npm run build`.
-2. **Database** (if you have an existing DB from before the roles-array change)
+2. **Database migrations** (run once if you have an existing DB)
    ```bash
-   npm run db:migrate-roles
+   npm run db:migrate-roles    # if you had single-role (role column) before
+   npm run db:migrate-profiles # allows multiple profiles per email (profile picker at login)
    ```
 3. **Grant super admin** (if needed)
    ```bash
@@ -95,6 +96,10 @@ After pulling the latest code on the server you **must** rebuild; otherwise the 
 - **"Can't reach database server at localhost:5432"** — PostgreSQL is not running. Start it using **Option B** above (`docker compose up -d`) or **Option A** (Windows service), then run `npm run db:init` and try sign-in again.
 - **`url.parse()` deprecation warning** — Emitted by NextAuth.js or a dependency. It does not affect sign-in; you can ignore it or run with `node --no-deprecation` if needed.
 - **ChunkLoadError: Loading chunk app/layout failed (timeout)** — Often caused by a stale or corrupted `.next` build, or by OneDrive syncing/locking the project folder. **Fix:** Stop the dev server, run `npm run clean`, then `npm run dev` again. If the project is under OneDrive, exclude the `.next` folder from sync or move the project outside OneDrive.
+
+## Multiple profiles per email
+
+The same email (e.g. from Azure AD) can have multiple **profiles**, each with different roles (e.g. "Admin" with SUPER_ADMIN, "Requester" with REQUESTER). After sign-in, if you have more than one profile, a **Profile** dropdown appears in the sidebar; switching updates your session and the visible nav (Dashboard, Admin, etc.). To add another profile for an existing user: go to **User management → Add user**, enter the same email, set **Profile name** (e.g. "Admin" or "Requester") and roles.
 
 ## Roles
 

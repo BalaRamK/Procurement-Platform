@@ -18,17 +18,19 @@ DO $$ BEGIN
   CREATE TYPE "Priority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
--- Users (roles = array of roles per user)
+-- Users (one row per email+profile; same email can have multiple profiles, e.g. Admin vs Requester)
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email TEXT NOT NULL UNIQUE,
+  email TEXT NOT NULL,
+  profile_name TEXT NOT NULL DEFAULT 'Default',
   name TEXT,
   azure_id TEXT,
   roles "UserRole"[] NOT NULL DEFAULT ARRAY['REQUESTER']::"UserRole"[],
   team "TeamName",
   status BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(email, profile_name)
 );
 
 -- Tickets

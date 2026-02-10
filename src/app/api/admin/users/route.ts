@@ -8,6 +8,7 @@ import { z } from "zod";
 
 const createSchema = z.object({
   email: z.string().email(),
+  profileName: z.string().min(1).max(100).optional(),
   name: z.string().optional(),
   roles: z.array(z.enum(USER_ROLES)).min(1),
   team: z.enum(TEAM_NAMES).nullable().optional(),
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     const results: { email: string; created: boolean; updated: boolean }[] = [];
     for (const raw of emails) {
       const normalizedEmail = raw.trim().toLowerCase();
-      const existing = await queryOne<{ id: string }>("SELECT id FROM users WHERE email = $1", [normalizedEmail]);
+      const existing = await queryOne<{ id: string }>("SELECT id FROM users WHERE email = $1 AND profile_name = 'Default'", [normalizedEmail]);
       if (existing) {
         await query(
           "UPDATE users SET roles = $1, team = $2, status = true, updated_at = now() WHERE id = $3",
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
         results.push({ email: normalizedEmail, created: false, updated: true });
       } else {
         await query(
-          `INSERT INTO users (email, name, roles, team, status) VALUES ($1, NULL, $2, $3, true)`,
+          `INSERT INTO users (email, profile_name, name, roles, team, status) VALUES ($1, 'Default', NULL, $2, $3, true)`,
           [normalizedEmail, roles, team ?? null]
         );
         results.push({ email: normalizedEmail, created: true, updated: false });
@@ -68,28 +69,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, name, roles, team } = parsed.data;
+  const { email, profileName, name, roles, team } = parsed.data;
   const normalizedEmail = email.trim().toLowerCase();
+  const profile = (profileName ?? "Default").trim() || "Default";
 
   const existing = await queryOne<{ id: string; name: string | null; team: string | null }>(
-    "SELECT id, name, team FROM users WHERE email = $1",
-    [normalizedEmail]
+    "SELECT id, name, team FROM users WHERE email = $1 AND profile_name = $2",
+    [normalizedEmail, profile]
   );
   if (existing) {
     await query(
       "UPDATE users SET name = COALESCE($1, name), roles = $2, team = $3, status = true, updated_at = now() WHERE id = $4",
       [name ?? existing.name, roles, team ?? existing.team, existing.id]
     );
-    return NextResponse.json({ ok: true, user: { ...existing, roles, team }, updated: true });
+    return NextResponse.json({ ok: true, user: { ...existing, roles, team, profileName: profile }, updated: true });
   }
 
   const rows = await query<{ id: string; email: string; name: string | null; roles: string[]; team: string | null }>(
-    `INSERT INTO users (email, name, roles, team, status) VALUES ($1, $2, $3, $4, true) RETURNING id, email, name, roles, team`,
-    [normalizedEmail, name ?? null, roles, team ?? null]
+    `INSERT INTO users (email, profile_name, name, roles, team, status) VALUES ($1, $2, $3, $4, $5, true) RETURNING id, email, name, roles, team`,
+    [normalizedEmail, profile, name ?? null, roles, team ?? null]
   );
   const user = rows[0];
   if (!user) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
-  return NextResponse.json({ ok: true, user });
+  return NextResponse.json({ ok: true, user: { ...user, profileName: profile } });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -115,11 +117,11 @@ export async function PATCH(req: NextRequest) {
   if (email !== undefined) {
     const normalized = email.trim().toLowerCase();
     const taken = await queryOne<{ id: string }>(
-      "SELECT id FROM users WHERE email = $1 AND id != $2",
+      "SELECT u.id FROM users u WHERE u.email = $1 AND u.id != $2 AND u.profile_name = (SELECT profile_name FROM users WHERE id = $2)",
       [normalized, userId]
     );
     if (taken) {
-      return NextResponse.json({ error: "Email already in use" }, { status: 400 });
+      return NextResponse.json({ error: "This email is already in use for this profile" }, { status: 400 });
     }
     update.push(`email = $${i++}`);
     params.push(normalized);

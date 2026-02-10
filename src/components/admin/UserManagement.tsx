@@ -6,7 +6,7 @@ import type { User, UserRole, TeamName } from "@/types/db";
 import { asRolesArray } from "@/types/db";
 
 type UserManagementProps = {
-  users: (Pick<User, "id" | "email" | "name" | "roles" | "team" | "status">)[];
+  users: (Pick<User, "id" | "email" | "profileName" | "name" | "roles" | "team" | "status">)[];
   roleLabels: Record<UserRole, string>;
   currentUserId?: string;
 };
@@ -89,6 +89,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
           <thead>
             <tr>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Email</th>
+              <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Profile</th>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Name</th>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Roles</th>
               <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Team</th>
@@ -100,6 +101,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId 
             {users.map((user) => (
               <tr key={user.id} className="table-row-glass transition-colors">
                 <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{user.email}</td>
+                <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.profileName ?? "Default"}</td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.name ?? "—"}</td>
                 <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700 dark:text-slate-200">
                   {asRolesArray(user.roles).map((r) => roleLabels[r]).join(", ") || "—"}

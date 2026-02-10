@@ -29,50 +29,67 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email) return false;
-      const existing = await queryOne<{ id: string; status: boolean; azureId: string | null }>(
+      const email = (user.email as string).trim().toLowerCase();
+      const profiles = await query<{ id: string; status: boolean; azureId: string | null }>(
         'SELECT id, status, azure_id AS "azureId" FROM users WHERE email = $1',
-        [user.email]
+        [email]
       );
-      if (existing && !existing.status) return false;
-      if (!existing) {
+      const anyActive = profiles.some((p) => p.status);
+      if (profiles.length > 0 && !anyActive) return false;
+      if (profiles.length === 0) {
         await query(
           `INSERT INTO users (email, name, azure_id, roles, status)
            VALUES ($1, $2, $3, ARRAY['REQUESTER']::"UserRole"[], true)`,
-          [user.email, user.name ?? null, account?.providerAccountId ?? null]
+          [email, user.name ?? null, account?.providerAccountId ?? null]
         );
-      } else if (account?.providerAccountId && !existing.azureId) {
-        await query(
-          'UPDATE users SET azure_id = $1, name = COALESCE($2, name), updated_at = now() WHERE id = $3',
-          [account.providerAccountId, user.name ?? null, existing.id]
-        );
+      } else if (account?.providerAccountId && profiles.length > 0) {
+        const first = profiles[0];
+        if (!first.azureId) {
+          await query(
+            'UPDATE users SET azure_id = $1, name = COALESCE($2, name), updated_at = now() WHERE id = $3',
+            [account.providerAccountId, user.name ?? null, first.id]
+          );
+        }
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session: updateSession }) {
+      if (trigger === "update" && updateSession?.selectedUserId) {
+        token.selectedUserId = updateSession.selectedUserId as string;
+        return token;
+      }
       if (user?.email) {
-        const dbUser = await queryOne<{ id: string; roles: string[]; team: string | null }>(
-          'SELECT id, roles, team FROM users WHERE email = $1',
-          [user.email]
+        const email = (user.email as string).trim().toLowerCase();
+        const profiles = await query<{ id: string; roles: string[]; team: string | null }>(
+          'SELECT id, roles, team FROM users WHERE email = $1 ORDER BY created_at ASC',
+          [email]
         );
-        if (dbUser) {
-          token.roles = asRolesArray(dbUser.roles);
-          token.id = dbUser.id;
-          token.team = (dbUser.team as TeamName) ?? undefined;
+        if (profiles.length > 0) {
+          const selected = profiles[0];
+          token.selectedUserId = selected.id;
+          token.roles = asRolesArray(selected.roles);
+          token.id = selected.id;
+          token.team = (selected.team as TeamName) ?? undefined;
         }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        if (session.user.email) {
-          const dbUser = await queryOne<{ id: string; roles: string[]; team: string | null }>(
-            'SELECT id, roles, team FROM users WHERE email = $1',
-            [session.user.email]
+        const selectedId = token.selectedUserId as string | undefined;
+        const email = session.user.email?.trim().toLowerCase();
+        if (email) {
+          const profiles = await query<{ id: string; roles: string[]; team: string | null }>(
+            'SELECT id, roles, team FROM users WHERE email = $1 ORDER BY created_at ASC',
+            [email]
           );
-          if (dbUser) {
-            session.user.roles = asRolesArray(dbUser.roles);
-            session.user.id = dbUser.id;
-            session.user.team = (dbUser.team ?? null) as TeamName | null;
+          const selected = selectedId
+            ? profiles.find((p) => p.id === selectedId)
+            : profiles[0];
+          if (selected) {
+            session.user.roles = asRolesArray(selected.roles);
+            session.user.id = selected.id;
+            session.user.team = (selected.team ?? null) as TeamName | null;
           } else {
             session.user.roles = asRolesArray(token.roles);
             session.user.team = (token.team as TeamName) ?? null;

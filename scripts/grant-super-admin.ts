@@ -24,7 +24,7 @@ async function main() {
     console.log("Granted SUPER_ADMIN to:", EMAIL);
   } else {
     await query(
-      `INSERT INTO users (email, name, roles, status) VALUES ($1, $2, ARRAY['SUPER_ADMIN']::"UserRole"[], true)`,
+      `INSERT INTO users (email, profile_name, name, roles, status) VALUES ($1, 'Default', $2, ARRAY['SUPER_ADMIN']::"UserRole"[], true)`,
       [EMAIL, EMAIL.split("@")[0]]
     );
     console.log("Created user with SUPER_ADMIN:", EMAIL);

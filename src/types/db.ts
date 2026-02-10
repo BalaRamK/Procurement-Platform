@@ -41,6 +41,7 @@ export type Priority = (typeof PRIORITIES)[number];
 export interface User {
   id: string;
   email: string;
+  profileName?: string;
   name: string | null;
   roles: UserRole[];
   team: TeamName | null;

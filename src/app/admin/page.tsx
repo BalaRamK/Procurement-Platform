@@ -19,12 +19,15 @@ export default async function AdminUsersPage({
   const q = (resolved.q ?? "").trim();
   const where = q ? `WHERE (email ILIKE $1 OR name ILIKE $1)` : "";
   const args = q ? [`%${q}%`] : [];
-  const rows = await query<User & { roles?: unknown }>(
-    `SELECT id, email, name, roles, team, status, created_at AS "createdAt", updated_at AS "updatedAt"
+  const rows = await query<User & { roles?: unknown; profile_name?: string }>(
+    `SELECT id, email, profile_name AS "profile_name", name, roles, team, status, created_at AS "createdAt", updated_at AS "updatedAt"
      FROM users ${where} ORDER BY created_at DESC`,
     args
   );
-  const users: User[] = rows.map((u) => ({ ...u, roles: asRolesArray(u.roles) }));
+  const users: User[] = rows.map((u) => {
+    const { profile_name, ...rest } = u;
+    return { ...rest, profileName: profile_name ?? "Default", roles: asRolesArray(u.roles) };
+  });
 
   return (
     <div>
