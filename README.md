@@ -70,6 +70,27 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
    Open [http://localhost:3000](http://localhost:3000). Unauthenticated users are redirected to sign-in.
 
+## Deploy (VM / production)
+
+After pulling the latest code on the server:
+
+1. **Install and build**
+   ```bash
+   npm ci
+   npm run build
+   ```
+2. **Database** (if you have an existing DB from before the roles-array change)
+   ```bash
+   npm run db:migrate-roles
+   ```
+3. **Grant super admin** (if needed)
+   ```bash
+   npm run grant-super-admin -- admin@example.com
+   ```
+4. **Restart the app** (e.g. `pm2 restart procurem`).
+
+If you skip the rebuild, the running app will still use the old compiled code (e.g. profile fetch, roles handling, hydration fixes).
+
 ## Troubleshooting
 
 - **"Can't reach database server at localhost:5432"** — PostgreSQL is not running. Start it using **Option B** above (`docker compose up -d`) or **Option A** (Windows service), then run `npm run db:init` and try sign-in again.
