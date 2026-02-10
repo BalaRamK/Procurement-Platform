@@ -72,13 +72,13 @@ Procurement ticketing platform with Azure AD SSO, RBAC, role-specific dashboards
 
 ## Deploy (VM / production)
 
-After pulling the latest code on the server:
+After pulling the latest code on the server you **must** rebuild; otherwise the app keeps running old compiled code (causing OAUTH_PARSE_PROFILE_ERROR, roles.map errors, missing admin nav, hydration errors).
 
-1. **Install and build**
+1. **Clean install and build** (recommended: one command)
    ```bash
-   npm ci
-   npm run build
+   npm run deploy
    ```
+   Or step by step: `npm run clean` then `npm ci` then `npm run build`.
 2. **Database** (if you have an existing DB from before the roles-array change)
    ```bash
    npm run db:migrate-roles
@@ -88,8 +88,7 @@ After pulling the latest code on the server:
    npm run grant-super-admin -- admin@example.com
    ```
 4. **Restart the app** (e.g. `pm2 restart procurem`).
-
-If you skip the rebuild, the running app will still use the old compiled code (e.g. profile fetch, roles handling, hydration fixes).
+5. **Sign out and sign in again** so your session gets the updated roles and the full sidebar (User management, Reports, etc.) appears.
 
 ## Troubleshooting
 

@@ -63,19 +63,25 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
     async session({ session, token }) {
-      if (session.user?.email) {
-        const dbUser = await queryOne<{ id: string; roles: string[]; team: string | null }>(
-          'SELECT id, roles, team FROM users WHERE email = $1',
-          [session.user.email]
-        );
-        if (dbUser) {
-          session.user.roles = asRolesArray(dbUser.roles);
-          session.user.id = dbUser.id;
-          session.user.team = (dbUser.team ?? null) as TeamName | null;
+      if (session.user) {
+        if (session.user.email) {
+          const dbUser = await queryOne<{ id: string; roles: string[]; team: string | null }>(
+            'SELECT id, roles, team FROM users WHERE email = $1',
+            [session.user.email]
+          );
+          if (dbUser) {
+            session.user.roles = asRolesArray(dbUser.roles);
+            session.user.id = dbUser.id;
+            session.user.team = (dbUser.team ?? null) as TeamName | null;
+          } else {
+            session.user.roles = asRolesArray(token.roles);
+            session.user.team = (token.team as TeamName) ?? null;
+            session.user.id = token.id ?? undefined;
+          }
         } else {
           session.user.roles = asRolesArray(token.roles);
-          session.user.team = (token.team as TeamName) ?? null;
           session.user.id = token.id ?? undefined;
+          session.user.team = (token.team as TeamName) ?? null;
         }
       }
       return session;
