@@ -71,13 +71,20 @@ export function hasRole(roles: UserRole[] | null | undefined, role: UserRole): b
   return Array.isArray(roles) && roles.includes(role);
 }
 
-/** Normalize DB/session roles to an array (handles legacy single role string or array). */
+/** Normalize DB/session roles to an array (handles array, single role string, or PostgreSQL array string like "{SUPER_ADMIN}"). */
 export function asRolesArray(roles: unknown): UserRole[] {
   if (Array.isArray(roles)) {
     return roles.filter((r): r is UserRole => typeof r === "string" && (USER_ROLES as readonly string[]).includes(r));
   }
-  if (typeof roles === "string" && USER_ROLES.includes(roles as UserRole)) {
-    return [roles as UserRole];
+  if (typeof roles === "string") {
+    const trimmed = roles.trim();
+    if ((USER_ROLES as readonly string[]).includes(trimmed)) {
+      return [trimmed as UserRole];
+    }
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      const inner = trimmed.slice(1, -1).split(",").map((s) => s.trim()).filter(Boolean);
+      return inner.filter((r): r is UserRole => (USER_ROLES as readonly string[]).includes(r));
+    }
   }
   return [];
 }
