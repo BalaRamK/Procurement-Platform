@@ -126,6 +126,9 @@ export function AppSidebar({ userEmail, userRoles, currentUserId }: AppSidebarPr
         <div className="glass-panel px-3 py-2.5">
           <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-300">Signed in as</p>
           <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
+          <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400" title={roles.join(", ") || "No roles"}>
+            Roles: {roles.length ? roles.join(", ") : "—"}
+          </p>
           {profiles.length > 1 && (
             <div className="mt-2">
               <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Profile</label>
