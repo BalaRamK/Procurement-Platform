@@ -4,6 +4,7 @@
  * Proxy is used only for allowlisted hosts to avoid proxying arbitrary URLs.
  */
 
+import type { RequestInit as UndiciRequestInit } from "undici";
 import { ProxyAgent, fetch as undiciFetch } from "undici";
 
 /** Hosts that are allowed to be requested through the proxy (e.g. Zoho Books/CRM). */
@@ -38,7 +39,11 @@ export async function fetchWithProxy(
 ): Promise<Response> {
   const dispatcher = getProxyDispatcher();
   if (dispatcher && isUrlAllowedForProxy(url)) {
-    return undiciFetch(url, { ...init, dispatcher }) as unknown as Promise<Response>;
+    const opts: UndiciRequestInit = {
+      ...(init && { method: init.method, headers: init.headers }),
+      dispatcher,
+    };
+    return undiciFetch(url, opts) as unknown as Promise<Response>;
   }
   return fetch(url, init);
 }
