@@ -12,6 +12,8 @@ const PROXY_ALLOWED_HOSTS = new Set([
   "zoho.com",
   "www.zoho.in",
   "zoho.in",
+  "www.zoho.eu",
+  "zoho.eu",
   "www.zohoapis.com",
   "zohoapis.com",
 ]);
@@ -25,9 +27,12 @@ function isUrlAllowedForProxy(url: string): boolean {
   }
 }
 
+const MAX_REDIRECTS = 3;
+
 function httpsRequest(
   url: string,
-  init?: RequestInit
+  init?: RequestInit,
+  redirectCount = 0
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -43,6 +48,21 @@ function httpsRequest(
 
     const https = require("https") as typeof import("https");
     const req = https.request(options, (res: import("http").IncomingMessage) => {
+      const status = res.statusCode ?? 0;
+      const isRedirect = (status === 301 || status === 302) && redirectCount < MAX_REDIRECTS;
+      const location = res.headers.location;
+
+      if (isRedirect && location) {
+        const nextUrl = location.startsWith("http")
+          ? location
+          : new URL(location, url).href;
+        res.destroy();
+        if (isUrlAllowedForProxy(nextUrl)) {
+          resolve(httpsRequest(nextUrl, init, redirectCount + 1));
+          return;
+        }
+      }
+
       const chunks: Buffer[] = [];
       res.on("data", (chunk: Buffer) => chunks.push(chunk));
       res.on("end", () => {
@@ -53,7 +73,7 @@ function httpsRequest(
         }
         resolve(
           new Response(body, {
-            status: res.statusCode ?? 0,
+            status,
             statusText: res.statusMessage ?? "",
             headers,
           })

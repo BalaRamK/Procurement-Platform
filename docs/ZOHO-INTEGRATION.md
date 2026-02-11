@@ -26,8 +26,70 @@ This guide covers how to integrate **Zoho Books** and **Zoho CRM** with the **Ne
    - Note **Client ID** and **Client Secret**.
    - Set redirect URI (e.g. `https://your-domain.com/api/zoho/callback` if you add OAuth flow).
 3. **Get an access token:**
-   - Use the Zoho OAuth 2.0 flow (authorization code) to get an **Access Token** and optionally **Refresh Token**.
-   - Or generate a **self client** token from the API console for testing.
+   - **Option A — Self Client (quick, for testing):** In the API Console, use [Self Client](https://www.zoho.com/accounts/protocol/oauth/self-client/overview.html): click **GET STARTED** → **Self Client** → **CREATE NOW**. Then in the **Generate Code** tab, enter scope `ZohoBooks.fullaccess.all` (or `ZohoBooks.settings.READ,ZohoBooks.items.READ`), create a code, and exchange it for an access token via `POST https://accounts.zoho.com/oauth/v2/token` (use `accounts.zoho.in` if your org is in India). You get a short-lived access token and a refresh token.
+   - **Option B — Authorization code flow:** See [Option B step-by-step](#option-b--authorization-code-flow-step-by-step) below.
+   - **Direct link to API Console:** [https://api-console.zoho.com](https://api-console.zoho.com) → choose your app (or create Self Client) → generate code / token as above.
+4. **Get Organization ID:**
+
+#### Option B — Authorization code flow (step-by-step)
+
+Use this when you have a **Server-based Application** and want a long-lived **refresh token** so the app can get new access tokens without user sign-in each time.
+
+1. **Register the app and redirect URI**
+   - In [Zoho API Console](https://api-console.zoho.com), create or open a **Server-based Application**.
+   - Note **Client ID** and **Client Secret**.
+   - Under **Redirect URI**, add the exact URL where Zoho will send the user after they approve (e.g. `https://proc.qnulabs.com/api/zoho/callback` or `http://localhost:3000/api/zoho/callback` for local testing). It must match exactly (including scheme and path).
+
+2. **Build the authorization URL and open it in a browser**
+   - Use the **accounts server** for your region: **Global** `https://accounts.zoho.com`, **India** `https://accounts.zoho.in`, **EU** `https://accounts.zoho.eu`.
+   - URL format:
+     ```
+     GET {accounts-server}/oauth/v2/auth?response_type=code&client_id={Client_ID}&scope=ZohoBooks.fullaccess.all&redirect_uri={Redirect_URI}&access_type=offline&prompt=consent
+     ```
+   - Replace:
+     - `{accounts-server}` → e.g. `https://accounts.zoho.com` or `https://accounts.zoho.in`
+     - `{Client_ID}` → your Client ID from the API console
+     - `{Redirect_URI}` → same URI you registered (e.g. `https://proc.qnulabs.com/api/zoho/callback`), **URL-encoded**
+   - Example (India):
+     ```
+     https://accounts.zoho.in/oauth/v2/auth?response_type=code&client_id=1000.XXXXX&scope=ZohoBooks.fullaccess.all&redirect_uri=https%3A%2F%2Fproc.qnulabs.com%2Fapi%2Fzoho%2Fcallback&access_type=offline&prompt=consent
+     ```
+   - Open this URL in a browser. Sign in to Zoho if asked, then approve the requested permissions.
+
+3. **Capture the authorization code**
+   - After the user approves, Zoho redirects to your `redirect_uri` with a **code** (and optionally **location**). Example:
+     ```
+     https://proc.qnulabs.com/api/zoho/callback?code=1000.abc123...&location=in
+     ```
+   - The **code** is valid for **2 minutes** and can be used only once. Copy the `code` query parameter.
+
+4. **Exchange the code for access token and refresh token**
+   - Send a **POST** request to the **token** endpoint. Use the accounts server that matches the user (if Zoho returned `location=in`, use `https://accounts.zoho.in`; otherwise `https://accounts.zoho.com` or `https://accounts.zoho.eu`).
+   - Endpoint: `POST {accounts-server}/oauth/v2/token`
+   - Body (application/x-www-form-urlencoded):
+     - `code` = the authorization code from step 3
+     - `client_id` = your Client ID
+     - `client_secret` = your Client Secret
+     - `redirect_uri` = same redirect URI used in step 2 (exact match)
+     - `grant_type` = `authorization_code`
+   - Example with curl (India):
+     ```bash
+     curl -X POST "https://accounts.zoho.in/oauth/v2/token" \
+       -d "code=1000.xxxx_from_redirect" \
+       -d "client_id=YOUR_CLIENT_ID" \
+       -d "client_secret=YOUR_CLIENT_SECRET" \
+       -d "redirect_uri=https://proc.qnulabs.com/api/zoho/callback" \
+       -d "grant_type=authorization_code"
+     ```
+
+5. **Use the response**
+   - The response includes:
+     - **access_token** — use for API calls (header: `Authorization: Zoho-oauthtoken {access_token}`). Valid for 1 hour.
+     - **refresh_token** — save this; use it to get new access tokens when the current one expires (no user sign-in needed).
+   - Put `access_token` in `ZOHO_BOOKS_ACCESS_TOKEN` and, for production, store `refresh_token` (e.g. in `ZOHO_BOOKS_REFRESH_TOKEN`) and implement token refresh before the access token expires.
+
+**Note:** This app does not yet implement the callback route (`/api/zoho/callback`) or automatic token refresh. You can either implement that route to accept the redirect and exchange the code on the server, or run the authorization URL and token exchange manually (e.g. copy the code from the redirect URL and run the curl command) and then paste the tokens into `.env`.
+
 4. **Get Organization ID:**
    - Zoho Books → **Settings** → **Organization Profile** → **Organization ID**.
 5. **Configure environment variables** (in `.env` or server env):
