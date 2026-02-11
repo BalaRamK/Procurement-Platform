@@ -37,6 +37,8 @@ This guide covers how to integrate **Zoho Books** and **Zoho CRM** with the **Ne
    ```
 6. **Optional — refresh token:**  
    Access tokens expire. For production, implement refresh using `ZOHO_BOOKS_REFRESH_TOKEN` and `ZOHO_BOOKS_CLIENT_ID` / `ZOHO_BOOKS_CLIENT_SECRET`, and periodically replace `ZOHO_BOOKS_ACCESS_TOKEN`.
+7. **Validate credentials:**  
+   After configuring the env vars, open the app in your browser (use the **hosted URL** when the app runs on a VM, e.g. `https://your-vm-hostname-or-ip/api/zoho/validate`). You must be logged in. The response will indicate whether the access token and organization ID are valid.
 
 ### 1.3 Field mapping: Procurement Platform ↔ Zoho Books
 
