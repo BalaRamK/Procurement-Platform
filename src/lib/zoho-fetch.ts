@@ -14,6 +14,9 @@ const PROXY_ALLOWED_HOSTS = new Set([
   "zoho.in",
   "www.zoho.eu",
   "zoho.eu",
+  "accounts.zoho.com",
+  "accounts.zoho.in",
+  "accounts.zoho.eu",
   "www.zohoapis.com",
   "zohoapis.com",
 ]);
@@ -82,6 +85,11 @@ function httpsRequest(
       res.on("error", reject);
     });
     req.on("error", reject);
+    const body = init?.body;
+    if (body != null && body !== "") {
+      const str = typeof body === "string" ? body : new TextDecoder().decode(body as ArrayBuffer);
+      req.write(str, "utf-8");
+    }
     req.end();
   });
 }

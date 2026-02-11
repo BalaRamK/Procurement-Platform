@@ -35,6 +35,8 @@ module.exports = {
         // Zoho (optional; set in .env if using Zoho Books/CRM)
         ZOHO_BOOKS_ACCESS_TOKEN: process.env.ZOHO_BOOKS_ACCESS_TOKEN,
         ZOHO_BOOKS_ORG_ID: process.env.ZOHO_BOOKS_ORG_ID,
+        ZOHO_BOOKS_CLIENT_ID: process.env.ZOHO_BOOKS_CLIENT_ID,
+        ZOHO_BOOKS_CLIENT_SECRET: process.env.ZOHO_BOOKS_CLIENT_SECRET,
       },
     },
   ],

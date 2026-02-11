@@ -88,7 +88,7 @@ Use this when you have a **Server-based Application** and want a long-lived **re
      - **refresh_token** — save this; use it to get new access tokens when the current one expires (no user sign-in needed).
    - Put `access_token` in `ZOHO_BOOKS_ACCESS_TOKEN` and, for production, store `refresh_token` (e.g. in `ZOHO_BOOKS_REFRESH_TOKEN`) and implement token refresh before the access token expires.
 
-**Note:** This app does not yet implement the callback route (`/api/zoho/callback`) or automatic token refresh. You can either implement that route to accept the redirect and exchange the code on the server, or run the authorization URL and token exchange manually (e.g. copy the code from the redirect URL and run the curl command) and then paste the tokens into `.env`.
+**Note:** The app implements the callback at `/api/zoho/callback`. Set `ZOHO_BOOKS_CLIENT_ID` and `ZOHO_BOOKS_CLIENT_SECRET` in `.env`, and set the redirect URI in the API Console to `{NEXTAUTH_URL}/api/zoho/callback` (e.g. `https://proc.qnulabs.com/api/zoho/callback`). After you sign in and approve, Zoho redirects to that URL and the app exchanges the code for tokens and shows them so you can copy into `.env`. Automatic token refresh is not implemented yet.
 
 4. **Get Organization ID:**
    - Zoho Books → **Settings** → **Organization Profile** → **Organization ID**.
