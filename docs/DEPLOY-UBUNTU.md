@@ -375,6 +375,31 @@ Use the same variable in your PM2 or systemd environment so the running app trus
 
 ## 7. Troubleshooting
 
+### ENOENT: no such file or directory, open '.next/prerender-manifest.json'
+
+The app was started without a production build. **Run a full build on the VM** (or copy a built `.next` from another machine), then start:
+
+```bash
+cd ~/Procurement-Platform
+npm run build
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+### Zoho validate / fetch failed: Connect Timeout or "proxy not set"
+
+Zoho API calls use **undici's ProxyAgent** with **HTTPS_PROXY/HTTP_PROXY**. If the proxy env vars are not set when the app runs, requests go direct to Zoho and can timeout behind a corporate proxy.
+
+**Fix:** Start the app with the ecosystem file so the proxy is set:
+
+```bash
+pm2 delete procurement   # if already running
+pm2 start ecosystem.config.js
+pm2 save
+```
+
+Do **not** use `pm2 start npm -- start` alone; that does not load the proxy from `ecosystem.config.js`.
+
 ### "Module '@prisma/client' has no exported member 'PrismaClient'"
 
 This means the Prisma client was not generated. **You must run `npx prisma generate` before `npm run build`**, and it must finish without errors.
