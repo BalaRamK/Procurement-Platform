@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { fetchWithProxy } from "@/lib/zoho-fetch";
 
 export type ZohoItemResponse = {
   name?: string;
@@ -28,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 
   const url = `https://www.zoho.com/books/api/v3/items?organization_id=${orgId}&sku=${encodeURIComponent(sku.trim())}`;
-  const res = await fetch(url, {
+  const res = await fetchWithProxy(url, {
     headers: { Authorization: "Zoho-oauthtoken " + token },
   });
 
