@@ -1,16 +1,12 @@
 /**
- * Fetch helper for Zoho API calls.
- *
- * Proxy: We use UNDICI's ProxyAgent (from the "undici" npm package), not Node's
- * https agent. The proxy URL is read from HTTPS_PROXY or HTTP_PROXY env vars
- * (e.g. HTTP_PROXY=http://10.160.0.18:3128 in PM2 ecosystem.config.js).
- * Proxy is used only for allowlisted Zoho hosts.
+ * Fetch helper for Zoho API calls. Uses the same proxy as Azure AD (Node https
+ * agent from getProxyAgent) so requests work behind a corporate proxy. Proxy
+ * is used only for allowlisted Zoho hosts.
  */
 
-import type { RequestInit as UndiciRequestInit } from "undici";
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { getProxyAgent } from "@/lib/node-proxy-agent";
 
-/** Hosts that are allowed to be requested through the proxy (e.g. Zoho Books/CRM). */
+/** Hosts that are allowed to be requested through the proxy. */
 const PROXY_ALLOWED_HOSTS = new Set([
   "www.zoho.com",
   "zoho.com",
@@ -19,13 +15,6 @@ const PROXY_ALLOWED_HOSTS = new Set([
   "www.zohoapis.com",
   "zohoapis.com",
 ]);
-
-function getProxyDispatcher(): ProxyAgent | undefined {
-  if (typeof window !== "undefined") return undefined;
-  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
-  if (!proxy?.trim()) return undefined;
-  return new ProxyAgent(proxy.trim());
-}
 
 function isUrlAllowedForProxy(url: string): boolean {
   try {
@@ -36,23 +25,62 @@ function isUrlAllowedForProxy(url: string): boolean {
   }
 }
 
+function httpsRequest(
+  url: string,
+  init?: RequestInit
+): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const agent = getProxyAgent();
+    const options: import("https").RequestOptions = {
+      hostname: u.hostname,
+      port: u.port || 443,
+      path: u.pathname + u.search,
+      method: init?.method ?? "GET",
+      headers: init?.headers as Record<string, string> | undefined,
+      agent: agent ?? undefined,
+    };
+
+    const https = require("https") as typeof import("https");
+    const req = https.request(options, (res: import("http").IncomingMessage) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf-8");
+        const headers = new Headers();
+        for (const [k, v] of Object.entries(res.headers)) {
+          if (v != null) headers.set(k.toLowerCase(), Array.isArray(v) ? v.join(", ") : v);
+        }
+        resolve(
+          new Response(body, {
+            status: res.statusCode ?? 0,
+            statusText: res.statusMessage ?? "",
+            headers,
+          })
+        );
+      });
+      res.on("error", reject);
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 export async function fetchWithProxy(
   url: string,
   init?: RequestInit
 ): Promise<Response> {
-  const dispatcher = getProxyDispatcher();
-  const allowed = isUrlAllowedForProxy(url);
-  if (dispatcher && allowed) {
-    const opts: UndiciRequestInit = {
-      ...(init && { method: init.method, headers: init.headers }),
-      dispatcher,
-    };
-    return undiciFetch(url, opts) as unknown as Promise<Response>;
+  if (typeof window !== "undefined") {
+    return fetch(url, init);
   }
-  if (allowed && !dispatcher) {
+  const allowed = isUrlAllowedForProxy(url);
+  if (allowed && !getProxyAgent()) {
     throw new Error(
       "Zoho request requires proxy but HTTPS_PROXY/HTTP_PROXY is not set. Set them in PM2 ecosystem.config.js env (e.g. HTTPS_PROXY=http://10.160.0.18:3128)."
     );
+  }
+  if (allowed) {
+    return httpsRequest(url, init);
   }
   return fetch(url, init);
 }
