@@ -38,7 +38,7 @@ export async function fetchWithProxy(
 ): Promise<Response> {
   const dispatcher = getProxyDispatcher();
   if (dispatcher && isUrlAllowedForProxy(url)) {
-    return undiciFetch(url, { ...init, dispatcher });
+    return undiciFetch(url, { ...init, dispatcher }) as Promise<Response>;
   }
   return fetch(url, init);
 }
