@@ -31,13 +31,27 @@ export async function GET() {
       );
     }
 
-    const url = "https://www.zoho.com/books/api/v3/organizations";
-    const res = await fetchWithProxy(url, {
-      headers: { Authorization: "Zoho-oauthtoken " + token.trim() },
-    });
+    const authHeader = { Authorization: "Zoho-oauthtoken " + token.trim() };
+    const urlsToTry = [
+      "https://www.zoho.com/books/api/v3/organizations",
+      "https://www.zoho.in/books/api/v3/organizations",
+    ];
+
+    let res: Response | null = null;
+    let text = "";
+    for (const url of urlsToTry) {
+      res = await fetchWithProxy(url, { headers: authHeader });
+      text = await res.text();
+      if (res.ok && text.trim().startsWith("{")) break;
+    }
+    if (!res) {
+      return NextResponse.json(
+        { valid: false, error: "No response from Zoho" },
+        { status: 200 }
+      );
+    }
 
     if (!res.ok) {
-      const text = await res.text();
       let message = "Zoho API request failed";
       if (res.status === 401) {
         message = "Access token is invalid or expired";
@@ -52,9 +66,18 @@ export async function GET() {
       );
     }
 
-    const data = (await res.json()) as {
-      organizations?: Array<{ organization_id: string; name?: string }>;
-    };
+    let data: { organizations?: Array<{ organization_id: string; name?: string }> };
+    try {
+      data = JSON.parse(text) as typeof data;
+    } catch {
+      const snippet = text.trim().slice(0, 300).replace(/\s+/g, " ");
+      return NextResponse.json({
+        valid: false,
+        error: "Zoho returned HTML or non-JSON (check region URL or proxy). Try the India API if your org is in India.",
+        detail: snippet || `Response length: ${text.length}`,
+      });
+    }
+
     const organizations = data.organizations ?? [];
     const matched = organizations.find(
       (org) => String(org.organization_id) === String(orgId.trim())
