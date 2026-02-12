@@ -31,35 +31,75 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const url = `https://www.zoho.com/books/api/v3/items?organization_id=${orgId}&sku=${encodeURIComponent(sku.trim())}`;
-  let res = await fetchWithProxy(url, {
-    headers: {
-      Authorization: "Zoho-oauthtoken " + token,
-      Accept: "application/json",
-    },
-  });
+  const skuEnc = encodeURIComponent(sku.trim());
+  const qs = `organization_id=${orgId}&sku=${skuEnc}`;
+  const baseUrls = [
+    "https://www.zoho.com/books/api/v3/items",
+    "https://www.zoho.in/books/api/v3/items",
+    "https://books.zoho.com/api/v3/items",
+    "https://books.zoho.in/api/v3/items",
+  ];
+
+  const headers: Record<string, string> = {
+    Authorization: "Zoho-oauthtoken " + token,
+    Accept: "application/json",
+    "User-Agent": "ProcurementPlatform/1.0 (Zoho Books API)",
+  };
+
+  const tryUrls = async (accessToken: string): Promise<{ res: Response; text: string }> => {
+    headers.Authorization = "Zoho-oauthtoken " + accessToken;
+    let lastRes: Response | null = null;
+    let lastText = "";
+    for (const base of baseUrls) {
+      const url = `${base}?${qs}`;
+      const r = await fetchWithProxy(url, { headers });
+      const t = await r.text();
+      lastRes = r;
+      lastText = t;
+      if (r.ok && t.trim().startsWith("{")) return { res: r, text: t };
+      if (r.status === 401) return { res: r, text: t };
+    }
+    return { res: lastRes!, text: lastText };
+  };
+
+  let res = await fetchWithProxy(baseUrls[0] + "?" + qs, { headers });
+  let text = await res.text();
+  if (!res.ok || !text.trim().startsWith("{")) {
+    const result = await tryUrls(token);
+    res = result.res;
+    text = result.text;
+  }
 
   if (res.status === 401) {
     const newToken = await refreshZohoBooksToken();
     if (newToken) {
-      res = await fetchWithProxy(url, {
-        headers: {
-          Authorization: "Zoho-oauthtoken " + newToken,
-          Accept: "application/json",
-        },
-      });
+      const result = await tryUrls(newToken);
+      res = result.res;
+      text = result.text;
     }
   }
 
   if (!res.ok) {
-    const text = await res.text();
     return NextResponse.json(
-      { error: "Zoho API error", detail: text },
+      { error: "Zoho API error", detail: text.slice(0, 500) },
       { status: res.status }
     );
   }
 
-  const data = (await res.json()) as {
+  // Zoho sometimes returns HTML (error page, redirect, doc page) with 200 – don't parse as JSON
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    console.error("[Zoho Items] Zoho returned non-JSON (status " + res.status + "). Body snippet:", text.slice(0, 300));
+    return NextResponse.json(
+      {
+        error: "Zoho returned non-JSON (possibly an error or login page)",
+        detail: trimmed.slice(0, 300),
+      },
+      { status: 502 }
+    );
+  }
+
+  let data: {
     items?: Array<{
       name?: string;
       rate?: number;
@@ -70,6 +110,15 @@ export async function GET(req: NextRequest) {
     }>;
     [k: string]: unknown;
   };
+  try {
+    data = JSON.parse(text) as typeof data;
+  } catch (e) {
+    console.error("[Zoho Items] JSON parse error:", e);
+    return NextResponse.json(
+      { error: "Invalid JSON from Zoho", detail: text.slice(0, 200) },
+      { status: 502 }
+    );
+  }
 
   // Log what Zoho actually returned (for debugging)
   console.log("[Zoho Items] raw response keys:", Object.keys(data));
