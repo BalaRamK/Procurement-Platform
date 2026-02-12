@@ -118,6 +118,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+  const [lastLookupResponse, setLastLookupResponse] = useState<Record<string, unknown> | null>(null);
 
   const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
 
@@ -151,23 +152,25 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
     if (!sku.trim()) return;
     setLookupError("");
     setLookupLoading(true);
+    setLastLookupResponse(null);
     try {
-      const res = await fetch("/api/zoho/items?sku=" + encodeURIComponent(sku.trim()));
-      const data = await res.json();
+      const res = await fetch("/api/zoho/items?sku=" + encodeURIComponent(sku.trim()) + "&debug=1");
+      const data = (await res.json()) as Record<string, unknown>;
+      setLastLookupResponse(data);
       if (!res.ok) {
-        setLookupError((data as { error?: string }).error ?? "Lookup failed");
+        setLookupError((data.error as string) ?? "Lookup failed");
         return;
       }
       if (data.found) {
-        const name = data.name ?? "";
-        const sku = data.sku ?? "";
+        const name = (data.name as string) ?? "";
+        const skuVal = (data.sku as string) ?? "";
         setComponentDescription(name);
         setItemName(name);
-        setBomId((prev) => sku || prev);
-        setProductId((prev) => sku || prev);
+        setBomId((prev) => skuVal || prev);
+        setProductId((prev) => skuVal || prev);
         setRate(data.rate != null ? String(data.rate) : "");
-        setUnit(data.unit ?? "");
-        setDescription(data.description ?? "");
+        setUnit((data.unit as string) ?? "");
+        setDescription((data.description as string) ?? "");
         setZohoLocked(true);
       } else {
         setItemName("");
@@ -484,6 +487,16 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             )}
             {lookupError && (
               <p className="text-sm text-red-600 dark:text-red-400">{lookupError}</p>
+            )}
+            {lastLookupResponse && (
+              <details className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                <summary className="cursor-pointer text-sm font-medium text-slate-600 dark:text-slate-400">
+                  Last Zoho lookup response (debug)
+                </summary>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-700 dark:text-slate-300">
+                  {JSON.stringify(lastLookupResponse, null, 2)}
+                </pre>
+              </details>
             )}
           </div>
         </SectionCard>

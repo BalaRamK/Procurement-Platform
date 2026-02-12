@@ -66,21 +66,35 @@ export async function GET(req: NextRequest) {
       unit?: string;
       sku?: string;
       description?: string;
+      [k: string]: unknown;
     }>;
+    [k: string]: unknown;
   };
+
+  // Log what Zoho actually returned (for debugging)
+  console.log("[Zoho Items] raw response keys:", Object.keys(data));
+  console.log("[Zoho Items] items count:", data.items?.length ?? 0);
+  if (data.items?.[0]) {
+    console.log("[Zoho Items] first item keys:", Object.keys(data.items[0]));
+    console.log("[Zoho Items] first item:", JSON.stringify(data.items[0]));
+  }
 
   const items = data.items ?? [];
   const item = items[0];
   if (!item) {
-    return NextResponse.json({ found: false });
+    const body = { found: false } as Record<string, unknown>;
+    if (req.nextUrl.searchParams.get("debug") === "1") body._debug = { zohoRaw: data };
+    return NextResponse.json(body);
   }
 
-  return NextResponse.json({
+  const payload = {
     found: true,
     name: item.name ?? null,
     rate: item.rate ?? null,
     unit: item.unit ?? null,
     sku: item.sku ?? null,
     description: item.description ?? null,
-  });
+  } as Record<string, unknown>;
+  if (req.nextUrl.searchParams.get("debug") === "1") payload._debug = { zohoRaw: data };
+  return NextResponse.json(payload);
 }
