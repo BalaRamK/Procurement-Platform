@@ -31,16 +31,24 @@ export async function GET() {
       );
     }
 
-    const authHeader = { Authorization: "Zoho-oauthtoken " + token.trim() };
+    const headers: Record<string, string> = {
+      Authorization: "Zoho-oauthtoken " + token.trim(),
+      Accept: "application/json",
+      "User-Agent": "ProcurementPlatform/1.0 (Zoho Books API)",
+    };
     const urlsToTry = [
       "https://www.zoho.com/books/api/v3/organizations",
+      "https://www.zoho.com/books/api/v3/organizations/",
       "https://www.zoho.in/books/api/v3/organizations",
+      "https://www.zoho.in/books/api/v3/organizations/",
+      "https://books.zoho.com/api/v3/organizations",
+      "https://books.zoho.in/api/v3/organizations",
     ];
 
     let res: Response | null = null;
     let text = "";
     for (const url of urlsToTry) {
-      res = await fetchWithProxy(url, { headers: authHeader });
+      res = await fetchWithProxy(url, { headers });
       text = await res.text();
       if (res.ok && text.trim().startsWith("{")) break;
     }
