@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
+import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
 
 /**
  * GET /api/zoho/validate
@@ -14,28 +15,23 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const token = process.env.ZOHO_BOOKS_ACCESS_TOKEN;
-    const orgId = process.env.ZOHO_BOOKS_ORG_ID;
+    let token = getEffectiveAccessToken() ?? process.env.ZOHO_BOOKS_ACCESS_TOKEN?.trim();
+    const orgId = process.env.ZOHO_BOOKS_ORG_ID?.trim();
 
-    if (!token?.trim()) {
+    if (!token) {
       return NextResponse.json(
         { valid: false, error: "ZOHO_BOOKS_ACCESS_TOKEN is not set or empty" },
         { status: 200 }
       );
     }
 
-    if (!orgId?.trim()) {
+    if (!orgId) {
       return NextResponse.json(
         { valid: false, error: "ZOHO_BOOKS_ORG_ID is not set or empty" },
         { status: 200 }
       );
     }
 
-    const headers: Record<string, string> = {
-      Authorization: "Zoho-oauthtoken " + token.trim(),
-      Accept: "application/json",
-      "User-Agent": "ProcurementPlatform/1.0 (Zoho Books API)",
-    };
     const urlsToTry = [
       "https://www.zoho.com/books/api/v3/organizations",
       "https://www.zoho.com/books/api/v3/organizations/",
@@ -45,13 +41,32 @@ export async function GET() {
       "https://books.zoho.in/api/v3/organizations",
     ];
 
-    let res: Response | null = null;
-    let text = "";
-    for (const url of urlsToTry) {
-      res = await fetchWithProxy(url, { headers });
-      text = await res.text();
-      if (res.ok && text.trim().startsWith("{")) break;
+    const makeRequest = async (accessToken: string) => {
+      const headers: Record<string, string> = {
+        Authorization: "Zoho-oauthtoken " + accessToken,
+        Accept: "application/json",
+        "User-Agent": "ProcurementPlatform/1.0 (Zoho Books API)",
+      };
+      let res: Response | null = null;
+      let text = "";
+      for (const url of urlsToTry) {
+        res = await fetchWithProxy(url, { headers });
+        text = await res.text();
+        if (res.ok && text.trim().startsWith("{")) break;
+      }
+      return { res, text };
+    };
+
+    let { res, text } = await makeRequest(token);
+    if (res?.status === 401) {
+      const newToken = await refreshZohoBooksToken();
+      if (newToken) {
+        const retried = await makeRequest(newToken);
+        res = retried.res;
+        text = retried.text;
+      }
     }
+
     if (!res) {
       return NextResponse.json(
         { valid: false, error: "No response from Zoho" },
@@ -62,7 +77,7 @@ export async function GET() {
     if (!res.ok) {
       let message = "Zoho API request failed";
       if (res.status === 401) {
-        message = "Access token is invalid or expired";
+        message = "Access token is invalid or expired (refresh failed or not configured)";
       } else if (res.status === 403) {
         message = "Access denied (check token scopes or organization access)";
       } else {

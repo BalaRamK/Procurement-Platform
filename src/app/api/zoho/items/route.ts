@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
+import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
 
 export type ZohoItemResponse = {
   name?: string;
@@ -19,8 +20,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing sku" }, { status: 400 });
   }
 
-  const token = process.env.ZOHO_BOOKS_ACCESS_TOKEN;
-  const orgId = process.env.ZOHO_BOOKS_ORG_ID;
+  let token = getEffectiveAccessToken() ?? process.env.ZOHO_BOOKS_ACCESS_TOKEN?.trim();
+  const orgId = process.env.ZOHO_BOOKS_ORG_ID?.trim();
   if (!token || !orgId) {
     return NextResponse.json(
       { error: "Zoho Books not configured" },
@@ -29,9 +30,24 @@ export async function GET(req: NextRequest) {
   }
 
   const url = `https://www.zoho.com/books/api/v3/items?organization_id=${orgId}&sku=${encodeURIComponent(sku.trim())}`;
-  const res = await fetchWithProxy(url, {
-    headers: { Authorization: "Zoho-oauthtoken " + token },
+  let res = await fetchWithProxy(url, {
+    headers: {
+      Authorization: "Zoho-oauthtoken " + token,
+      Accept: "application/json",
+    },
   });
+
+  if (res.status === 401) {
+    const newToken = await refreshZohoBooksToken();
+    if (newToken) {
+      res = await fetchWithProxy(url, {
+        headers: {
+          Authorization: "Zoho-oauthtoken " + newToken,
+          Accept: "application/json",
+        },
+      });
+    }
+  }
 
   if (!res.ok) {
     const text = await res.text();

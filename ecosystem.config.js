@@ -37,6 +37,8 @@ module.exports = {
         ZOHO_BOOKS_ORG_ID: process.env.ZOHO_BOOKS_ORG_ID,
         ZOHO_BOOKS_CLIENT_ID: process.env.ZOHO_BOOKS_CLIENT_ID,
         ZOHO_BOOKS_CLIENT_SECRET: process.env.ZOHO_BOOKS_CLIENT_SECRET,
+        ZOHO_BOOKS_REFRESH_TOKEN: process.env.ZOHO_BOOKS_REFRESH_TOKEN,
+        ZOHO_BOOKS_ACCOUNTS_SERVER: process.env.ZOHO_BOOKS_ACCOUNTS_SERVER,
       },
     },
   ],

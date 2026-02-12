@@ -85,8 +85,9 @@ Use this when you have a **Server-based Application** and want a long-lived **re
 5. **Use the response**
    - The response includes:
      - **access_token** — use for API calls (header: `Authorization: Zoho-oauthtoken {access_token}`). Valid for 1 hour.
-     - **refresh_token** — save this; use it to get new access tokens when the current one expires (no user sign-in needed).
-   - Put `access_token` in `ZOHO_BOOKS_ACCESS_TOKEN` and, for production, store `refresh_token` (e.g. in `ZOHO_BOOKS_REFRESH_TOKEN`) and implement token refresh before the access token expires.
+     - **refresh_token** — save this; the app uses it to refresh the access token automatically when it expires.
+   - Put `access_token` in `ZOHO_BOOKS_ACCESS_TOKEN` and `refresh_token` in `ZOHO_BOOKS_REFRESH_TOKEN`. Also set `ZOHO_BOOKS_CLIENT_ID` and `ZOHO_BOOKS_CLIENT_SECRET`. The app will automatically refresh the access token when a Zoho API call returns 401 (token expired).
+   - **India:** If your Zoho org is in India, set `ZOHO_BOOKS_ACCOUNTS_SERVER=https://accounts.zoho.in` so refresh uses the correct token endpoint.
 
 **Note:** The app implements the callback at `/api/zoho/callback`. Set `ZOHO_BOOKS_CLIENT_ID` and `ZOHO_BOOKS_CLIENT_SECRET` in `.env`, and set the redirect URI in the API Console to `{NEXTAUTH_URL}/api/zoho/callback` (e.g. `https://proc.qnulabs.com/api/zoho/callback`). After you sign in and approve, Zoho redirects to that URL and the app exchanges the code for tokens and shows them so you can copy into `.env`. Automatic token refresh is not implemented yet.
 
@@ -194,7 +195,7 @@ Goal: **search or select a Deal (or Account) in Zoho CRM** and autofill Project/
 - [x] Env: `ZOHO_BOOKS_ACCESS_TOKEN`, `ZOHO_BOOKS_ORG_ID`
 - [x] API route: `GET /api/zoho/items?sku=`
 - [x] Form: BOM ID / Product ID / Component name → lookup → autofill Item name, Rate, Unit
-- [ ] Optional: refresh token flow for long-lived access
+- [x] Optional: refresh token flow for long-lived access (on 401, app refreshes using ZOHO_BOOKS_REFRESH_TOKEN)
 - [ ] Optional: create Sales Order / Invoice when ticket is approved (if required)
 
 ### Zoho CRM (to implement)
