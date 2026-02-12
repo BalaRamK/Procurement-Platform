@@ -9,9 +9,12 @@ This guide covers how to integrate **Zoho Books** and **Zoho CRM** with the **Ne
 ### 1.1 What’s already in the app
 
 - **Item lookup by SKU / BOM ID / Product ID**  
-  On the New request form, when the user enters a component name or BOM/Product ID and blurs the field, the app calls Zoho Books Items API and autofills:
-  - **Item name** (Component Name)
-  - **Cost per item** (Rate)
+  On the New request form, when the user enters a component name or BOM/Product ID and blurs the field, the app calls Zoho Books Items API and autofills (Zoho Books → Platform only):
+  - **Component Name** (Zoho item name)
+  - **Product name** (same as Zoho item name)
+  - **BOM ID** and **Product ID** (from Zoho `sku`)
+  - **Cost per item ($)** (Zoho rate)
+  - **Item description** (Zoho description)
   - **Unit**
 
 - **API used:** `GET /api/zoho/items?sku=<value>`
@@ -103,28 +106,23 @@ Use this when you have a **Server-based Application** and want a long-lived **re
 7. **Validate credentials:**  
    After configuring the env vars, open the app in your browser (use the **hosted URL** when the app runs on a VM, e.g. `https://your-vm-hostname-or-ip/api/zoho/validate`). You must be logged in. The response will indicate whether the access token and organization ID are valid.
 
-### 1.3 Field mapping: Procurement Platform ↔ Zoho Books
+### 1.3 Field mapping: Zoho Books → Procurement Platform (lookup only)
 
-| Procurement Platform (New request form) | Zoho Books API / Data        | Direction   | Notes |
-|----------------------------------------|-----------------------------|------------|--------|
-| **BOM ID** / **Product ID** (search key) | Items API: `sku` query param | Form → API | Lookup by SKU; can use BOM ID or Product ID as SKU in Zoho. |
-| **Component Name** / **Item name**     | `items[].name`              | Zoho → Form | Autofill after lookup. |
-| **Cost per item** (rate)                | `items[].rate`              | Zoho → Form | Autofill. |
-| **Unit**                               | `items[].unit`              | Zoho → Form | e.g. pcs, set, box. |
-| **Quantity**                           | Form only                   | —          | User enters; not sent to Zoho in current flow. |
-| **Estimated Cost**                      | `rate × quantity` (calculated) | Form only | Not stored in Zoho Items. |
+**Flow: Zoho Books → Procurement Platform only.** Nothing from the platform is sent to Zoho Books. When the user enters a BOM ID, Product ID, or Component name and blurs the field, the app looks up the item in Zoho Books and **autofills** the form with the mapped fields below.
 
-**Zoho Books Items API response (relevant fields):**
+| Platform field (New request form) | Zoho Books source        | Notes |
+|-----------------------------------|---------------------------|--------|
+| **Component Name**                | `items[].name`            | Product/item name from Zoho. |
+| **Product name**                  | `items[].name`            | Same as Component Name (Zoho item name). |
+| **BOM ID**                        | `items[].sku`             | Filled from Zoho when lookup returns a match. |
+| **Product ID**                    | `items[].sku`             | Filled from Zoho when lookup returns a match. |
+| **Cost per item ($)**             | `items[].rate`            | Unit price from Zoho. |
+| **Item description**              | `items[].description`     | Item description from Zoho. |
+| **Unit**                          | `items[].unit`            | e.g. pcs, set, box (shown in form context). |
 
-- `items[].item_id`, `items[].name`, `items[].sku`, `items[].rate`, `items[].unit`, `items[].description`
+**Lookup:** User types BOM ID, Product ID, or Component name and blurs the field → `GET /api/zoho/items?sku=<value>` → Zoho Books Items API → form is autofilled with the fields above. Quantity and Estimated Cost are entered on the platform only (not from Zoho).
 
-**Optional future (not implemented yet):**
-
-- When a ticket is **approved/closed**, create a **Sales Order** or **Invoice** in Zoho Books and map:
-  - Ticket `title` → reference
-  - `item_name` / `component_description` → line item name
-  - `rate`, `quantity`, `unit` → line item
-  - `deal_name` / `project_customer` → customer or custom field (if you link Books to CRM).
+**Zoho Books Items API (relevant fields):** `items[].item_id`, `items[].name`, `items[].sku`, `items[].rate`, `items[].unit`, `items[].description`
 
 ---
 

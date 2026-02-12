@@ -4,11 +4,13 @@ import { authOptions } from "@/lib/auth";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
 import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
 
+/** Response shape for Zoho Books → Platform (lookup only). All fields come from Zoho Books. */
 export type ZohoItemResponse = {
   name?: string;
   rate?: number;
   unit?: string;
   sku?: string;
+  description?: string;
 };
 
 export async function GET(req: NextRequest) {
@@ -63,6 +65,7 @@ export async function GET(req: NextRequest) {
       rate?: number;
       unit?: string;
       sku?: string;
+      description?: string;
     }>;
   };
 
@@ -78,5 +81,6 @@ export async function GET(req: NextRequest) {
     rate: item.rate ?? null,
     unit: item.unit ?? null,
     sku: item.sku ?? null,
+    description: item.description ?? null,
   });
 }

@@ -159,14 +159,22 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         return;
       }
       if (data.found) {
-        setItemName(data.name ?? "");
+        const name = data.name ?? "";
+        const sku = data.sku ?? "";
+        setComponentDescription(name);
+        setItemName(name);
+        setBomId((prev) => sku || prev);
+        setProductId((prev) => sku || prev);
         setRate(data.rate != null ? String(data.rate) : "");
         setUnit(data.unit ?? "");
+        setDescription(data.description ?? "");
         setZohoLocked(true);
       } else {
         setItemName("");
+        setComponentDescription("");
         setRate("");
         setUnit("");
+        setDescription("");
         setZohoLocked(false);
       }
     } catch {
