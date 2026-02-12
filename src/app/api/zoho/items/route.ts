@@ -15,7 +15,12 @@ export type ZohoItemResponse = {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Unauthorized", code: "SESSION_REQUIRED", message: "Please sign in to use Zoho lookup." },
+      { status: 401 }
+    );
+  }
 
   const sku = req.nextUrl.searchParams.get("sku");
   if (!sku?.trim()) {
@@ -81,7 +86,12 @@ export async function GET(req: NextRequest) {
 
   if (!res.ok) {
     return NextResponse.json(
-      { error: "Zoho API error", detail: text.slice(0, 500) },
+      {
+        error: "Zoho API error",
+        code: "ZOHO_AUTH",
+        message: res.status === 401 ? "Zoho Books token expired or invalid. Refresh the token or re-run the OAuth flow." : "Zoho API request failed.",
+        detail: text.slice(0, 500),
+      },
       { status: res.status }
     );
   }

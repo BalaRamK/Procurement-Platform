@@ -158,7 +158,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       const data = (await res.json()) as Record<string, unknown>;
       setLastLookupResponse(data);
       if (!res.ok) {
-        setLookupError((data.error as string) ?? "Lookup failed");
+        const msg = (data.message as string) ?? (data.error as string) ?? "Lookup failed";
+        const code = data.code as string | undefined;
+        setLookupError(res.status === 401 && code === "SESSION_REQUIRED" ? "Please sign in to use Zoho lookup. Sign out and sign in again if the problem continues." : msg);
         return;
       }
       if (data.found) {
