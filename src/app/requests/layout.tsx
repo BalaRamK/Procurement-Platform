@@ -16,12 +16,12 @@ export default async function RequestsLayout({
     <div className="relative z-10 flex min-h-screen">
       <AppSidebar userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} />
       <main className="flex-1 overflow-auto">
-        <div className="sticky top-0 z-20 mx-auto max-w-4xl px-6 pt-6 pb-2">
-          <div className="flex items-center justify-end">
+        <header className="sticky top-0 z-20 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-slate-900/95">
+          <div className="mx-auto flex max-w-4xl items-center justify-end px-6 py-4">
             <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} />
           </div>
-        </div>
-        <div className="mx-auto max-w-4xl px-6 pb-8">{children}</div>
+        </header>
+        <div className="mx-auto max-w-4xl px-6 py-6 pb-8">{children}</div>
       </main>
     </div>
   );
