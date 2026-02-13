@@ -98,8 +98,8 @@ export async function POST(
   );
   const out = { ...comment, user: user ? { email: user.email, name: user.name } : null };
 
-  const mentionIds = [...trimmedBody.matchAll(/@\[[^\]]*\]\(([a-f0-9-]{36})\)/gi)].map((m) => m[1]);
-  const uniqueIds = [...new Set(mentionIds)];
+  const mentionIds = Array.from(trimmedBody.matchAll(/@\[[^\]]*\]\(([a-f0-9-]{36})\)/gi), (m) => m[1]);
+  const uniqueIds = Array.from(new Set(mentionIds));
   for (const userId of uniqueIds) {
     if (userId === session.user.id) continue;
     const mentioned = await queryOne<{ email: string }>("SELECT email FROM users WHERE id = $1 AND status = true", [userId]);
