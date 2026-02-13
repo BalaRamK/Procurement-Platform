@@ -14,11 +14,11 @@ export type ZohoItemResponse = {
 
 export async function GET(req: NextRequest) {
   // Use getToken with the request so cookies from this API request are used (getServerSession can miss context in Route Handlers).
-  const token = await getToken({
+  const authToken = await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
   });
-  if (!token?.email) {
+  if (!authToken?.email) {
     return NextResponse.json(
       { error: "Unauthorized", code: "SESSION_REQUIRED", message: "Please sign in to use Zoho lookup." },
       { status: 401 }
@@ -30,9 +30,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing sku" }, { status: 400 });
   }
 
-  let token = getEffectiveAccessToken() ?? process.env.ZOHO_BOOKS_ACCESS_TOKEN?.trim();
+  let zohoAccessToken = getEffectiveAccessToken() ?? process.env.ZOHO_BOOKS_ACCESS_TOKEN?.trim();
   const orgId = process.env.ZOHO_BOOKS_ORG_ID?.trim();
-  if (!token || !orgId) {
+  if (!zohoAccessToken || !orgId) {
     return NextResponse.json(
       { error: "Zoho Books not configured" },
       { status: 503 }
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
   ];
 
   const headers: Record<string, string> = {
-    Authorization: "Zoho-oauthtoken " + token,
+    Authorization: "Zoho-oauthtoken " + zohoAccessToken,
     Accept: "application/json",
     "User-Agent": "ProcurementPlatform/1.0 (Zoho Books API)",
   };
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
   let res = await fetchWithProxy(baseUrls[0] + "?" + qs, { headers });
   let text = await res.text();
   if (!res.ok || !text.trim().startsWith("{")) {
-    const result = await tryUrls(token);
+    const result = await tryUrls(zohoAccessToken);
     res = result.res;
     text = result.text;
   }
