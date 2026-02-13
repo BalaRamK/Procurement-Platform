@@ -197,7 +197,7 @@ export function TicketComments({ ticketId }: { ticketId: string }) {
             spellCheck={false}
           />
           {mentionOpen && filteredMentionUsers.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800">
+            <div className="absolute bottom-full left-0 right-0 z-20 mb-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800">
               {filteredMentionUsers.map((u, i) => (
                 <button
                   key={u.id}
