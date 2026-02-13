@@ -11,6 +11,24 @@ export type ZohoItemResponse = {
   description?: string;
 };
 
+type CachedItem = {
+  name?: string;
+  sku?: string;
+  rate?: number;
+  unit?: string;
+  description?: string;
+  purchase_rate?: number;
+  purchase_description?: string;
+  [k: string]: unknown;
+};
+
+const CACHE_TTL_MS =
+  typeof process.env.ZOHO_ITEMS_CACHE_TTL_MS !== "undefined" && process.env.ZOHO_ITEMS_CACHE_TTL_MS !== ""
+    ? parseInt(process.env.ZOHO_ITEMS_CACHE_TTL_MS, 10) || 600_000
+    : 600_000;
+
+let itemsCache: { items: CachedItem[]; expiresAt: number } | null = null;
+
 export async function GET(req: NextRequest) {
   // Use getToken with the request so cookies from this API request are used (getServerSession can miss context in Route Handlers).
   const authToken = await getToken({
@@ -48,6 +66,16 @@ export async function GET(req: NextRequest) {
   const debug = req.nextUrl.searchParams.get("debug") === "1";
   console.log("[Zoho Items] auth OK, search term=" + JSON.stringify(searchTerm));
 
+  let items: CachedItem[] | null = null;
+  let fromCache = false;
+  let zohoRawData: unknown = undefined;
+  if (CACHE_TTL_MS > 0 && itemsCache && itemsCache.expiresAt > Date.now()) {
+    items = itemsCache.items;
+    fromCache = true;
+    if (debug) console.log("[Zoho Items] Serving from cache, count=" + items.length);
+  }
+
+  if (items === null) {
   // Query: organization_id is required; use URLSearchParams so it's properly encoded.
   const listQs = new URLSearchParams({ organization_id: orgId }).toString();
 
@@ -223,7 +251,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON from Zoho", detail: text.slice(0, 200) }, { status: 502 });
   }
 
-  const items = data.items ?? [];
+  items = data.items ?? [];
+  zohoRawData = data;
+  if (CACHE_TTL_MS > 0) itemsCache = { items, expiresAt: Date.now() + CACHE_TTL_MS };
+  }
+
   const searchLower = searchTerm.toLowerCase();
   const match = items.find(
     (i) =>
@@ -248,7 +280,8 @@ export async function GET(req: NextRequest) {
         itemCount: items.length,
         itemsList,
         searchTerm,
-        zohoRaw: data,
+        source: fromCache ? "cache" : "zoho",
+        zohoRaw: zohoRawData,
       };
     }
     return NextResponse.json(body);
@@ -275,7 +308,7 @@ export async function GET(req: NextRequest) {
     description: combinedDescription || null,
   } as Record<string, unknown>;
   if (debug) {
-    payload._debug = { itemsList, itemCount: items.length, source: "list_then_filter", zohoRaw: data };
+    payload._debug = { itemsList, itemCount: items.length, source: fromCache ? "cache" : "list_then_filter", zohoRaw: zohoRawData };
   }
   return NextResponse.json(payload);
 }
