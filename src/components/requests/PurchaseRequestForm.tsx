@@ -165,11 +165,10 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       }
       if (data.found) {
         const name = (data.name as string) ?? "";
-        const skuVal = (data.sku as string) ?? "";
         setComponentDescription(name);
         setItemName(name);
-        setBomId((prev) => skuVal || prev);
-        setProductId((prev) => skuVal || prev);
+        setBomId(name);
+        setProductId("");
         setRate(data.rate != null ? String(data.rate) : "");
         setUnit((data.unit as string) ?? "");
         setDescription((data.description as string) ?? "");
@@ -177,6 +176,8 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       } else {
         setItemName("");
         setComponentDescription("");
+        setBomId("");
+        setProductId("");
         setRate("");
         setUnit("");
         setDescription("");
@@ -191,9 +192,6 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
 
   const onBomBlur = () => {
     if (bomId.trim()) lookupSku(bomId.trim());
-  };
-  const onProductBlur = () => {
-    if (productId.trim()) lookupSku(productId.trim());
   };
 
   const qtyNum = quantity ? Number(quantity) || 1 : 1;
@@ -393,11 +391,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 <input
                   type="text"
                   value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                  onBlur={onProductBlur}
-                  disabled={zohoLocked}
-                  className="input-base"
-                  placeholder="Autofill/generate if not in Zoho"
+                  readOnly
+                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
+                  placeholder="Not used"
                 />
               </FormField>
               <FormField label="Cost per item ($)" required>
@@ -406,10 +402,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   step="any"
                   min={0}
                   value={rate}
-                  onChange={(e) => !zohoLocked && setRate(e.target.value)}
-                  readOnly={zohoLocked}
-                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
-                  placeholder="Autofill/ Add manually if not in Zoho"
+                  onChange={(e) => setRate(e.target.value)}
+                  className="input-base"
+                  placeholder="From Zoho or enter manually"
                   required
                 />
               </FormField>

@@ -3,12 +3,11 @@ import { getToken } from "next-auth/jwt";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
 import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
 
-/** Response shape for Zoho Books → Platform (lookup only). All fields come from Zoho Books. */
+/** Response shape for Zoho Books → Platform (lookup only). */
 export type ZohoItemResponse = {
   name?: string;
   rate?: number;
   unit?: string;
-  sku?: string;
   description?: string;
 };
 
@@ -212,6 +211,8 @@ export async function GET(req: NextRequest) {
       rate?: number;
       unit?: string;
       description?: string;
+      purchase_rate?: number;
+      purchase_description?: string;
       [k: string]: unknown;
     }>;
   };
@@ -253,14 +254,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(body);
   }
 
+  // Cost per item: when rate is 0 or 1 use purchase_rate if present; otherwise rate.
+  const rateVal = match.rate ?? 0;
+  const purchaseRate = match.purchase_rate;
+  const costPerItem =
+    (rateVal === 0 || rateVal === 1) && purchaseRate != null ? purchaseRate : rateVal;
+
+  // Item description: combine purchase_description and description when both exist.
+  const purchaseDesc = (match.purchase_description ?? "").trim();
+  const desc = (match.description ?? "").trim();
+  const combinedDescription = [purchaseDesc, desc].filter(Boolean).join("\n\n");
+
   console.log("[Zoho Items] Data from Zoho: 1 item for search=" + JSON.stringify(searchTerm));
   const payload = {
     found: true,
     name: match.name ?? null,
-    rate: match.rate ?? null,
+    rate: costPerItem,
+    purchase_rate: match.purchase_rate ?? null,
     unit: match.unit ?? null,
-    sku: match.sku ?? null,
-    description: match.description ?? null,
+    description: combinedDescription || null,
   } as Record<string, unknown>;
   if (debug) {
     payload._debug = { itemsList, itemCount: items.length, source: "list_then_filter", zohoRaw: data };
