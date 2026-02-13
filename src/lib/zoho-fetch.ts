@@ -55,6 +55,9 @@ function isZohoapisHost(url: string): boolean {
 
 const MAX_REDIRECTS = 3;
 
+/** Timeout for Zoho API requests (ms). Keep below gateway timeout so we return a clear error. */
+const ZOHO_REQUEST_TIMEOUT_MS = 25_000;
+
 function httpsRequest(
   url: string,
   init?: RequestInit,
@@ -107,6 +110,11 @@ function httpsRequest(
         );
       });
       res.on("error", reject);
+    });
+    req.setTimeout(ZOHO_REQUEST_TIMEOUT_MS, () => {
+      if (!req.destroyed) {
+        req.destroy(new Error("Zoho request timed out"));
+      }
     });
     req.on("error", reject);
     const body = init?.body;

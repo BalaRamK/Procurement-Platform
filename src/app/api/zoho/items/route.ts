@@ -110,7 +110,18 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[Zoho Items] Request failed:", msg);
+    const isTimeout = msg.includes("timed out") || msg.includes("ETIMEDOUT");
     const isProxyRefused = msg.includes("403") || msg.includes("Proxy CONNECT refused");
+    if (isTimeout) {
+      return NextResponse.json(
+        {
+          error: "Zoho request timed out",
+          code: "ZOHO_TIMEOUT",
+          message: "Zoho API did not respond in time. Try again or check network connectivity to zohoapis.in.",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       {
         error: isProxyRefused ? "Proxy refused connection to Zoho" : "Zoho request failed",
