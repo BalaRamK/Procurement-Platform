@@ -74,7 +74,8 @@ export async function GET(req: NextRequest) {
       lastRes = r;
       lastText = t;
       if (r.ok && t.trim().startsWith("{")) return { res: r, text: t };
-      if (r.status === 401) return { res: r, text: t };
+      // Don't stop on 401: India-issued tokens are rejected by .com URLs; try .in next
+      if (r.status === 401) continue;
     }
     return { res: lastRes!, text: lastText };
   };
