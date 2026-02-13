@@ -46,22 +46,42 @@ export async function GET(req: NextRequest) {
   }
 
   const searchTerm = sku.trim();
+  const debug = req.nextUrl.searchParams.get("debug") === "1";
   console.log("[Zoho Items] auth OK, search term=" + JSON.stringify(searchTerm));
 
-  // Try old domain first (proxy often allows it); if code 9 then zohoapis. Only /books/api/v3/items is valid (Zoho returns "Invalid URL" for /books/v3/items).
-  const listQs = `organization_id=${orgId}`;
+  // Query: organization_id is required; use URLSearchParams so it's properly encoded.
+  const listQs = new URLSearchParams({ organization_id: orgId }).toString();
+
+  // Optional override: if ZOHO_BOOKS_API_BASE_URL is set, use only that (e.g. for custom/regional endpoints).
+  const baseOverride = process.env.ZOHO_BOOKS_API_BASE_URL?.trim();
+  const baseUrls: string[] = baseOverride
+    ? [`${baseOverride.replace(/\/$/, "")}/items`, `${baseOverride.replace(/\/$/, "")}/items/`]
+    : (() => {
+  // Try multiple base URLs and path variants. Zoho returns code 5 "Invalid URL Passed" if path is wrong.
+  // Old domain uses /books/api/v3/items; zohoapis may use /books/v3/items (no "api") like CRM uses /crm/v2/.
   const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
-  const baseUrls = isIndia
+  return isIndia
     ? [
         "https://www.zoho.in/books/api/v3/items",
+        "https://www.zoho.in/books/api/v3/items/",
         "https://books.zoho.in/api/v3/items",
+        "https://books.zoho.in/api/v3/items/",
         "https://www.zohoapis.in/books/api/v3/items",
+        "https://www.zohoapis.in/books/api/v3/items/",
+        "https://www.zohoapis.in/books/v3/items",
+        "https://www.zohoapis.in/books/v3/items/",
       ]
     : [
         "https://www.zoho.com/books/api/v3/items",
+        "https://www.zoho.com/books/api/v3/items/",
         "https://books.zoho.com/api/v3/items",
+        "https://books.zoho.com/api/v3/items/",
         "https://www.zohoapis.com/books/api/v3/items",
+        "https://www.zohoapis.com/books/api/v3/items/",
+        "https://www.zohoapis.com/books/v3/items",
+        "https://www.zohoapis.com/books/v3/items/",
       ];
+      })();
 
   const headers: Record<string, string> = {
     Authorization: "Zoho-oauthtoken " + zohoAccessToken,
@@ -69,12 +89,16 @@ export async function GET(req: NextRequest) {
     "User-Agent": "ProcurementPlatform/1.0 (Zoho Books API)",
   };
 
-  const fetchList = async (accessToken: string): Promise<{ res: Response; text: string }> => {
+  const fetchList = async (
+    accessToken: string
+  ): Promise<{ res: Response; text: string; lastUrl?: string }> => {
     headers.Authorization = "Zoho-oauthtoken " + accessToken;
     let lastRes: Response | null = null;
     let lastText = "";
+    let lastUrl = "";
     for (const base of baseUrls) {
       const url = `${base}?${listQs}`;
+      lastUrl = url;
       try {
         const r = await fetchWithProxy(url, { headers });
         const t = await r.text();
@@ -86,6 +110,7 @@ export async function GET(req: NextRequest) {
           try {
             const body = JSON.parse(t) as { code?: number };
             if (body.code === 9) continue; // "Use zohoapis domain" -> try next URL
+            if (body.code === 5 && debug) console.warn("[Zoho Items] Invalid URL (code 5) for:", url);
           } catch {
             /* ignore */
           }
@@ -99,10 +124,10 @@ export async function GET(req: NextRequest) {
         }
       }
     }
-    return { res: lastRes!, text: lastText };
+    return { res: lastRes!, text: lastText, lastUrl };
   };
 
-  let res: { res: Response; text: string };
+  let res: { res: Response; text: string; lastUrl?: string };
   try {
     res = await fetchList(zohoAccessToken);
   } catch (err) {
@@ -156,22 +181,26 @@ export async function GET(req: NextRequest) {
 
   if (!res.res.ok || !text.trim().startsWith("{")) {
     let code9 = false;
+    let code5 = false;
     try {
       const parsed = JSON.parse(text) as { code?: number };
       code9 = parsed.code === 9;
+      code5 = parsed.code === 5;
     } catch {
       /* ignore */
     }
     console.warn("[Zoho Items] List items failed, status:", res.res.status, "code9:", code9, "body:", text.slice(0, 200));
+    const errBody: Record<string, unknown> = {
+      error: "Zoho API error",
+      code: "ZOHO_AUTH",
+      step: "zoho",
+      reason: "Could not list items from Zoho Books",
+      message: code5 ? "Zoho returned 'Invalid URL Passed'. The API endpoint URL may be wrong for your Zoho region." : "Zoho API request failed.",
+      detail: text.slice(0, 500),
+    };
+    if (debug && "lastUrl" in res && res.lastUrl) errBody.lastTriedUrl = res.lastUrl;
     return NextResponse.json(
-      {
-        error: "Zoho API error",
-        code: "ZOHO_AUTH",
-        step: "zoho",
-        reason: "Could not list items from Zoho Books",
-        message: "Zoho API request failed.",
-        detail: text.slice(0, 500),
-      },
+      errBody,
       { status: res.res.status === 401 ? 401 : 502 }
     );
   }
