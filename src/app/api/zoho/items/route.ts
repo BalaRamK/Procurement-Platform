@@ -48,20 +48,18 @@ export async function GET(req: NextRequest) {
   const searchTerm = sku.trim();
   console.log("[Zoho Items] auth OK, search term=" + JSON.stringify(searchTerm));
 
-  // Try old domain first (proxy often allows it); if code 9 then zohoapis (proxy may block zohoapis with 403)
+  // Try old domain first (proxy often allows it); if code 9 then zohoapis. Only /books/api/v3/items is valid (Zoho returns "Invalid URL" for /books/v3/items).
   const listQs = `organization_id=${orgId}`;
   const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
   const baseUrls = isIndia
     ? [
         "https://www.zoho.in/books/api/v3/items",
         "https://books.zoho.in/api/v3/items",
-        "https://www.zohoapis.in/books/v3/items",
         "https://www.zohoapis.in/books/api/v3/items",
       ]
     : [
         "https://www.zoho.com/books/api/v3/items",
         "https://books.zoho.com/api/v3/items",
-        "https://www.zohoapis.com/books/v3/items",
         "https://www.zohoapis.com/books/api/v3/items",
       ];
 
