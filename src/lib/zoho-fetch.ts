@@ -22,6 +22,8 @@ const PROXY_ALLOWED_HOSTS = new Set([
   "accounts.zoho.eu",
   "www.zohoapis.com",
   "zohoapis.com",
+  "www.zohoapis.in",
+  "zohoapis.in",
 ]);
 
 function isUrlAllowedForProxy(url: string): boolean {

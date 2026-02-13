@@ -50,12 +50,19 @@ export async function GET(req: NextRequest) {
 
   const skuEnc = encodeURIComponent(skuTrimmed);
   const qs = `organization_id=${orgId}&sku=${skuEnc}`;
-  const baseUrls = [
-    "https://www.zoho.com/books/api/v3/items",
-    "https://www.zoho.in/books/api/v3/items",
-    "https://books.zoho.com/api/v3/items",
-    "https://books.zoho.in/api/v3/items",
-  ];
+  // Zoho requires zohoapis domain for API requests (code 9); India uses zohoapis.in
+  const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
+  const baseUrls = isIndia
+    ? [
+        "https://www.zohoapis.in/books/api/v3/items",
+        "https://www.zoho.in/books/api/v3/items",
+        "https://books.zoho.in/api/v3/items",
+      ]
+    : [
+        "https://www.zohoapis.com/books/api/v3/items",
+        "https://www.zoho.com/books/api/v3/items",
+        "https://books.zoho.com/api/v3/items",
+      ];
 
   const headers: Record<string, string> = {
     Authorization: "Zoho-oauthtoken " + zohoAccessToken,
@@ -113,11 +120,8 @@ export async function GET(req: NextRequest) {
     console.warn("[Zoho Items] Zoho returned status", res.status, "body:", text.slice(0, 400));
     if (res.status === 400) {
       // Some Zoho Books setups don't accept sku filter; list items without filter and search in-memory
-      const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
-      // When India, only try .in hosts so we don't get 200 HTML from .com doc pages
-      const listBases = isIndia
-        ? ["https://www.zoho.in/books/api/v3/items", "https://books.zoho.in/api/v3/items"]
-        : baseUrls;
+      // Use same baseUrls (zohoapis first) so we don't get code 9 or doc-page HTML
+      const listBases = baseUrls;
       const listQs = `organization_id=${orgId}`;
       let listRes: Response | null = null;
       let listText = "";

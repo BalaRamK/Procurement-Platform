@@ -31,14 +31,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const urlsToTry = [
-      "https://www.zoho.com/books/api/v3/organizations",
-      "https://www.zoho.com/books/api/v3/organizations/",
-      "https://www.zoho.in/books/api/v3/organizations",
-      "https://www.zoho.in/books/api/v3/organizations/",
-      "https://books.zoho.com/api/v3/organizations",
-      "https://books.zoho.in/api/v3/organizations",
-    ];
+    const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
+    const urlsToTry = isIndia
+      ? [
+          "https://www.zohoapis.in/books/api/v3/organizations",
+          "https://www.zoho.in/books/api/v3/organizations",
+          "https://books.zoho.in/api/v3/organizations",
+        ]
+      : [
+          "https://www.zohoapis.com/books/api/v3/organizations",
+          "https://www.zoho.com/books/api/v3/organizations",
+          "https://books.zoho.com/api/v3/organizations",
+        ];
 
     const makeRequest = async (accessToken: string) => {
       const headers: Record<string, string> = {
