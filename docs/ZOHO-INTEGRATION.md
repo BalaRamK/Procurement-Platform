@@ -104,7 +104,7 @@ Use this when you have a **Server-based Application** and want a long-lived **re
 6. **Optional — refresh token:**  
    Access tokens expire. For production, implement refresh using `ZOHO_BOOKS_REFRESH_TOKEN` and `ZOHO_BOOKS_CLIENT_ID` / `ZOHO_BOOKS_CLIENT_SECRET`, and periodically replace `ZOHO_BOOKS_ACCESS_TOKEN`.
 7. **Validate credentials:**  
-   After configuring the env vars, open the app in your browser (use the **hosted URL** when the app runs on a VM, e.g. `https://your-vm-hostname-or-ip/api/zoho/validate`). You must be logged in. The response will indicate whether the access token and organization ID are valid.
+   After configuring the env vars, open **your app’s** URL (e.g. `https://proc.qnulabs.com/api/zoho/validate`) while logged in. The app will call Zoho with your token and show whether credentials are valid. Do **not** open the raw Zoho API URL (e.g. zohoapis.com/books/...) in the browser—it requires the `Authorization` header and will return 404 without it.
 
 8. **Test token refresh (optional):**  
    To verify that automatic refresh works when the access token expires, call **GET** `https://your-domain/api/zoho/refresh` while logged in. If refresh is configured correctly (refresh token, client ID, client secret, and correct `ZOHO_BOOKS_ACCOUNTS_SERVER` for your region), the response will be `{ "success": true, "message": "Token refreshed successfully" }`. Otherwise you get `success: false` with `error` and `hint`.

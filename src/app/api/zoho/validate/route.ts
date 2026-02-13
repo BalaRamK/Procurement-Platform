@@ -32,19 +32,15 @@ export async function GET(req: NextRequest) {
     }
 
     const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
-    // Old domain first; zohoapis returns 404 in some setups, so try /books/v3/ and /books/api/v3/ as fallbacks
+    // Use current Books API domains; zohoapis.com/in return 404 for Books in many setups
     const urlsToTry = isIndia
       ? [
           "https://www.zoho.in/books/api/v3/organizations",
           "https://books.zoho.in/api/v3/organizations",
-          "https://www.zohoapis.in/books/v3/organizations",
-          "https://www.zohoapis.in/books/api/v3/organizations",
         ]
       : [
           "https://www.zoho.com/books/api/v3/organizations",
           "https://books.zoho.com/api/v3/organizations",
-          "https://www.zohoapis.com/books/v3/organizations",
-          "https://www.zohoapis.com/books/api/v3/organizations",
         ];
 
     const makeRequest = async (accessToken: string) => {
