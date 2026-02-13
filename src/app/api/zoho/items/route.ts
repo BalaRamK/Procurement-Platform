@@ -19,10 +19,16 @@ export async function GET(req: NextRequest) {
     secret: process.env.NEXTAUTH_SECRET,
   });
   if (!authToken?.email) {
-    return NextResponse.json(
-      { error: "Unauthorized", code: "SESSION_REQUIRED", message: "Please sign in to use Zoho lookup." },
-      { status: 401 }
-    );
+    console.warn("[Zoho Items] 401: no session (not signed in or cookies not sent)");
+    const body: Record<string, unknown> = {
+      error: "Unauthorized",
+      code: "SESSION_REQUIRED",
+      step: "auth",
+      reason: "Not signed in or session not sent with request",
+      message: "Please sign in to use Zoho lookup.",
+    };
+    if (req.nextUrl.searchParams.get("debug") === "1") body._debug = { step: "auth", zohoCalled: false };
+    return NextResponse.json(body, { status: 401 });
   }
 
   const sku = req.nextUrl.searchParams.get("sku");
@@ -39,7 +45,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const skuEnc = encodeURIComponent(sku.trim());
+  const skuTrimmed = sku.trim();
+  console.log("[Zoho Items] auth OK, calling Zoho Books API for sku=" + JSON.stringify(skuTrimmed));
+
+  const skuEnc = encodeURIComponent(skuTrimmed);
   const qs = `organization_id=${orgId}&sku=${skuEnc}`;
   const baseUrls = [
     "https://www.zoho.com/books/api/v3/items",
@@ -85,28 +94,34 @@ export async function GET(req: NextRequest) {
       res = result.res;
       text = result.text;
     } else {
-      return NextResponse.json(
-        {
-          error: refreshResult.error ?? "Zoho Books token expired or invalid",
-          code: "ZOHO_AUTH",
-          message: refreshResult.hint ?? "Set ZOHO_BOOKS_REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET or re-run OAuth to get a new token.",
-          hint: refreshResult.hint,
-        },
-        { status: 401 }
-      );
+      console.warn("[Zoho Items] 401: Zoho rejected token; refresh failed:", refreshResult.error);
+      const body: Record<string, unknown> = {
+        error: refreshResult.error ?? "Zoho Books token expired or invalid",
+        code: "ZOHO_AUTH",
+        step: "zoho",
+        reason: "Zoho API returned 401; token refresh failed or not configured",
+        message: refreshResult.hint ?? "Set ZOHO_BOOKS_REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET or re-run OAuth to get a new token.",
+        hint: refreshResult.hint,
+      };
+      if (req.nextUrl.searchParams.get("debug") === "1") body._debug = { step: "zoho", zohoCalled: true, refreshFailed: true };
+      return NextResponse.json(body, { status: 401 });
     }
   }
 
   if (!res.ok) {
-    return NextResponse.json(
-      {
-        error: "Zoho API error",
-        code: "ZOHO_AUTH",
-        message: res.status === 401 ? "Zoho Books token expired or invalid. Refresh the token or re-run the OAuth flow." : "Zoho API request failed.",
-        detail: text.slice(0, 500),
-      },
-      { status: res.status }
-    );
+    if (res.status === 401) {
+      console.warn("[Zoho Items] Zoho API returned 401 after refresh retry");
+    }
+    const body: Record<string, unknown> = {
+      error: "Zoho API error",
+      code: "ZOHO_AUTH",
+      step: "zoho",
+      reason: res.status === 401 ? "Zoho rejected the request (token or org)" : "Zoho API request failed",
+      message: res.status === 401 ? "Zoho Books token expired or invalid. Refresh the token or re-run the OAuth flow." : "Zoho API request failed.",
+      detail: text.slice(0, 500),
+    };
+    if (req.nextUrl.searchParams.get("debug") === "1") body._debug = { step: "zoho", zohoCalled: true, zohoStatus: res.status };
+    return NextResponse.json(body, { status: res.status });
   }
 
   // Zoho sometimes returns HTML (error page, redirect, doc page) with 200 – don't parse as JSON
@@ -153,6 +168,7 @@ export async function GET(req: NextRequest) {
 
   const items = data.items ?? [];
   const item = items[0];
+  console.log("[Zoho Items] Data from Zoho: " + (items.length ? `${items.length} item(s) for sku=${skuTrimmed}` : `0 items for sku=${skuTrimmed}`));
   if (!item) {
     const body = { found: false } as Record<string, unknown>;
     if (req.nextUrl.searchParams.get("debug") === "1") body._debug = { zohoRaw: data };
