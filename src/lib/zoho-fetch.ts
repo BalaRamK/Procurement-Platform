@@ -68,7 +68,7 @@ function httpsRequest(
     const u = new URL(url);
     const agent = useProxy ? getProxyAgent() : undefined;
     const path = u.pathname + u.search;
-    const requestHeaders: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) } || {};
+    const requestHeaders: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) };
     requestHeaders.Host = u.hostname;
     const options: import("https").RequestOptions = {
       hostname: u.hostname,
