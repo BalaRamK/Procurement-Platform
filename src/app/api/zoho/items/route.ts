@@ -114,18 +114,31 @@ export async function GET(req: NextRequest) {
     if (res.status === 400) {
       // Some Zoho Books setups don't accept sku filter; list items without filter and search in-memory
       const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
-      const listOrder = isIndia ? [...baseUrls].reverse() : baseUrls; // try .in first when India
+      // When India, only try .in hosts so we don't get 200 HTML from .com doc pages
+      const listBases = isIndia
+        ? ["https://www.zoho.in/books/api/v3/items", "https://books.zoho.in/api/v3/items"]
+        : baseUrls;
       const listQs = `organization_id=${orgId}`;
       let listRes: Response | null = null;
       let listText = "";
-      console.log("[Zoho Items] 400 fallback: listing items (no sku filter), try order:", listOrder.map((u) => new URL(u).hostname).join(", "));
-      for (const base of listOrder) {
+      console.log("[Zoho Items] 400 fallback: listing items (no sku filter), try:", listBases.map((u) => new URL(u).hostname).join(", "));
+      for (const base of listBases) {
         const listUrl = `${base}?${listQs}`;
-        listRes = await fetchWithProxy(listUrl, { headers });
-        listText = await listRes.text();
-        console.log("[Zoho Items] Fallback list", new URL(base).hostname, "status:", listRes.status, "body length:", listText.length);
-        if (listRes.ok && listText.trim().startsWith("{")) break;
-        if (listRes.status === 401) continue;
+        const r = await fetchWithProxy(listUrl, { headers });
+        const t = await r.text();
+        const isJson = t.trim().startsWith("{");
+        const isHtml = t.trim().startsWith("<");
+        console.log("[Zoho Items] Fallback list", new URL(base).hostname, "status:", r.status, "json:", isJson, "html:", isHtml);
+        if (r.ok && isJson) {
+          listRes = r;
+          listText = t;
+          break;
+        }
+        // Only remember non-HTML responses (401, 400, etc.) so we don't report doc page as "last"
+        if (!r.ok || !isHtml) {
+          listRes = r;
+          listText = t;
+        }
       }
       if (listRes?.ok && listText.trim().startsWith("{")) {
         try {
