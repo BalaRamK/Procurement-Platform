@@ -27,5 +27,6 @@ export async function GET(req: NextRequest) {
     success: false,
     error: result.error,
     hint: result.hint,
+    diagnostics: result.diagnostics,
   });
 }

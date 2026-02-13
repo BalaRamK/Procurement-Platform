@@ -20,8 +20,20 @@ export function getEffectiveAccessToken(): string | null {
 }
 
 export type RefreshResult =
-  | { token: string; error?: never; hint?: never }
-  | { token: null; error: string; hint?: string };
+  | { token: string; error?: never; hint?: never; diagnostics?: never }
+  | {
+      token: null;
+      error: string;
+      hint?: string;
+      /** When error is invalid_client_secret, helps verify env is loaded correctly (no secret value exposed). */
+      diagnostics?: {
+        clientIdLength: number;
+        clientSecretLength: number;
+        accountsServer: string;
+        hasClientSecretNewline: boolean;
+        note: string;
+      };
+    };
 
 /**
  * Refreshes the Zoho Books access token using the refresh token.
@@ -96,10 +108,29 @@ export async function refreshZohoBooksToken(): Promise<RefreshResult> {
     const zohoError = data.error ?? `HTTP ${res.status}`;
     const zohoDesc = data.error_description ?? text.slice(0, 150);
     console.error("[Zoho Refresh] Zoho error:", zohoError, zohoDesc);
+
+    const isInvalidSecret = zohoError === "invalid_client_secret" || zohoError === "invalid_client";
+    const rawSecret = process.env.ZOHO_BOOKS_CLIENT_SECRET ?? "";
+    const diagnostics = isInvalidSecret
+      ? {
+          clientIdLength: (process.env.ZOHO_BOOKS_CLIENT_ID ?? "").length,
+          clientSecretLength: rawSecret.length,
+          accountsServer: process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.trim() || "https://accounts.zoho.com (default)",
+          hasClientSecretNewline: rawSecret.includes("\n") || rawSecret.includes("\r"),
+          note: "Verify: (1) Client secret is from the same Zoho app as Client ID. (2) No extra newline when pasting in .env / ecosystem. (3) If in ecosystem.config.js, escape quotes/backslashes in the value. (4) For India org use ZOHO_BOOKS_ACCOUNTS_SERVER=https://accounts.zoho.in",
+        }
+      : undefined;
+
+    const hintMessage =
+      zohoDesc ||
+      (res.status === 401 ? "Refresh token may be expired or revoked. Re-run the OAuth flow to get a new refresh token." : undefined) ||
+      (diagnostics ? "See diagnostics below to verify your env (client ID/secret lengths, newlines, accounts server)." : undefined);
+
     return {
       token: null,
       error: zohoError,
-      hint: zohoDesc || (res.status === 401 ? "Refresh token may be expired or revoked. Re-run the OAuth flow to get a new refresh token." : undefined),
+      hint: hintMessage,
+      diagnostics,
     };
   }
 
