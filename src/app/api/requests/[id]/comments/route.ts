@@ -60,8 +60,8 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string }>(
-    "SELECT requester_id AS \"requesterId\" FROM tickets WHERE id = $1",
+  const ticket = await queryOne<{ requesterId: string; title: string }>(
+    "SELECT requester_id AS \"requesterId\", title FROM tickets WHERE id = $1",
     [ticketId]
   );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -98,7 +98,6 @@ export async function POST(
   );
   const out = { ...comment, user: user ? { email: user.email, name: user.name } : null };
 
-  const ticket = await queryOne<{ title: string }>("SELECT title FROM tickets WHERE id = $1", [ticketId]);
   const mentionIds = [...trimmedBody.matchAll(/@\[[^\]]*\]\(([a-f0-9-]{36})\)/gi)].map((m) => m[1]);
   const uniqueIds = [...new Set(mentionIds)];
   for (const userId of uniqueIds) {
@@ -109,7 +108,7 @@ export async function POST(
         ticketId,
         type: "comment_mention",
         recipient: mentioned.email,
-        payload: { title: ticket?.title ?? "", commentSnippet: trimmedBody.slice(0, 100) },
+        payload: { title: ticket.title ?? "", commentSnippet: trimmedBody.slice(0, 100) },
       });
     }
   }
