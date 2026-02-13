@@ -48,15 +48,19 @@ export async function GET(req: NextRequest) {
   const searchTerm = sku.trim();
   console.log("[Zoho Items] auth OK, search term=" + JSON.stringify(searchTerm));
 
-  // Zoho Books List Items often returns 400 when using ?sku=; use list (no sku) then filter by name/sku in code
+  // Zoho Books: org may enforce zohoapis (code 9). Try zohoapis first; path may be /books/v3/ or /books/api/v3/
   const listQs = `organization_id=${orgId}`;
   const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
   const baseUrls = isIndia
     ? [
+        "https://www.zohoapis.in/books/v3/items",
+        "https://www.zohoapis.in/books/api/v3/items",
         "https://www.zoho.in/books/api/v3/items",
         "https://books.zoho.in/api/v3/items",
       ]
     : [
+        "https://www.zohoapis.com/books/v3/items",
+        "https://www.zohoapis.com/books/api/v3/items",
         "https://www.zoho.com/books/api/v3/items",
         "https://books.zoho.com/api/v3/items",
       ];
@@ -79,6 +83,14 @@ export async function GET(req: NextRequest) {
       lastText = t;
       if (r.ok && t.trim().startsWith("{")) return { res: r, text: t };
       if (r.status === 401) continue;
+      if (r.status === 400) {
+        try {
+          const body = JSON.parse(t) as { code?: number };
+          if (body.code === 9) continue; // "Use zohoapis domain" -> try next URL
+        } catch {
+          /* ignore */
+        }
+      }
     }
     return { res: lastRes!, text: lastText };
   };
@@ -108,7 +120,14 @@ export async function GET(req: NextRequest) {
   }
 
   if (!res.res.ok || !text.trim().startsWith("{")) {
-    console.warn("[Zoho Items] List items failed, status:", res.res.status, "body:", text.slice(0, 300));
+    let code9 = false;
+    try {
+      const parsed = JSON.parse(text) as { code?: number };
+      code9 = parsed.code === 9;
+    } catch {
+      /* ignore */
+    }
+    console.warn("[Zoho Items] List items failed, status:", res.res.status, "code9:", code9, "body:", text.slice(0, 200));
     return NextResponse.json(
       {
         error: "Zoho API error",
