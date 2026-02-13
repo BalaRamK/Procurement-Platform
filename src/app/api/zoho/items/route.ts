@@ -230,10 +230,26 @@ export async function GET(req: NextRequest) {
       (i.sku ?? "").toLowerCase().includes(searchLower)
   );
 
+  // Build a concise list of items for debug (name, sku, rate) so caller can see what Zoho returned.
+  const itemsList = items.slice(0, 500).map((i) => ({
+    name: i.name ?? null,
+    sku: i.sku ?? null,
+    rate: i.rate ?? null,
+    unit: i.unit ?? null,
+  }));
+
   if (!match) {
-    console.log("[Zoho Items] No item matched search in", items.length, "items");
+    const sample = items.slice(0, 10).map((i) => ({ name: i.name, sku: i.sku }));
+    console.log("[Zoho Items] No item matched search in", items.length, "items. Sample:", JSON.stringify(sample));
     const body = { found: false } as Record<string, unknown>;
-    if (req.nextUrl.searchParams.get("debug") === "1") body._debug = { zohoRaw: data, itemCount: items.length };
+    if (debug) {
+      body._debug = {
+        itemCount: items.length,
+        itemsList,
+        searchTerm,
+        zohoRaw: data,
+      };
+    }
     return NextResponse.json(body);
   }
 
@@ -246,6 +262,8 @@ export async function GET(req: NextRequest) {
     sku: match.sku ?? null,
     description: match.description ?? null,
   } as Record<string, unknown>;
-  if (req.nextUrl.searchParams.get("debug") === "1") payload._debug = { zohoRaw: data, source: "list_then_filter" };
+  if (debug) {
+    payload._debug = { itemsList, itemCount: items.length, source: "list_then_filter", zohoRaw: data };
+  }
   return NextResponse.json(payload);
 }
