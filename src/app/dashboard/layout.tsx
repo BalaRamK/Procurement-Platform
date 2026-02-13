@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { TopBarUser } from "@/components/layout/TopBarUser";
 
 export default async function DashboardLayout({
   children,
@@ -26,6 +27,7 @@ export default async function DashboardLayout({
               </Suspense>
             </div>
             <NotificationBell />
+            <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} />
           </div>
         </div>
         <div className="mx-auto max-w-6xl px-6 pb-8">{children}</div>

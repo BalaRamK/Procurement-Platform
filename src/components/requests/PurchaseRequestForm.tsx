@@ -602,48 +602,60 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
           </button>
         </div>
 
-        {/* Map Flow – shown when Team is set; includes name/email per step */}
+        {/* Map Flow – timeline when Team is set */}
         {teamName && (
-          <SectionCard title="Map Flow">
-            <div className="flex flex-wrap items-center justify-center gap-2 py-4 sm:gap-4">
-              {TEAM_FLOW_STEPS[teamName].map((label, i) => {
-                const isLast = i === TEAM_FLOW_STEPS[teamName].length - 1;
-                let nameEmail = "";
-                if (i === 0) {
-                  nameEmail = requesterNameVal ? `${requesterNameVal} (${requesterEmail})` : requesterEmail || "—";
-                } else if (i === 1 && flowAssignees?.functionalHead) {
-                  nameEmail = flowAssignees.functionalHead.name
-                    ? `${flowAssignees.functionalHead.name} (${flowAssignees.functionalHead.email})`
-                    : flowAssignees.functionalHead.email;
-                } else if (i === 2 && flowAssignees?.l1Approver) {
-                  nameEmail = flowAssignees.l1Approver.name
-                    ? `${flowAssignees.l1Approver.name} (${flowAssignees.l1Approver.email})`
-                    : flowAssignees.l1Approver.email;
-                } else if (i === 3) {
-                  const last = teamName === "SALES" ? flowAssignees?.cdo : flowAssignees?.cfo;
-                  nameEmail = last
-                    ? (last.name ? `${last.name} (${last.email})` : last.email)
-                    : "—";
-                }
-                return (
-                  <div key={i} className="flex items-center gap-2 sm:gap-4">
-                    <div
-                      className="flex min-w-0 max-w-[140px] flex-col items-center justify-center rounded-2xl border-2 border-white/30 bg-white/20 px-2 py-3 dark:border-white/10 dark:bg-white/5 sm:max-w-[180px] sm:px-3"
-                      title={label + (nameEmail ? ": " + nameEmail : "")}
-                    >
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-300 sm:text-xs">
-                        {label}
-                      </span>
-                      <span className="mt-0.5 truncate text-center text-[10px] text-slate-500 dark:text-slate-400 sm:text-xs">
-                        {nameEmail || "—"}
-                      </span>
+          <SectionCard title="Approval flow">
+            <div className="relative py-6">
+              <div className="pointer-events-none absolute left-0 right-0 top-1/2 z-0 hidden min-[900px]:block" aria-hidden>
+                <div className="mx-auto h-px max-w-[85%] bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-600" />
+              </div>
+              <div className="relative z-10 flex flex-wrap items-stretch justify-center gap-4 min-[900px]:gap-2">
+                {TEAM_FLOW_STEPS[teamName].map((label, i) => {
+                  const isLast = i === TEAM_FLOW_STEPS[teamName].length - 1;
+                  let nameEmail = "";
+                  if (i === 0) {
+                    nameEmail = requesterNameVal ? `${requesterNameVal} (${requesterEmail})` : requesterEmail || "—";
+                  } else if (i === 1 && flowAssignees?.functionalHead) {
+                    nameEmail = flowAssignees.functionalHead.name
+                      ? `${flowAssignees.functionalHead.name} (${flowAssignees.functionalHead.email})`
+                      : flowAssignees.functionalHead.email;
+                  } else if (i === 2 && flowAssignees?.l1Approver) {
+                    nameEmail = flowAssignees.l1Approver.name
+                      ? `${flowAssignees.l1Approver.name} (${flowAssignees.l1Approver.email})`
+                      : flowAssignees.l1Approver.email;
+                  } else if (i === 3) {
+                    const last = teamName === "SALES" ? flowAssignees?.cdo : flowAssignees?.cfo;
+                    nameEmail = last
+                      ? (last.name ? `${last.name} (${last.email})` : last.email)
+                      : "—";
+                  }
+                  return (
+                    <div key={i} className="flex min-w-0 max-w-[220px] flex-1 items-center min-[900px]:max-w-[200px]">
+                      <div
+                        className="relative z-10 flex w-full min-w-0 flex-col rounded-xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 shadow-sm transition hover:border-primary-300 hover:bg-slate-50 dark:border-slate-600/60 dark:bg-slate-800/60 dark:hover:border-primary-500 dark:hover:bg-slate-800/80"
+                        title={label + (nameEmail ? ": " + nameEmail : "")}
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-900/50 dark:text-primary-300">
+                          {i + 1}
+                        </span>
+                        <span className="mt-2 block text-xs font-semibold uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                          {label}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-slate-500 dark:text-slate-400" title={nameEmail || undefined}>
+                          {nameEmail || "—"}
+                        </span>
+                      </div>
+                      {!isLast && (
+                        <div className="hidden shrink-0 items-center px-2 min-[900px]:flex" aria-hidden>
+                          <svg className="h-5 w-5 text-slate-300 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                        </div>
+                      )}
                     </div>
-                    {!isLast && (
-                      <span className="text-slate-400 dark:text-slate-500" aria-hidden>&#8594;</span>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </SectionCard>
         )}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
+import { getAssigneesForTeam, getProductionEmails } from "@/lib/assignees";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
@@ -128,7 +129,17 @@ export async function PATCH(
     const initialStatus: TicketStatus =
       ticket.teamName === "SALES" ? "PENDING_L1_APPROVAL" : "PENDING_FH_APPROVAL";
     await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [initialStatus, id]);
-    await logNotification({ ticketId: id, type: "assignment", recipient: "agent", payload: { status: initialStatus } });
+    const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
+    const firstApprover =
+      initialStatus === "PENDING_L1_APPROVAL" ? assignees.l1Approver : assignees.functionalHead;
+    if (firstApprover?.email) {
+      await logNotification({
+        ticketId: id,
+        type: "assignment",
+        recipient: firstApprover.email,
+        payload: { status: initialStatus, title: ticket.title },
+      });
+    }
     return NextResponse.json({ ok: true, status: initialStatus });
   }
 
@@ -210,13 +221,36 @@ export async function PATCH(
 
   await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [nextStatus, id]);
 
+  const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
   if (nextStatus === "ASSIGNED_TO_PRODUCTION") {
-    await logNotification({
-      ticketId: id,
-      type: "team_assignment",
-      recipient: "production_team",
-      payload: { title: ticket.title },
-    });
+    const productionEmails = await getProductionEmails();
+    for (const email of productionEmails) {
+      await logNotification({
+        ticketId: id,
+        type: "team_assignment",
+        recipient: email,
+        payload: { title: ticket.title, status: nextStatus },
+      });
+    }
+  } else {
+    const nextAssignee =
+      nextStatus === "PENDING_FH_APPROVAL"
+        ? assignees.functionalHead
+        : nextStatus === "PENDING_L1_APPROVAL"
+          ? assignees.l1Approver
+          : nextStatus === "PENDING_CFO_APPROVAL"
+            ? assignees.cfo
+            : nextStatus === "PENDING_CDO_APPROVAL"
+              ? assignees.cdo
+              : null;
+    if (nextAssignee?.email) {
+      await logNotification({
+        ticketId: id,
+        type: "assignment",
+        recipient: nextAssignee.email,
+        payload: { status: nextStatus, title: ticket.title },
+      });
+    }
   }
 
   return NextResponse.json({ ok: true, status: nextStatus });
