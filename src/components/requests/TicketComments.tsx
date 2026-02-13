@@ -176,6 +176,7 @@ export function TicketComments({ ticketId }: { ticketId: string }) {
           className="input-base min-h-[80px]"
           placeholder="Add a comment… Type @ to mention someone"
           rows={2}
+          spellCheck={false}
         />
         {mentionOpen && filteredMentionUsers.length > 0 && (
           <div className="absolute left-6 right-6 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800">
