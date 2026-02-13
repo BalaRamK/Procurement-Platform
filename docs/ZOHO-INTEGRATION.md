@@ -130,6 +130,17 @@ Use this when you have a **Server-based Application** and want a long-lived **re
 
 **Zoho Books Items API (relevant fields):** `items[].item_id`, `items[].name`, `items[].sku`, `items[].rate`, `items[].unit`, `items[].description`
 
+### 1.4 Troubleshooting: 504 Gateway Timeout on item lookup
+
+If the browser shows **504 Gateway Timeout** when looking up an item (e.g. on blur of Component name) but the **server logs** show that Zoho returned data (e.g. `[Zoho Items] Data from Zoho: 1 item`), the **reverse proxy or load balancer** in front of the app is closing the connection before the app can respond. Zoho’s API can be slow (often 20–60+ seconds), so the proxy’s timeout must be long enough.
+
+**What to do:**
+
+1. **Raise the proxy timeout** for the Zoho API routes (e.g. `/api/zoho/*`). Examples:
+   - **Nginx:** `proxy_read_timeout 90s;` (in `location` for the app or for `/api/zoho/`).
+   - **Cloud load balancers:** Set the backend timeout to at least 90 seconds for the app.
+2. **Optional:** Increase the app’s Zoho request timeout so the app waits longer for Zoho before returning 503: set `ZOHO_REQUEST_TIMEOUT_MS=60000` (or higher) in the app’s environment. Default is 20 seconds.
+
 ---
 
 ## 2. Zoho CRM integration

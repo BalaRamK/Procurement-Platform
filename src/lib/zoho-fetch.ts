@@ -55,8 +55,11 @@ function isZohoapisHost(url: string): boolean {
 
 const MAX_REDIRECTS = 3;
 
-/** Timeout for Zoho API requests (ms). Keep below gateway timeout so we return a clear error. */
-const ZOHO_REQUEST_TIMEOUT_MS = 25_000;
+/** Timeout for Zoho API requests (ms). Set ZOHO_REQUEST_TIMEOUT_MS in env to override. Keep below gateway timeout. */
+const ZOHO_REQUEST_TIMEOUT_MS =
+  typeof process.env.ZOHO_REQUEST_TIMEOUT_MS !== "undefined" && process.env.ZOHO_REQUEST_TIMEOUT_MS !== ""
+    ? Math.max(5000, parseInt(process.env.ZOHO_REQUEST_TIMEOUT_MS, 10) || 20_000)
+    : 20_000;
 
 function httpsRequest(
   url: string,
