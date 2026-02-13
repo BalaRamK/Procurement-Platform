@@ -43,6 +43,7 @@ export function TicketComments({ ticketId }: { ticketId: string }) {
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionStart, setMentionStart] = useState(0);
   const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentions, setMentions] = useState<{ displayName: string; userId: string }[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -70,10 +71,12 @@ export function TicketComments({ ticketId }: { ticketId: string }) {
   const selectedUser = filteredMentionUsers[mentionIndex] ?? null;
 
   const insertMention = useCallback((user: MentionUser) => {
-    const insert = `@[${user.name || user.email}](${user.id})`;
+    const displayName = user.name || user.email || "user";
+    const insert = `@${displayName} `;
     const start = mentionStart;
     const queryLen = mentionQuery.length + 1;
     setBody((prev) => prev.slice(0, start) + insert + prev.slice(start + queryLen));
+    setMentions((prev) => [...prev, { displayName, userId: user.id }]);
     setMentionOpen(false);
     setMentionQuery("");
     setMentionIndex(0);
@@ -122,20 +125,34 @@ export function TicketComments({ ticketId }: { ticketId: string }) {
     }
   }
 
+  function buildBodyWithMentionIds(): string {
+    let out = body.trim();
+    for (const m of mentions) {
+      const needle = "@" + m.displayName;
+      const idx = out.indexOf(needle);
+      if (idx !== -1) {
+        out = out.slice(0, idx) + `@[${m.displayName}](${m.userId})` + out.slice(idx + needle.length);
+      }
+    }
+    return out;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!body.trim()) return;
     setSubmitting(true);
     try {
+      const bodyToSend = buildBodyWithMentionIds();
       const res = await fetch("/api/requests/" + ticketId + "/comments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: body.trim() }),
+        body: JSON.stringify({ body: bodyToSend }),
       });
       if (!res.ok) throw new Error("Failed");
       const comment = await res.json();
       setComments((prev) => [...prev, comment]);
       setBody("");
+      setMentions([]);
       setMentionOpen(false);
       router.refresh();
     } finally {
@@ -167,36 +184,37 @@ export function TicketComments({ ticketId }: { ticketId: string }) {
           ))
         )}
       </div>
-      <form onSubmit={handleSubmit} className="card-header relative border-t border-white/25 px-6 py-4 dark:border-white/10">
-        <textarea
-          ref={textareaRef}
-          value={body}
-          onChange={handleBodyChange}
-          onKeyDown={handleKeyDown}
-          className="input-base min-h-[80px]"
-          placeholder="Add a comment… Type @ to mention someone"
-          rows={2}
-          spellCheck={false}
-        />
-        {mentionOpen && filteredMentionUsers.length > 0 && (
-          <div className="absolute left-6 right-6 top-full z-10 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800">
-            {filteredMentionUsers.map((u, i) => (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => insertMention(u)}
-                className={`block w-full px-4 py-2.5 text-left text-sm transition ${
-                  i === mentionIndex
-                    ? "bg-primary-100 text-primary-900 dark:bg-primary-900/40 dark:text-primary-100"
-                    : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/50"
-                }`}
-              >
-                <span className="font-medium">{u.name || u.email}</span>
-                {u.name && <span className="ml-1.5 text-slate-500 dark:text-slate-400">{u.email}</span>}
-              </button>
-            ))}
-          </div>
-        )}
+      <form onSubmit={handleSubmit} className="card-header border-t border-white/25 px-6 py-4 dark:border-white/10">
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={body}
+            onChange={handleBodyChange}
+            onKeyDown={handleKeyDown}
+            className="input-base min-h-[80px]"
+            placeholder="Add a comment… Type @ to mention someone"
+            rows={2}
+            spellCheck={false}
+          />
+          {mentionOpen && filteredMentionUsers.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800">
+              {filteredMentionUsers.map((u, i) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => insertMention(u)}
+                  className={`block w-full px-4 py-2.5 text-left text-sm transition ${
+                    i === mentionIndex
+                      ? "bg-primary-100 text-primary-900 dark:bg-primary-900/40 dark:text-primary-100"
+                      : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/50"
+                  }`}
+                >
+                  <span className="font-medium">{u.name || u.email}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button type="submit" disabled={submitting || !body.trim()} className="btn-primary mt-3">
           {submitting ? "Sending…" : "Add comment"}
         </button>
