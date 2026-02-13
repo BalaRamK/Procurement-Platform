@@ -48,21 +48,21 @@ export async function GET(req: NextRequest) {
   const searchTerm = sku.trim();
   console.log("[Zoho Items] auth OK, search term=" + JSON.stringify(searchTerm));
 
-  // Zoho Books: org may enforce zohoapis (code 9). Try zohoapis first; path may be /books/v3/ or /books/api/v3/
+  // Try old domain first (proxy often allows it); if code 9 then zohoapis (proxy may block zohoapis with 403)
   const listQs = `organization_id=${orgId}`;
   const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
   const baseUrls = isIndia
     ? [
-        "https://www.zohoapis.in/books/v3/items",
-        "https://www.zohoapis.in/books/api/v3/items",
         "https://www.zoho.in/books/api/v3/items",
         "https://books.zoho.in/api/v3/items",
+        "https://www.zohoapis.in/books/v3/items",
+        "https://www.zohoapis.in/books/api/v3/items",
       ]
     : [
-        "https://www.zohoapis.com/books/v3/items",
-        "https://www.zohoapis.com/books/api/v3/items",
         "https://www.zoho.com/books/api/v3/items",
         "https://books.zoho.com/api/v3/items",
+        "https://www.zohoapis.com/books/v3/items",
+        "https://www.zohoapis.com/books/api/v3/items",
       ];
 
   const headers: Record<string, string> = {
@@ -77,25 +77,51 @@ export async function GET(req: NextRequest) {
     let lastText = "";
     for (const base of baseUrls) {
       const url = `${base}?${listQs}`;
-      const r = await fetchWithProxy(url, { headers });
-      const t = await r.text();
-      lastRes = r;
-      lastText = t;
-      if (r.ok && t.trim().startsWith("{")) return { res: r, text: t };
-      if (r.status === 401) continue;
-      if (r.status === 400) {
-        try {
-          const body = JSON.parse(t) as { code?: number };
-          if (body.code === 9) continue; // "Use zohoapis domain" -> try next URL
-        } catch {
-          /* ignore */
+      try {
+        const r = await fetchWithProxy(url, { headers });
+        const t = await r.text();
+        lastRes = r;
+        lastText = t;
+        if (r.ok && t.trim().startsWith("{")) return { res: r, text: t };
+        if (r.status === 401) continue;
+        if (r.status === 400) {
+          try {
+            const body = JSON.parse(t) as { code?: number };
+            if (body.code === 9) continue; // "Use zohoapis domain" -> try next URL
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("403") || msg.includes("Proxy CONNECT refused")) {
+          console.warn("[Zoho Items] Proxy refused (403) for", new URL(base).hostname, "- try next URL or add zohoapis to NO_PROXY");
+        } else {
+          throw err;
         }
       }
     }
     return { res: lastRes!, text: lastText };
   };
 
-  let res = await fetchList(zohoAccessToken);
+  let res: { res: Response; text: string };
+  try {
+    res = await fetchList(zohoAccessToken);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[Zoho Items] Request failed:", msg);
+    const isProxyRefused = msg.includes("403") || msg.includes("Proxy CONNECT refused");
+    return NextResponse.json(
+      {
+        error: isProxyRefused ? "Proxy refused connection to Zoho" : "Zoho request failed",
+        code: "ZOHO_NETWORK",
+        message: isProxyRefused
+          ? "Your proxy returned 403 for Zoho. Try adding zohoapis.in,zohoapis.com,www.zoho.in,books.zoho.in to NO_PROXY, or ask your network team to allow these hosts."
+          : msg,
+      },
+      { status: 502 }
+    );
+  }
   let text = res.text;
 
   if (res.res.status === 401) {
