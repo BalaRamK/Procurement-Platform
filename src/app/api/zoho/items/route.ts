@@ -110,14 +110,59 @@ export async function GET(req: NextRequest) {
   }
 
   if (!res.ok) {
-    if (res.status === 401) {
-      console.warn("[Zoho Items] Zoho API returned 401 after refresh retry");
+    console.warn("[Zoho Items] Zoho returned status", res.status, "body:", text.slice(0, 400));
+    if (res.status === 400) {
+      // Some Zoho Books setups or regions don't accept sku filter; try listing without filter and search in-memory
+      const listQs = `organization_id=${orgId}`;
+      let listRes: Response | null = null;
+      let listText = "";
+      for (const base of baseUrls) {
+        const listUrl = `${base}?${listQs}`;
+        listRes = await fetchWithProxy(listUrl, { headers });
+        listText = await listRes.text();
+        if (listRes.ok && listText.trim().startsWith("{")) break;
+        if (listRes.status === 401) continue;
+      }
+      if (listRes?.ok && listText.trim().startsWith("{")) {
+        try {
+          const listData = JSON.parse(listText) as { items?: Array<{ name?: string; sku?: string; [k: string]: unknown }> };
+          const items = listData.items ?? [];
+          const searchLower = skuTrimmed.toLowerCase();
+          const match = items.find(
+            (i) =>
+              (i.name ?? "").toLowerCase().includes(searchLower) ||
+              (i.sku ?? "").toLowerCase().includes(searchLower)
+          );
+          if (match) {
+            const item = match as {
+              name?: string;
+              rate?: number;
+              unit?: string;
+              sku?: string;
+              description?: string;
+            };
+            console.log("[Zoho Items] Data from Zoho (fallback list+filter): 1 item for search=" + JSON.stringify(skuTrimmed));
+            const payload = {
+              found: true,
+              name: item.name ?? null,
+              rate: item.rate ?? null,
+              unit: item.unit ?? null,
+              sku: item.sku ?? null,
+              description: item.description ?? null,
+            } as Record<string, unknown>;
+            if (req.nextUrl.searchParams.get("debug") === "1") payload._debug = { zohoRaw: listData, source: "list_then_filter" };
+            return NextResponse.json(payload);
+          }
+        } catch {
+          // ignore parse error, fall through to return 400
+        }
+      }
     }
     const body: Record<string, unknown> = {
       error: "Zoho API error",
-      code: "ZOHO_AUTH",
+      code: res.status === 400 ? "ZOHO_BAD_REQUEST" : "ZOHO_AUTH",
       step: "zoho",
-      reason: res.status === 401 ? "Zoho rejected the request (token or org)" : "Zoho API request failed",
+      reason: res.status === 401 ? "Zoho rejected the request (token or org)" : res.status === 400 ? "Zoho rejected the request (check 'detail' for their message)" : "Zoho API request failed",
       message: res.status === 401 ? "Zoho Books token expired or invalid. Refresh the token or re-run the OAuth flow." : "Zoho API request failed.",
       detail: text.slice(0, 500),
     };
