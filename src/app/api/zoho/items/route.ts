@@ -112,20 +112,27 @@ export async function GET(req: NextRequest) {
   if (!res.ok) {
     console.warn("[Zoho Items] Zoho returned status", res.status, "body:", text.slice(0, 400));
     if (res.status === 400) {
-      // Some Zoho Books setups or regions don't accept sku filter; try listing without filter and search in-memory
+      // Some Zoho Books setups don't accept sku filter; list items without filter and search in-memory
+      const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
+      const listOrder = isIndia ? [...baseUrls].reverse() : baseUrls; // try .in first when India
       const listQs = `organization_id=${orgId}`;
       let listRes: Response | null = null;
       let listText = "";
-      for (const base of baseUrls) {
+      console.log("[Zoho Items] 400 fallback: listing items (no sku filter), try order:", listOrder.map((u) => new URL(u).hostname).join(", "));
+      for (const base of listOrder) {
         const listUrl = `${base}?${listQs}`;
         listRes = await fetchWithProxy(listUrl, { headers });
         listText = await listRes.text();
+        console.log("[Zoho Items] Fallback list", new URL(base).hostname, "status:", listRes.status, "body length:", listText.length);
         if (listRes.ok && listText.trim().startsWith("{")) break;
         if (listRes.status === 401) continue;
       }
       if (listRes?.ok && listText.trim().startsWith("{")) {
         try {
-          const listData = JSON.parse(listText) as { items?: Array<{ name?: string; sku?: string; [k: string]: unknown }> };
+          const listData = JSON.parse(listText) as {
+            items?: Array<{ name?: string; sku?: string; rate?: number; unit?: string; description?: string; [k: string]: unknown }>;
+            page_context?: { has_more_page?: boolean };
+          };
           const items = listData.items ?? [];
           const searchLower = skuTrimmed.toLowerCase();
           const match = items.find(
@@ -134,13 +141,7 @@ export async function GET(req: NextRequest) {
               (i.sku ?? "").toLowerCase().includes(searchLower)
           );
           if (match) {
-            const item = match as {
-              name?: string;
-              rate?: number;
-              unit?: string;
-              sku?: string;
-              description?: string;
-            };
+            const item = match;
             console.log("[Zoho Items] Data from Zoho (fallback list+filter): 1 item for search=" + JSON.stringify(skuTrimmed));
             const payload = {
               found: true,
@@ -153,9 +154,12 @@ export async function GET(req: NextRequest) {
             if (req.nextUrl.searchParams.get("debug") === "1") payload._debug = { zohoRaw: listData, source: "list_then_filter" };
             return NextResponse.json(payload);
           }
-        } catch {
-          // ignore parse error, fall through to return 400
+          console.log("[Zoho Items] Fallback: no item matched search in", items.length, "items");
+        } catch (e) {
+          console.warn("[Zoho Items] Fallback list parse error:", e);
         }
+      } else {
+        console.warn("[Zoho Items] Fallback list failed, last status:", listRes?.status, "body:", listText?.slice(0, 200));
       }
     }
     const body: Record<string, unknown> = {
