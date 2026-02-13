@@ -70,14 +70,14 @@ export function EmailTemplateManager() {
       const placeholder = `{{${fieldKey}}}`;
       const ref = target === "subject" ? subjectInputRef.current : bodyInputRef.current;
       if (ref) {
-        const start = "selectionStart" in ref ? ref.selectionStart ?? ref.value.length : ref.value.length;
-        const end = "selectionEnd" in ref ? ref.selectionEnd ?? start : start;
+        const el = ref as HTMLInputElement | HTMLTextAreaElement;
+        const start = el.selectionStart ?? el.value.length;
+        const end = el.selectionEnd ?? start;
         const value = target === "subject" ? form.subjectTemplate : form.bodyTemplate;
         const next = value.slice(0, start) + placeholder + value.slice(end);
         if (target === "subject") setForm((f) => ({ ...f, subjectTemplate: next }));
         else setForm((f) => ({ ...f, bodyTemplate: next }));
         setTimeout(() => {
-          const el = ref as HTMLInputElement | HTMLTextAreaElement;
           el.focus();
           const pos = start + placeholder.length;
           el.setSelectionRange(pos, pos);
