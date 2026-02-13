@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
 import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
 
@@ -8,17 +7,17 @@ import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refre
  * GET /api/zoho/validate
  * Validates Zoho Books credentials (access token + org ID) by calling the Zoho Books API.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const authToken = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    if (!authToken?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let token = getEffectiveAccessToken() ?? process.env.ZOHO_BOOKS_ACCESS_TOKEN?.trim();
+    let zohoAccessToken = getEffectiveAccessToken() ?? process.env.ZOHO_BOOKS_ACCESS_TOKEN?.trim();
     const orgId = process.env.ZOHO_BOOKS_ORG_ID?.trim();
 
-    if (!token) {
+    if (!zohoAccessToken) {
       return NextResponse.json(
         { valid: false, error: "ZOHO_BOOKS_ACCESS_TOKEN is not set or empty" },
         { status: 200 }
@@ -57,13 +56,23 @@ export async function GET() {
       return { res, text };
     };
 
-    let { res, text } = await makeRequest(token);
+    let { res, text } = await makeRequest(zohoAccessToken);
     if (res?.status === 401) {
-      const newToken = await refreshZohoBooksToken();
-      if (newToken) {
-        const retried = await makeRequest(newToken);
+      const refreshResult = await refreshZohoBooksToken();
+      if (refreshResult.token) {
+        const retried = await makeRequest(refreshResult.token);
         res = retried.res;
         text = retried.text;
+      } else {
+        return NextResponse.json(
+          {
+            valid: false,
+            error: refreshResult.error ?? "Access token is invalid or expired (refresh failed or not configured)",
+            hint: refreshResult.hint,
+            status: 401,
+          },
+          { status: 200 }
+        );
       }
     }
 

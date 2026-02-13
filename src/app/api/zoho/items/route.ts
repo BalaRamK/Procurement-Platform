@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
 import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
 
@@ -14,8 +13,12 @@ export type ZohoItemResponse = {
 };
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
+  // Use getToken with the request so cookies from this API request are used (getServerSession can miss context in Route Handlers).
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+  if (!token?.email) {
     return NextResponse.json(
       { error: "Unauthorized", code: "SESSION_REQUIRED", message: "Please sign in to use Zoho lookup." },
       { status: 401 }
@@ -76,11 +79,21 @@ export async function GET(req: NextRequest) {
   }
 
   if (res.status === 401) {
-    const newToken = await refreshZohoBooksToken();
-    if (newToken) {
-      const result = await tryUrls(newToken);
+    const refreshResult = await refreshZohoBooksToken();
+    if (refreshResult.token) {
+      const result = await tryUrls(refreshResult.token);
       res = result.res;
       text = result.text;
+    } else {
+      return NextResponse.json(
+        {
+          error: refreshResult.error ?? "Zoho Books token expired or invalid",
+          code: "ZOHO_AUTH",
+          message: refreshResult.hint ?? "Set ZOHO_BOOKS_REFRESH_TOKEN, CLIENT_ID, CLIENT_SECRET or re-run OAuth to get a new token.",
+          hint: refreshResult.hint,
+        },
+        { status: 401 }
+      );
     }
   }
 

@@ -19,18 +19,32 @@ export function getEffectiveAccessToken(): string | null {
   return env || null;
 }
 
+export type RefreshResult =
+  | { token: string; error?: never; hint?: never }
+  | { token: null; error: string; hint?: string };
+
 /**
  * Refreshes the Zoho Books access token using the refresh token.
  * On success, updates in-memory token (and process.env for current process) and returns the new token.
- * Returns null if refresh is not configured or fails.
+ * On failure, returns { token: null, error, hint } so callers can show why refresh failed.
  */
-export async function refreshZohoBooksToken(): Promise<string | null> {
+export async function refreshZohoBooksToken(): Promise<RefreshResult> {
   const refreshToken = process.env.ZOHO_BOOKS_REFRESH_TOKEN?.trim();
   const clientId = process.env.ZOHO_BOOKS_CLIENT_ID?.trim();
   const clientSecret = process.env.ZOHO_BOOKS_CLIENT_SECRET?.trim();
 
   if (!refreshToken || !clientId || !clientSecret) {
-    return null;
+    const missing = [
+      !refreshToken && "ZOHO_BOOKS_REFRESH_TOKEN",
+      !clientId && "ZOHO_BOOKS_CLIENT_ID",
+      !clientSecret && "ZOHO_BOOKS_CLIENT_SECRET",
+    ].filter(Boolean) as string[];
+    console.warn("[Zoho Refresh] Not configured:", missing.join(", "));
+    return {
+      token: null,
+      error: "Token refresh not configured",
+      hint: `Set ${missing.join(", ")} in your environment (e.g. .env or ecosystem.config.js). Use the OAuth callback to get a refresh token.`,
+    };
   }
 
   const accountsServer =
@@ -55,29 +69,53 @@ export async function refreshZohoBooksToken(): Promise<string | null> {
       },
       body,
     });
-  } catch {
-    return null;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[Zoho Refresh] Request failed:", msg);
+    return {
+      token: null,
+      error: "Refresh request failed",
+      hint: msg,
+    };
   }
 
   const text = await res.text();
-  let data: { access_token?: string; refresh_token?: string; error?: string } = {};
+  let data: { access_token?: string; refresh_token?: string; error?: string; error_description?: string } = {};
   try {
     data = JSON.parse(text) as typeof data;
   } catch {
-    return null;
+    console.error("[Zoho Refresh] Non-JSON response:", text.slice(0, 200));
+    return {
+      token: null,
+      error: "Zoho token endpoint returned non-JSON",
+      hint: text.slice(0, 200),
+    };
   }
 
   if (!res.ok || data.error) {
-    return null;
+    const zohoError = data.error ?? `HTTP ${res.status}`;
+    const zohoDesc = data.error_description ?? text.slice(0, 150);
+    console.error("[Zoho Refresh] Zoho error:", zohoError, zohoDesc);
+    return {
+      token: null,
+      error: zohoError,
+      hint: zohoDesc || (res.status === 401 ? "Refresh token may be expired or revoked. Re-run the OAuth flow to get a new refresh token." : undefined),
+    };
   }
 
   const newAccessToken = data.access_token?.trim();
-  if (!newAccessToken) return null;
+  if (!newAccessToken) {
+    return {
+      token: null,
+      error: "No access_token in refresh response",
+      hint: text.slice(0, 150),
+    };
+  }
 
   refreshedAccessToken = newAccessToken;
   process.env.ZOHO_BOOKS_ACCESS_TOKEN = newAccessToken;
   if (data.refresh_token?.trim()) {
     process.env.ZOHO_BOOKS_REFRESH_TOKEN = data.refresh_token.trim();
   }
-  return newAccessToken;
+  return { token: newAccessToken };
 }

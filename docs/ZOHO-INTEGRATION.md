@@ -106,6 +106,9 @@ Use this when you have a **Server-based Application** and want a long-lived **re
 7. **Validate credentials:**  
    After configuring the env vars, open the app in your browser (use the **hosted URL** when the app runs on a VM, e.g. `https://your-vm-hostname-or-ip/api/zoho/validate`). You must be logged in. The response will indicate whether the access token and organization ID are valid.
 
+8. **Test token refresh (optional):**  
+   To verify that automatic refresh works when the access token expires, call **GET** `https://your-domain/api/zoho/refresh` while logged in. If refresh is configured correctly (refresh token, client ID, client secret, and correct `ZOHO_BOOKS_ACCOUNTS_SERVER` for your region), the response will be `{ "success": true, "message": "Token refreshed successfully" }`. Otherwise you get `success: false` with `error` and `hint`.
+
 ### 1.3 Field mapping: Zoho Books → Procurement Platform (lookup only)
 
 **Flow: Zoho Books → Procurement Platform only.** Nothing from the platform is sent to Zoho Books. When the user enters a BOM ID, Product ID, or Component name and blurs the field, the app looks up the item in Zoho Books and **autofills** the form with the mapped fields below.
