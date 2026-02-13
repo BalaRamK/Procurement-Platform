@@ -109,6 +109,9 @@ Use this when you have a **Server-based Application** and want a long-lived **re
 8. **Test token refresh (optional):**  
    To verify that automatic refresh works when the access token expires, call **GET** `https://your-domain/api/zoho/refresh` while logged in. If refresh is configured correctly (refresh token, client ID, client secret, and correct `ZOHO_BOOKS_ACCOUNTS_SERVER` for your region), the response will be `{ "success": true, "message": "Token refreshed successfully" }`. Otherwise you get `success: false` with `error` and `hint`.
 
+9. **Check credentials against both regions (optional):**  
+   If you get `invalid_client_secret` and are unsure whether to use the global or India server, call **GET** `https://your-domain/api/zoho/check-credentials` while logged in. The API tries the same token request against **accounts.zoho.com** and **accounts.zoho.in** and returns which one accepted your client ID, client secret, and refresh token. No token is stored. Use the `workingServer` and `message` in the response to set `ZOHO_BOOKS_ACCOUNTS_SERVER` correctly.
+
 ### 1.3 Field mapping: Zoho Books → Procurement Platform (lookup only)
 
 **Flow: Zoho Books → Procurement Platform only.** Nothing from the platform is sent to Zoho Books. When the user enters a BOM ID, Product ID, or Component name and blurs the field, the app looks up the item in Zoho Books and **autofills** the form with the mapped fields below.
