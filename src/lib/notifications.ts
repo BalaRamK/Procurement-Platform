@@ -6,7 +6,8 @@ export type NotificationType =
   | "assignment"
   | "delivered"
   | "closure"
-  | "team_assignment";
+  | "team_assignment"
+  | "comment_mention";
 
 export async function logNotification(params: {
   ticketId: string;

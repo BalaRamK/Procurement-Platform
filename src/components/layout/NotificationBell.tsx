@@ -16,6 +16,7 @@ const TYPE_LABELS: Record<string, string> = {
   delivered: "Delivered",
   closure: "Closed",
   team_assignment: "Team assignment",
+  comment_mention: "Mentioned you in a comment",
 };
 
 export function NotificationBell() {

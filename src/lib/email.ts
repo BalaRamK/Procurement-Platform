@@ -6,6 +6,7 @@ const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   delivered: "delivered_to_requester",
   closure: "request_closed",
   team_assignment: "assigned_to_production",
+  comment_mention: "comment_mention",
 };
 
 export type EmailContext = {

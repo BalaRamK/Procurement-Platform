@@ -1,8 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+/** Placeholders available in subject and body (must match EmailContext in lib/email.ts) */
+const TEMPLATE_FIELDS = [
+  { key: "requesterName", label: "Requester name" },
+  { key: "ticketId", label: "Ticket ID" },
+  { key: "ticketTitle", label: "Ticket title" },
+  { key: "status", label: "Status" },
+  { key: "rejectionRemarks", label: "Rejection remarks" },
+] as const;
 
 const TRIGGERS = [
   { value: "request_created", label: "Request created" },
@@ -13,6 +22,7 @@ const TRIGGERS = [
   { value: "assigned_to_production", label: "Assigned to production" },
   { value: "delivered_to_requester", label: "Delivered to requester" },
   { value: "request_closed", label: "Request closed" },
+  { value: "comment_mention", label: "Comment @mention" },
 ] as const;
 
 const TIMELINES = [
@@ -52,6 +62,33 @@ export function EmailTemplateManager() {
     delayMinutes: "" as string | number,
     enabled: true,
   });
+  const subjectInputRef = useRef<HTMLInputElement>(null);
+  const bodyInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertPlaceholder = useCallback(
+    (fieldKey: string, target: "subject" | "body") => {
+      const placeholder = `{{${fieldKey}}}`;
+      const ref = target === "subject" ? subjectInputRef.current : bodyInputRef.current;
+      if (ref) {
+        const start = "selectionStart" in ref ? ref.selectionStart ?? ref.value.length : ref.value.length;
+        const end = "selectionEnd" in ref ? ref.selectionEnd ?? start : start;
+        const value = target === "subject" ? form.subjectTemplate : form.bodyTemplate;
+        const next = value.slice(0, start) + placeholder + value.slice(end);
+        if (target === "subject") setForm((f) => ({ ...f, subjectTemplate: next }));
+        else setForm((f) => ({ ...f, bodyTemplate: next }));
+        setTimeout(() => {
+          const el = ref as HTMLInputElement | HTMLTextAreaElement;
+          el.focus();
+          const pos = start + placeholder.length;
+          el.setSelectionRange(pos, pos);
+        }, 0);
+      } else {
+        if (target === "subject") setForm((f) => ({ ...f, subjectTemplate: f.subjectTemplate + placeholder }));
+        else setForm((f) => ({ ...f, bodyTemplate: f.bodyTemplate + placeholder }));
+      }
+    },
+    [form.subjectTemplate, form.bodyTemplate]
+  );
 
   function loadTemplates() {
     fetch("/api/admin/email-templates")
@@ -150,8 +187,6 @@ export function EmailTemplateManager() {
     }
   }
 
-  const placeholderHelp = "Placeholders: {{requesterName}}, {{ticketId}}, {{ticketTitle}}, {{status}}, {{rejectionRemarks}}";
-
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -226,7 +261,21 @@ export function EmailTemplateManager() {
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Subject *</label>
+                <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Insert field:</p>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {TEMPLATE_FIELDS.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => insertPlaceholder(key, "subject")}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-primary-500 dark:hover:bg-primary-900/30"
+                    >
+                      {label} <code className="ml-0.5 text-[10px] opacity-80">{`{{${key}}}`}</code>
+                    </button>
+                  ))}
+                </div>
                 <input
+                  ref={subjectInputRef}
                   type="text"
                   value={form.subjectTemplate}
                   onChange={(e) => setForm((f) => ({ ...f, subjectTemplate: e.target.value }))}
@@ -234,18 +283,30 @@ export function EmailTemplateManager() {
                   placeholder="e.g. Procurement request {{ticketId}} created"
                   required
                 />
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{placeholderHelp}</p>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Body *</label>
+                <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Insert field:</p>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {TEMPLATE_FIELDS.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => insertPlaceholder(key, "body")}
+                      className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-primary-500 dark:hover:bg-primary-900/30"
+                    >
+                      {label} <code className="ml-0.5 text-[10px] opacity-80">{`{{${key}}}`}</code>
+                    </button>
+                  ))}
+                </div>
                 <textarea
+                  ref={bodyInputRef}
                   value={form.bodyTemplate}
                   onChange={(e) => setForm((f) => ({ ...f, bodyTemplate: e.target.value }))}
                   className="input-base min-h-[120px]"
                   placeholder="Hi {{requesterName}}, your request {{ticketTitle}} has been created..."
                   required
                 />
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{placeholderHelp}</p>
               </div>
               <div>
                 <label className="flex items-center gap-2">

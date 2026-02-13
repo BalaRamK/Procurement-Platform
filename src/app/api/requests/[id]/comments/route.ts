@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
+import { logNotification } from "@/lib/notifications";
 
 export async function GET(
   _req: NextRequest,
@@ -82,10 +83,11 @@ export async function POST(
     return NextResponse.json({ error: "Comment body required" }, { status: 400 });
   }
 
+  const trimmedBody = body.body.trim();
   const rows = await query<Record<string, unknown>>(
     `INSERT INTO comments (ticket_id, user_id, body) VALUES ($1, $2, $3)
      RETURNING id, ticket_id AS "ticketId", user_id AS "userId", body, created_at AS "createdAt"`,
-    [ticketId, session.user.id, body.body.trim()]
+    [ticketId, session.user.id, trimmedBody]
   );
   const comment = rows[0];
   if (!comment) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
@@ -95,5 +97,22 @@ export async function POST(
     [session.user.id]
   );
   const out = { ...comment, user: user ? { email: user.email, name: user.name } : null };
+
+  const ticket = await queryOne<{ title: string }>("SELECT title FROM tickets WHERE id = $1", [ticketId]);
+  const mentionIds = [...trimmedBody.matchAll(/@\[[^\]]*\]\(([a-f0-9-]{36})\)/gi)].map((m) => m[1]);
+  const uniqueIds = [...new Set(mentionIds)];
+  for (const userId of uniqueIds) {
+    if (userId === session.user.id) continue;
+    const mentioned = await queryOne<{ email: string }>("SELECT email FROM users WHERE id = $1 AND status = true", [userId]);
+    if (mentioned?.email) {
+      await logNotification({
+        ticketId,
+        type: "comment_mention",
+        recipient: mentioned.email,
+        payload: { title: ticket?.title ?? "", commentSnippet: trimmedBody.slice(0, 100) },
+      });
+    }
+  }
+
   return NextResponse.json(out);
 }
