@@ -50,18 +50,20 @@ export async function GET(req: NextRequest) {
 
   const skuEnc = encodeURIComponent(skuTrimmed);
   const qs = `organization_id=${orgId}&sku=${skuEnc}`;
-  // Zoho requires zohoapis domain for API requests (code 9); India uses zohoapis.in
+  // Try old domain first; if we get code 9 ("Use zohoapis domain") we retry with zohoapis. zohoapis path may be /books/v3/ (no "api").
   const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
   const baseUrls = isIndia
     ? [
-        "https://www.zohoapis.in/books/api/v3/items",
         "https://www.zoho.in/books/api/v3/items",
         "https://books.zoho.in/api/v3/items",
+        "https://www.zohoapis.in/books/v3/items",
+        "https://www.zohoapis.in/books/api/v3/items",
       ]
     : [
-        "https://www.zohoapis.com/books/api/v3/items",
         "https://www.zoho.com/books/api/v3/items",
         "https://books.zoho.com/api/v3/items",
+        "https://www.zohoapis.com/books/v3/items",
+        "https://www.zohoapis.com/books/api/v3/items",
       ];
 
   const headers: Record<string, string> = {
