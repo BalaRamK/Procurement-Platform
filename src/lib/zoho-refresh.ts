@@ -111,20 +111,26 @@ export async function refreshZohoBooksToken(): Promise<RefreshResult> {
 
     const isInvalidSecret = zohoError === "invalid_client_secret" || zohoError === "invalid_client";
     const rawSecret = process.env.ZOHO_BOOKS_CLIENT_SECRET ?? "";
+    const accountsServerUsed = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.trim() || "https://accounts.zoho.com";
     const diagnostics = isInvalidSecret
       ? {
           clientIdLength: (process.env.ZOHO_BOOKS_CLIENT_ID ?? "").length,
           clientSecretLength: rawSecret.length,
-          accountsServer: process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.trim() || "https://accounts.zoho.com (default)",
+          accountsServer: accountsServerUsed === "https://accounts.zoho.com" ? "https://accounts.zoho.com (default)" : accountsServerUsed,
           hasClientSecretNewline: rawSecret.includes("\n") || rawSecret.includes("\r"),
           note: "Verify: (1) Client secret is from the same Zoho app as Client ID. (2) No extra newline when pasting in .env / ecosystem. (3) If in ecosystem.config.js, escape quotes/backslashes in the value. (4) For India org use ZOHO_BOOKS_ACCOUNTS_SERVER=https://accounts.zoho.in",
         }
       : undefined;
 
-    const hintMessage =
-      zohoDesc ||
-      (res.status === 401 ? "Refresh token may be expired or revoked. Re-run the OAuth flow to get a new refresh token." : undefined) ||
-      (diagnostics ? "See diagnostics below to verify your env (client ID/secret lengths, newlines, accounts server)." : undefined);
+    let hintMessage: string | undefined;
+    if (diagnostics) {
+      hintMessage =
+        "Zoho rejected the client secret. Use diagnostics below. If your Zoho organization is in India, set ZOHO_BOOKS_ACCOUNTS_SERVER=https://accounts.zoho.in and restart — credentials are per region.";
+    } else {
+      hintMessage =
+        zohoDesc ||
+        (res.status === 401 ? "Refresh token may be expired or revoked. Re-run the OAuth flow to get a new refresh token." : undefined);
+    }
 
     return {
       token: null,
