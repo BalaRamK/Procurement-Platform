@@ -1,7 +1,8 @@
 /**
  * Fetch helper for Zoho API calls. Uses the same proxy as Azure AD (Node https
  * agent from getProxyAgent) so requests work behind a corporate proxy. Proxy
- * is used only for allowlisted Zoho hosts.
+ * is used only for allowlisted Zoho hosts. Requests to zohoapis.in / zohoapis.com
+ * bypass the proxy (direct HTTPS) when the proxy blocks them with 403.
  */
 
 import { getProxyAgent } from "@/lib/node-proxy-agent";
@@ -26,13 +27,30 @@ const PROXY_ALLOWED_HOSTS = new Set([
   "zohoapis.in",
 ]);
 
-function isUrlAllowedForProxy(url: string): boolean {
+/** Bypass proxy for these hosts (direct HTTPS) when proxy returns 403 for zohoapis. */
+const ZOHOAPIS_BYPASS_PROXY = new Set([
+  "www.zohoapis.com",
+  "zohoapis.com",
+  "www.zohoapis.in",
+  "zohoapis.in",
+]);
+
+function getHost(url: string): string | null {
   try {
-    const host = new URL(url).hostname.toLowerCase();
-    return PROXY_ALLOWED_HOSTS.has(host);
+    return new URL(url).hostname.toLowerCase();
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isUrlAllowedForProxy(url: string): boolean {
+  const host = getHost(url);
+  return host != null && PROXY_ALLOWED_HOSTS.has(host);
+}
+
+function isZohoapisHost(url: string): boolean {
+  const host = getHost(url);
+  return host != null && ZOHOAPIS_BYPASS_PROXY.has(host);
 }
 
 const MAX_REDIRECTS = 3;
@@ -40,11 +58,12 @@ const MAX_REDIRECTS = 3;
 function httpsRequest(
   url: string,
   init?: RequestInit,
-  redirectCount = 0
+  redirectCount = 0,
+  useProxy = true
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
-    const agent = getProxyAgent();
+    const agent = useProxy ? getProxyAgent() : undefined;
     const options: import("https").RequestOptions = {
       hostname: u.hostname,
       port: u.port || 443,
@@ -65,8 +84,8 @@ function httpsRequest(
           ? location
           : new URL(location, url).href;
         res.destroy();
-        if (isUrlAllowedForProxy(nextUrl)) {
-          resolve(httpsRequest(nextUrl, init, redirectCount + 1));
+        if (isUrlAllowedForProxy(nextUrl) || isZohoapisHost(nextUrl)) {
+          resolve(httpsRequest(nextUrl, init, redirectCount + 1, useProxy));
           return;
         }
       }
@@ -106,6 +125,10 @@ export async function fetchWithProxy(
   if (typeof window !== "undefined") {
     return fetch(url, init);
   }
+  // zohoapis: bypass proxy (direct HTTPS) to avoid proxy 403; Zoho requires this domain.
+  if (isZohoapisHost(url)) {
+    return httpsRequest(url, init, 0, false);
+  }
   const allowed = isUrlAllowedForProxy(url);
   if (allowed && !getProxyAgent()) {
     throw new Error(
@@ -113,7 +136,7 @@ export async function fetchWithProxy(
     );
   }
   if (allowed) {
-    return httpsRequest(url, init);
+    return httpsRequest(url, init, 0, true);
   }
   return fetch(url, init);
 }
