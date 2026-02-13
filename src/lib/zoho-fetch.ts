@@ -133,9 +133,19 @@ export async function fetchWithProxy(
   if (typeof window !== "undefined") {
     return fetch(url, init);
   }
-  // zohoapis: bypass proxy (direct HTTPS) to avoid proxy 403; Zoho requires this domain.
+  // zohoapis: try direct first (avoids proxy 403); if direct fails (ETIMEDOUT, etc.), retry via proxy.
   if (isZohoapisHost(url)) {
-    return httpsRequest(url, init, 0, false);
+    try {
+      return await httpsRequest(url, init, 0, false);
+    } catch (directErr) {
+      const msg = directErr instanceof Error ? directErr.message : String(directErr);
+      const connectionFailed =
+        /ETIMEDOUT|ECONNREFUSED|ENOTFOUND|ENETUNREACH|Zoho request timed out/i.test(msg);
+      if (connectionFailed && getProxyAgent()) {
+        return await httpsRequest(url, init, 0, true);
+      }
+      throw directErr;
+    }
   }
   const allowed = isUrlAllowedForProxy(url);
   if (allowed && !getProxyAgent()) {
