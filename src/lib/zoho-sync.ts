@@ -79,14 +79,11 @@ async function fetchOnePage(
     } catch {
       /* ignore */
     }
-    if (res.status === 400 && code === 9) {
-      throw new Error("ZOHO_CODE_9_USE_ZOHOAPIS");
-    }
+    if (res.status === 400 && code === 9) throw new Error("ZOHO_TRY_NEXT_URL");
+    if ((res.status === 404 || res.status === 400) && code === 5) throw new Error("ZOHO_TRY_NEXT_URL");
     throw new Error(`Zoho API error: ${res.status} ${text.slice(0, 200)}`);
   }
-  if (!text.trim().startsWith("{")) {
-    throw new Error("ZOHO_NON_JSON_RESPONSE");
-  }
+  if (!text.trim().startsWith("{")) throw new Error("ZOHO_TRY_NEXT_URL");
   const data = JSON.parse(text) as {
     items?: ZohoItemRow[];
     page_context?: { has_more_page?: boolean };
@@ -126,7 +123,7 @@ export async function syncZohoBooksItemsToDb(): Promise<{
       break;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("ZOHO_CODE_9_USE_ZOHOAPIS") || msg.includes("ZOHO_NON_JSON_RESPONSE")) continue;
+      if (msg.includes("ZOHO_TRY_NEXT_URL")) continue;
       if (msg.includes("401")) {
         const refresh = await refreshZohoBooksToken();
         if (refresh.token) {
@@ -137,7 +134,7 @@ export async function syncZohoBooksItemsToDb(): Promise<{
             break;
           } catch (retryErr) {
             const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-            if (retryMsg.includes("ZOHO_CODE_9_USE_ZOHOAPIS") || retryMsg.includes("ZOHO_NON_JSON_RESPONSE")) continue;
+            if (retryMsg.includes("ZOHO_TRY_NEXT_URL")) continue;
             throw retryErr;
           }
         }
