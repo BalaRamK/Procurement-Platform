@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { TeamName, CostCurrency, Priority } from "@/types/db";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -660,16 +661,16 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             )}
           </div>
 
-          {bulkModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setBulkModalOpen(false)}>
-              <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
-                <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-700">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Bulk items — Check in Zoho</h3>
+          {bulkModalOpen && typeof document !== "undefined" && createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" onClick={() => setBulkModalOpen(false)} role="dialog" aria-modal="true" aria-labelledby="bulk-modal-title">
+              <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+                <div className="shrink-0 border-b border-slate-200 px-6 py-4 dark:border-slate-700">
+                  <h3 id="bulk-modal-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">Bulk items — Check in Zoho</h3>
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review and run Zoho check, then add to request.</p>
                 </div>
-                <div className="max-h-[50vh] overflow-auto p-6">
+                <div className="min-h-[280px] shrink overflow-auto px-6 py-4" style={{ maxHeight: "min(70vh, 600px)" }}>
                   <table className="min-w-full text-sm">
-                    <thead className="bg-slate-100 dark:bg-slate-800">
+                    <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-800">
                       <tr>
                         <th className="px-3 py-2 text-left font-medium">Sl. No.</th>
                         <th className="px-3 py-2 text-left font-medium">Component Name</th>
@@ -693,7 +694,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                     </tbody>
                   </table>
                 </div>
-                <div className="flex flex-wrap gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
+                <div className="shrink-0 flex flex-wrap gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
                   <button
                     type="button"
                     disabled={bulkZohoChecking}
@@ -735,7 +736,8 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   </button>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </SectionCard>
 
