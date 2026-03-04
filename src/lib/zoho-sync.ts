@@ -243,3 +243,31 @@ export async function getZohoItemFromDb(
   );
   return row;
 }
+
+/** Search zoho_books_items by name or SKU (partial match); returns up to 20 items for autocomplete. */
+export async function searchZohoItemsFromDb(
+  searchTerm: string,
+  limit = 20
+): Promise<
+  Array<{
+    id: string;
+    name: string | null;
+    sku: string | null;
+    rate: number | null;
+    unit: string | null;
+  }>
+> {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) return [];
+  const rows = await query<
+    { id: string; name: string | null; sku: string | null; rate: number | null; unit: string | null }
+  >(
+    `SELECT id, name, sku, rate, unit
+     FROM zoho_books_items
+     WHERE LOWER(COALESCE(name, '')) LIKE $1 OR LOWER(COALESCE(sku, '')) LIKE $1
+     ORDER BY name
+     LIMIT $2`,
+    ["%" + term + "%", limit]
+  );
+  return rows;
+}

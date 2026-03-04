@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { TeamName, CostCurrency, Priority } from "@/types/db";
@@ -127,6 +127,10 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkModalRows, setBulkModalRows] = useState<typeof bulkLineItems>([]);
   const [bulkZohoChecking, setBulkZohoChecking] = useState(false);
+  const [componentSuggestions, setComponentSuggestions] = useState<Array<{ id: string; name: string | null; sku: string | null; rate: number | null; unit: string | null }>>([]);
+  const [componentSuggestionsOpen, setComponentSuggestionsOpen] = useState(false);
+  const [componentSuggestionsLoading, setComponentSuggestionsLoading] = useState(false);
+  const componentInputRef = useRef<HTMLDivElement>(null);
 
   const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
 
@@ -142,6 +146,37 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       });
     return () => { cancelled = true; };
   }, [teamName]);
+
+  const componentSearchQuery = (componentDescription || itemName || "").trim();
+  useEffect(() => {
+    if (itemMode !== "single" || componentSearchQuery.length < 2) {
+      setComponentSuggestions([]);
+      setComponentSuggestionsOpen(false);
+      return;
+    }
+    const t = setTimeout(() => {
+      setComponentSuggestionsLoading(true);
+      fetch("/api/zoho/items/search?q=" + encodeURIComponent(componentSearchQuery))
+        .then((res) => (res.ok ? res.json() : { items: [] }))
+        .then((data: { items?: Array<{ id: string; name: string | null; sku: string | null; rate: number | null; unit: string | null }> }) => {
+          setComponentSuggestions(data.items ?? []);
+          setComponentSuggestionsOpen(true);
+        })
+        .catch(() => setComponentSuggestions([]))
+        .finally(() => setComponentSuggestionsLoading(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [itemMode, componentSearchQuery]);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (componentInputRef.current && !componentInputRef.current.contains(e.target as Node)) {
+        setComponentSuggestionsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -360,10 +395,13 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         {/* Item Info */}
         <SectionCard title="Item Info">
           <div className="space-y-6">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Choose how you want to add items. Item details, estimated cost, and need-by date apply to your selection.
+            </p>
             <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
               <button
                 type="button"
-                onClick={() => { setItemMode("single"); setLookupError(""); }}
+                onClick={() => { setItemMode("single"); setLookupError(""); setComponentSuggestionsOpen(false); }}
                 className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
                   itemMode === "single"
                     ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
@@ -374,7 +412,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => { setItemMode("bulk"); setLookupError(""); }}
+                onClick={() => { setItemMode("bulk"); setLookupError(""); setComponentSuggestionsOpen(false); }}
                 className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
                   itemMode === "bulk"
                     ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
@@ -488,18 +526,21 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
               <FormField label="Component Name" className="flex-1">
-                <div className="relative">
+                <div className="relative" ref={componentInputRef}>
                   <input
                     type="text"
                     value={componentDescription || itemName}
                     onChange={(e) => {
-                      setComponentDescription(e.target.value);
-                      if (!zohoLocked) setItemName(e.target.value);
+                      const v = e.target.value;
+                      setComponentDescription(v);
+                      if (!zohoLocked) setItemName(v);
                     }}
-                    onBlur={() => !manualAddMode && componentDescription.trim() && lookupSku(componentDescription.trim())}
+                    onFocus={() => componentSearchQuery.length >= 2 && setComponentSuggestionsOpen(componentSuggestions.length > 0)}
+                    onBlur={() => !manualAddMode && componentDescription.trim() && !componentSuggestionsOpen && lookupSku(componentDescription.trim())}
                     className="input-base pr-10"
-                    placeholder={manualAddMode ? "Enter component name (not in Zoho)" : "Search in Zoho"}
+                    placeholder={manualAddMode ? "Enter component name (not in Zoho)" : "Type to see matching items from Zoho (min 2 characters)"}
                     readOnly={manualAddMode ? false : undefined}
+                    autoComplete="off"
                   />
                   {!manualAddMode && (
                     <button
@@ -517,6 +558,39 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                       </svg>
                     </button>
                   )}
+                  {!manualAddMode && componentSuggestionsOpen && (
+                    <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800">
+                      {componentSuggestionsLoading && componentSuggestions.length === 0 ? (
+                        <li className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">Searching…</li>
+                      ) : componentSuggestions.length === 0 ? (
+                        <li className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">No matching items. Type more or add manually.</li>
+                      ) : (
+                        componentSuggestions.map((item) => (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              className="flex w-full flex-col gap-0.5 px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                              onClick={() => {
+                                const display = (item.name || item.sku || "").trim();
+                                setComponentDescription(display);
+                                setItemName(display);
+                                setComponentSuggestionsOpen(false);
+                                setComponentSuggestions([]);
+                                if (display) lookupSku(display);
+                              }}
+                            >
+                              <span className="font-medium text-slate-900 dark:text-slate-100">{item.name || item.sku || "—"}</span>
+                              {(item.sku || item.rate != null) && (
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  {[item.sku, item.rate != null ? `${item.rate} ${item.unit ?? ""}` : ""].filter(Boolean).join(" · ")}
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
                 </div>
               </FormField>
               <button
@@ -525,6 +599,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   setManualAddMode(true);
                   setZohoLocked(false);
                   setLookupError("");
+                  setComponentSuggestionsOpen(false);
                 }}
                 className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 whitespace-nowrap"
               >
@@ -614,33 +689,6 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               />
             </FormField>
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <FormField label="Estimated Cost" required>
-                <input
-                  type="text"
-                  value={displayCost}
-                  readOnly
-                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
-                  placeholder="Auto Calculate (Cost per item × Quantity)"
-                />
-              </FormField>
-              <FormField label="Need by">
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={needByDate}
-                    onChange={(e) => setNeedByDate(e.target.value)}
-                    className="input-base pr-10 date-picker-visible"
-                  />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </span>
-                </div>
-              </FormField>
-            </div>
-
             {lookupLoading && (
               <p className="text-sm text-slate-500 dark:text-slate-300">Looking up in Zoho Books…</p>
             )}
@@ -659,6 +707,36 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             )}
             </>
             )}
+
+            {/* Estimated cost & Need by — shown for both single and bulk */}
+            <div className="grid gap-6 sm:grid-cols-2">
+              <FormField label="Estimated cost (auto)" required>
+                <input
+                  type="text"
+                  value={itemMode === "bulk" && bulkLineItems.length > 0
+                    ? bulkLineItems.reduce((s, li) => s + li.costPerItem * li.quantity, 0).toFixed(2) + " " + costCurrency
+                    : displayCost}
+                  readOnly
+                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
+                  placeholder={itemMode === "bulk" ? "Add items to see total" : "Cost per item × Quantity"}
+                />
+              </FormField>
+              <FormField label="Need by date">
+                <div className="relative">
+                  <input
+                    type="date"
+                    value={needByDate}
+                    onChange={(e) => setNeedByDate(e.target.value)}
+                    className="input-base pr-10 date-picker-visible"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </span>
+                </div>
+              </FormField>
+            </div>
           </div>
 
           {bulkModalOpen && typeof document !== "undefined" && createPortal(
