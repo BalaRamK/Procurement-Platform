@@ -73,6 +73,14 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const lineRows = await query<Record<string, unknown>>(
+    `SELECT id, sort_order AS "sortOrder", component_name AS "componentName", bom_id AS "bomId",
+     cost_per_item AS "costPerItem", quantity, item_description AS "itemDescription", zoho_available AS "zohoAvailable"
+     FROM ticket_line_items WHERE ticket_id = $1 ORDER BY sort_order ASC`,
+    [id]
+  );
+  (ticket as Record<string, unknown>).lineItems = lineRows;
+
   return NextResponse.json(ticket);
 }
 

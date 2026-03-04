@@ -72,6 +72,22 @@ CREATE INDEX IF NOT EXISTS idx_tickets_requester_id ON tickets(requester_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_request_id ON tickets(request_id);
 
+-- Line items for bulk item requests (one row per item)
+CREATE TABLE IF NOT EXISTS ticket_line_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  sort_order INT NOT NULL DEFAULT 0,
+  component_name TEXT,
+  bom_id TEXT,
+  cost_per_item DECIMAL(12,2),
+  quantity INT NOT NULL DEFAULT 1,
+  item_description TEXT,
+  zoho_available BOOLEAN,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_line_items_ticket_id ON ticket_line_items(ticket_id);
+
 -- Approval logs
 CREATE TABLE IF NOT EXISTS approval_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

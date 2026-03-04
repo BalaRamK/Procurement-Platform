@@ -44,6 +44,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const row = rows[0];
   if (!row) notFound();
 
+  const lineRows = await query<Record<string, unknown>>(
+    `SELECT sort_order AS "sortOrder", component_name AS "componentName", bom_id AS "bomId",
+     cost_per_item AS "costPerItem", quantity, item_description AS "itemDescription", zoho_available AS "zohoAvailable"
+     FROM ticket_line_items WHERE ticket_id = $1 ORDER BY sort_order ASC`,
+    [id]
+  );
+
   const ticketRaw = {
     ...row,
     requester: row.rId != null ? { id: row.rId, email: row.rEmail, name: row.rName } : null,
@@ -116,6 +123,39 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           <div className="card-header border-t border-red-200/40 bg-red-400/10 px-6 py-4">
             <dt className="text-xs font-medium uppercase tracking-wider text-red-700">Rejection remarks</dt>
             <dd className="mt-1 text-sm text-red-900">{ticket.rejectionRemarks}</dd>
+          </div>
+        )}
+        {lineRows.length > 0 && (
+          <div className="border-t border-white/20 px-6 py-4">
+            <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Bulk line items</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-slate-100 dark:bg-slate-800">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Sl. No.</th>
+                    <th className="px-3 py-2 text-left font-medium">Component Name</th>
+                    <th className="px-3 py-2 text-left font-medium">BOM ID</th>
+                    <th className="px-3 py-2 text-right font-medium">Cost per item</th>
+                    <th className="px-3 py-2 text-right font-medium">Quantity</th>
+                    <th className="px-3 py-2 text-left font-medium">Item Description</th>
+                    <th className="px-3 py-2 text-left font-medium">Zoho check</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                  {lineRows.map((li, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2">{Number(li.sortOrder ?? i) + 1}</td>
+                      <td className="px-3 py-2">{String(li.componentName ?? "")}</td>
+                      <td className="px-3 py-2">{String(li.bomId ?? "")}</td>
+                      <td className="px-3 py-2 text-right">{li.costPerItem != null ? String(li.costPerItem) : ""}</td>
+                      <td className="px-3 py-2 text-right">{li.quantity != null ? String(li.quantity) : ""}</td>
+                      <td className="px-3 py-2">{String(li.itemDescription ?? "")}</td>
+                      <td className="px-3 py-2">{li.zohoAvailable === true ? "Available" : li.zohoAvailable === false ? "Not available" : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
         {canShowActions && (

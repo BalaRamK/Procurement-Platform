@@ -14,6 +14,16 @@ import {
 import { logNotification } from "@/lib/notifications";
 import { generateRequestId } from "@/lib/request-id";
 
+const lineItemSchema = z.object({
+  slNo: z.number().int().min(0).optional(),
+  componentName: z.string().optional(),
+  bomId: z.string().optional(),
+  costPerItem: z.number().min(0),
+  quantity: z.number().int().min(1),
+  itemDescription: z.string().optional(),
+  zohoAvailable: z.boolean().optional(),
+});
+
 const createSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
@@ -36,6 +46,7 @@ const createSchema = z.object({
   dealName: z.string().optional(),
   teamName: z.enum(TEAM_NAMES),
   priority: z.enum(PRIORITIES).default("MEDIUM"),
+  lineItems: z.array(lineItemSchema).optional(),
 });
 
 const TICKET_COLS = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
@@ -138,10 +149,28 @@ export async function POST(req: NextRequest) {
   const data = { ...parsed.data };
   const needByDate = data.needByDate ? new Date(data.needByDate) : null;
   const estimatedPODate = data.estimatedPODate ? new Date(data.estimatedPODate) : null;
+  const lineItems = data.lineItems;
   delete (data as Record<string, unknown>).needByDate;
   delete (data as Record<string, unknown>).estimatedPODate;
+  delete (data as Record<string, unknown>).lineItems;
 
   const requestId = await generateRequestId(data.teamName);
+
+  let ticketEstimatedCost = data.estimatedCost ?? null;
+  let ticketComponentDescription = data.componentDescription ?? null;
+  let ticketItemName = data.itemName ?? null;
+  let ticketBomId = data.bomId ?? null;
+  let ticketRate = data.rate ?? null;
+  let ticketQuantity = data.quantity ?? null;
+
+  if (lineItems && lineItems.length > 0) {
+    ticketEstimatedCost = lineItems.reduce((sum, li) => sum + li.costPerItem * li.quantity, 0);
+    ticketComponentDescription = "Bulk items";
+    ticketItemName = lineItems[0].componentName ?? null;
+    ticketBomId = lineItems[0].bomId ?? null;
+    ticketRate = lineItems[0].costPerItem;
+    ticketQuantity = lineItems.reduce((s, li) => s + li.quantity, 0);
+  }
 
   const rows = await query<{ id: string; title: string }>(
     `INSERT INTO tickets (
@@ -155,20 +184,20 @@ export async function POST(req: NextRequest) {
       data.description ?? null,
       data.requesterName,
       data.department,
-      data.componentDescription ?? null,
-      data.itemName ?? null,
-      data.bomId ?? null,
+      ticketComponentDescription,
+      ticketItemName,
+      ticketBomId,
       data.productId ?? null,
       data.projectCustomer ?? null,
       needByDate,
       data.chargeCode ?? null,
       data.costCurrency ?? null,
-      data.estimatedCost ?? null,
-      data.rate ?? null,
+      ticketEstimatedCost,
+      ticketRate,
       data.unit ?? null,
       estimatedPODate,
       data.placeOfDelivery ?? null,
-      data.quantity ?? null,
+      ticketQuantity,
       data.dealName ?? null,
       data.teamName,
       data.priority ?? "MEDIUM",
@@ -178,6 +207,26 @@ export async function POST(req: NextRequest) {
   );
   const ticket = rows[0];
   if (!ticket) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
+
+  if (lineItems && lineItems.length > 0) {
+    for (let i = 0; i < lineItems.length; i++) {
+      const li = lineItems[i];
+      await query(
+        `INSERT INTO ticket_line_items (ticket_id, sort_order, component_name, bom_id, cost_per_item, quantity, item_description, zoho_available)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          ticket.id,
+          i,
+          li.componentName ?? null,
+          li.bomId ?? null,
+          li.costPerItem,
+          li.quantity,
+          li.itemDescription ?? null,
+          li.zohoAvailable ?? null,
+        ]
+      );
+    }
+  }
 
   await logNotification({
     ticketId: ticket.id,

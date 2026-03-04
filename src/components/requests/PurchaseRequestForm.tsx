@@ -119,6 +119,13 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
   const [lastLookupResponse, setLastLookupResponse] = useState<Record<string, unknown> | null>(null);
+  const [itemMode, setItemMode] = useState<"single" | "bulk">("single");
+  const [bulkLineItems, setBulkLineItems] = useState<
+    { slNo: number; componentName: string; bomId: string; costPerItem: number; quantity: number; itemDescription: string; zohoAvailable?: boolean }[]
+  >([]);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkModalRows, setBulkModalRows] = useState<typeof bulkLineItems>([]);
+  const [bulkZohoChecking, setBulkZohoChecking] = useState(false);
 
   const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
 
@@ -199,35 +206,54 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isBulk = itemMode === "bulk" && bulkLineItems.length > 0;
+    if (itemMode === "bulk" && bulkLineItems.length === 0) {
+      setLookupError("Add at least one bulk item (upload Excel and add to request) before submitting.");
+      return;
+    }
     setLoading(true);
     setLookupError("");
     try {
+      const payload: Record<string, unknown> = {
+        title: title || "Purchase Request",
+        description: description || undefined,
+        requesterName: requesterNameVal || requesterEmail,
+        department: department || undefined,
+        componentDescription: isBulk ? undefined : (componentDescription || undefined),
+        bomId: isBulk ? undefined : (bomId || undefined),
+        productId: productId || undefined,
+        itemName: isBulk ? undefined : (itemName || undefined),
+        projectCustomer: projectCustomer || undefined,
+        needByDate: needByDate || undefined,
+        chargeCode: chargeCode || undefined,
+        costCurrency,
+        estimatedCost: isBulk
+          ? bulkLineItems.reduce((s, li) => s + li.costPerItem * li.quantity, 0)
+          : (rate ? Number(rate) * qtyNum : undefined),
+        rate: isBulk ? undefined : (rate ? Number(rate) : undefined),
+        unit: unit || undefined,
+        estimatedPODate: estimatedPODate || undefined,
+        placeOfDelivery: placeOfDelivery || undefined,
+        quantity: isBulk ? undefined : (quantity ? Number(quantity) : undefined),
+        dealName: dealName || undefined,
+        teamName,
+        priority,
+      };
+      if (isBulk) {
+        payload.lineItems = bulkLineItems.map((li) => ({
+          slNo: li.slNo,
+          componentName: li.componentName || undefined,
+          bomId: li.bomId || undefined,
+          costPerItem: li.costPerItem,
+          quantity: li.quantity,
+          itemDescription: li.itemDescription || undefined,
+          zohoAvailable: li.zohoAvailable,
+        }));
+      }
       const res = await fetch("/api/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: title || "Purchase Request",
-          description: description || undefined,
-          requesterName: requesterNameVal || requesterEmail,
-          department: department || undefined,
-          componentDescription: componentDescription || undefined,
-          bomId: bomId || undefined,
-          productId: productId || undefined,
-          itemName: itemName || undefined,
-          projectCustomer: projectCustomer || undefined,
-          needByDate: needByDate || undefined,
-          chargeCode: chargeCode || undefined,
-          costCurrency,
-          estimatedCost: rate ? Number(rate) * qtyNum : undefined,
-          rate: rate ? Number(rate) : undefined,
-          unit: unit || undefined,
-          estimatedPODate: estimatedPODate || undefined,
-          placeOfDelivery: placeOfDelivery || undefined,
-          quantity: quantity ? Number(quantity) : undefined,
-          dealName: dealName || undefined,
-          teamName,
-          priority,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Failed to create");
       const ticket = await res.json();
@@ -333,6 +359,132 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         {/* Item Info */}
         <SectionCard title="Item Info">
           <div className="space-y-6">
+            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => { setItemMode("single"); setLookupError(""); }}
+                className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
+                  itemMode === "single"
+                    ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
+                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                Single item
+              </button>
+              <button
+                type="button"
+                onClick={() => { setItemMode("bulk"); setLookupError(""); }}
+                className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
+                  itemMode === "bulk"
+                    ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
+                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                Bulk items
+              </button>
+            </div>
+
+            {itemMode === "bulk" && (
+              <>
+                {bulkLineItems.length === 0 ? (
+                  <div>
+                    <p className="mb-2 text-sm text-slate-600 dark:text-slate-300">
+                      Upload an Excel file with columns: <strong>Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description</strong>
+                    </p>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const XLSX = await import("xlsx");
+                          const data = await file.arrayBuffer();
+                          const wb = XLSX.read(data, { type: "array" });
+                          const ws = wb.Sheets[wb.SheetNames[0]];
+                          const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { header: 1 }) as unknown[][];
+                          if (rows.length < 2) return;
+                          const headers = (rows[0] as string[]).map((h) => String(h ?? "").trim());
+                          const slNoIdx = headers.findIndex((h) => /sl\.?\s*no|serial/i.test(h));
+                          const compIdx = headers.findIndex((h) => /component\s*name/i.test(h));
+                          const bomIdx = headers.findIndex((h) => /bom\s*id/i.test(h));
+                          const costIdx = headers.findIndex((h) => /cost\s*per\s*item/i.test(h));
+                          const qtyIdx = headers.findIndex((h) => /quantity/i.test(h));
+                          const descIdx = headers.findIndex((h) => /item\s*description|description/i.test(h));
+                          const parsed: typeof bulkModalRows = [];
+                          for (let i = 1; i < rows.length; i++) {
+                            const row = rows[i] as unknown[];
+                            const componentName = compIdx >= 0 ? String(row[compIdx] ?? "").trim() : "";
+                            const costPerItem = costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
+                            const quantity = qtyIdx >= 0 ? Math.max(1, Math.floor(Number(row[qtyIdx]) || 1)) : 1;
+                            if (!componentName && costPerItem === 0) continue;
+                            parsed.push({
+                              slNo: slNoIdx >= 0 ? Math.floor(Number(row[slNoIdx]) || i) : i,
+                              componentName,
+                              bomId: bomIdx >= 0 ? String(row[bomIdx] ?? "").trim() : "",
+                              costPerItem,
+                              quantity,
+                              itemDescription: descIdx >= 0 ? String(row[descIdx] ?? "").trim() : "",
+                            });
+                          }
+                          setBulkModalRows(parsed);
+                          setBulkModalOpen(true);
+                        } catch (err) {
+                          setLookupError("Failed to parse Excel. Check columns: Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description.");
+                        }
+                        e.target.value = "";
+                      }}
+                      className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/30 dark:file:text-primary-300"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{bulkLineItems.length} item(s) added</p>
+                      <button
+                        type="button"
+                        onClick={() => setBulkLineItems([])}
+                        className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+                      >
+                        Clear and upload again
+                      </button>
+                    </div>
+                    <div className="max-h-48 overflow-auto rounded-xl border border-slate-200 dark:border-slate-600">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-100 dark:bg-slate-800">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Sl. No.</th>
+                            <th className="px-3 py-2 text-left font-medium">Component</th>
+                            <th className="px-3 py-2 text-left font-medium">BOM ID</th>
+                            <th className="px-3 py-2 text-right font-medium">Cost/item</th>
+                            <th className="px-3 py-2 text-right font-medium">Qty</th>
+                            <th className="px-3 py-2 text-left font-medium">Zoho</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                          {bulkLineItems.map((li, i) => (
+                            <tr key={i}>
+                              <td className="px-3 py-2">{li.slNo}</td>
+                              <td className="px-3 py-2">{li.componentName}</td>
+                              <td className="px-3 py-2">{li.bomId}</td>
+                              <td className="px-3 py-2 text-right">{li.costPerItem}</td>
+                              <td className="px-3 py-2 text-right">{li.quantity}</td>
+                              <td className="px-3 py-2">{li.zohoAvailable === true ? "Available" : li.zohoAvailable === false ? "Not available" : "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      Total estimated cost: {bulkLineItems.reduce((s, li) => s + li.costPerItem * li.quantity, 0).toFixed(2)} {costCurrency}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {itemMode === "single" && (
+            <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
               <FormField label="Component Name" className="flex-1">
                 <div className="relative">
@@ -349,11 +501,20 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                     readOnly={manualAddMode ? false : undefined}
                   />
                   {!manualAddMode && (
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const term = (componentDescription || itemName || "").trim();
+                        if (term) lookupSku(term);
+                      }}
+                      disabled={lookupLoading}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-white/30 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-white/10 dark:hover:text-slate-300"
+                      aria-label="Search in Zoho"
+                    >
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                    </span>
+                    </button>
                   )}
                 </div>
               </FormField>
@@ -495,7 +656,87 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 </pre>
               </details>
             )}
+            </>
+            )}
           </div>
+
+          {bulkModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setBulkModalOpen(false)}>
+              <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+                <div className="border-b border-slate-200 px-6 py-4 dark:border-slate-700">
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Bulk items — Check in Zoho</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review and run Zoho check, then add to request.</p>
+                </div>
+                <div className="max-h-[50vh] overflow-auto p-6">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-100 dark:bg-slate-800">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium">Sl. No.</th>
+                        <th className="px-3 py-2 text-left font-medium">Component Name</th>
+                        <th className="px-3 py-2 text-left font-medium">BOM ID</th>
+                        <th className="px-3 py-2 text-right font-medium">Cost per item</th>
+                        <th className="px-3 py-2 text-right font-medium">Quantity</th>
+                        <th className="px-3 py-2 text-left font-medium">Zoho check</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {bulkModalRows.map((row, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-2">{row.slNo}</td>
+                          <td className="px-3 py-2">{row.componentName}</td>
+                          <td className="px-3 py-2">{row.bomId}</td>
+                          <td className="px-3 py-2 text-right">{row.costPerItem}</td>
+                          <td className="px-3 py-2 text-right">{row.quantity}</td>
+                          <td className="px-3 py-2">{row.zohoAvailable === true ? "Available" : row.zohoAvailable === false ? "Not available" : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex flex-wrap gap-3 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
+                  <button
+                    type="button"
+                    disabled={bulkZohoChecking}
+                    onClick={async () => {
+                      setBulkZohoChecking(true);
+                      setLookupError("");
+                      const next = await Promise.all(
+                        bulkModalRows.map(async (row) => {
+                          const term = (row.componentName || row.bomId || "").trim();
+                          if (!term) return { ...row, zohoAvailable: false as boolean };
+                          try {
+                            const res = await fetch("/api/zoho/items?sku=" + encodeURIComponent(term));
+                            const data = (await res.json()) as { found?: boolean };
+                            return { ...row, zohoAvailable: !!data.found };
+                          } catch {
+                            return { ...row, zohoAvailable: false };
+                          }
+                        })
+                      );
+                      setBulkModalRows(next);
+                      setBulkZohoChecking(false);
+                    }}
+                    className="btn-secondary"
+                  >
+                    {bulkZohoChecking ? "Checking…" : "Check in Zoho"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkLineItems(bulkModalRows.map((r) => ({ ...r, zohoAvailable: r.zohoAvailable })));
+                      setBulkModalOpen(false);
+                    }}
+                    className="btn-primary"
+                  >
+                    Add to request
+                  </button>
+                  <button type="button" onClick={() => setBulkModalOpen(false)} className="btn-secondary">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </SectionCard>
 
         {/* Project Info */}
