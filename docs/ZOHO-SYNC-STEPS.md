@@ -58,26 +58,44 @@ If you see an error, check that:
 
 ---
 
-## Step 3: Schedule the weekly `POST /api/zoho/sync` call
+## Step 3: Schedule the weekly sync
 
-Use **one** of the options below. Replace:
+Use **one** of the options below.
 
-- `https://your-domain.com` with your real app URL (e.g. `https://proc.qnulabs.com`).
-- `YOUR_ZOHO_SYNC_CRON_SECRET` with the exact value you set in Step 1.
+**If the app runs on the same server** (e.g. procurement-vm) **or curl to your app returns 403/timeout** (e.g. proxy blocking), use **Option A (direct)** — no HTTP call, no proxy issues.
 
-### Option A: Server cron (Linux/macOS)
+### Option A (direct): Server cron — run sync in-process (recommended on same server)
+
+No `curl`, no proxy. Cron runs the sync script with `ZOHO_SYNC_DIRECT=1` so the sync uses the server’s `.env` and DB directly.
 
 1. Open crontab:
    ```bash
    crontab -e
    ```
-2. Add a line to run every **Sunday at 2:00 AM**:
+2. Add a line (replace `/home/admin_/Procurement-Platform` with your project path if different):
+   ```cron
+   0 2 * * 0 cd /home/admin_/Procurement-Platform && ZOHO_SYNC_DIRECT=1 /usr/bin/npm run zoho:sync >> /tmp/zoho-sync.log 2>&1
+   ```
+   Or if `npm` is on your PATH when cron runs:
+   ```cron
+   0 2 * * 0 cd /home/admin_/Procurement-Platform && ZOHO_SYNC_DIRECT=1 npm run zoho:sync >> /tmp/zoho-sync.log 2>&1
+   ```
+3. Save and exit. The job will run weekly. You don’t need `ZOHO_SYNC_CRON_SECRET` for this.
+
+### Option B: Server cron — call the API with curl
+
+Use this only if the server can reach your app URL (no proxy 403/timeout). Replace `https://your-domain.com` and `YOUR_ZOHO_SYNC_CRON_SECRET`.
+
+1. Open crontab: `crontab -e`
+2. Add:
    ```cron
    0 2 * * 0 curl -sS -X POST "https://your-domain.com/api/zoho/sync" -H "Authorization: Bearer YOUR_ZOHO_SYNC_CRON_SECRET"
    ```
-3. Save and exit. The job will run weekly.
+3. Save and exit.
 
-### Option B: cron-job.org (or similar)
+### Option C: cron-job.org (or similar)
+
+Use when the app is reachable from the internet and you want an external service to trigger the sync.
 
 1. Create an account at [cron-job.org](https://cron-job.org) (or another cron service).
 2. Create a new cron job:
@@ -89,7 +107,7 @@ Use **one** of the options below. Replace:
      - Value: `Bearer YOUR_ZOHO_SYNC_CRON_SECRET`
 3. Save. The service will call your app weekly.
 
-### Option C: Windows Task Scheduler
+### Option D: Windows Task Scheduler
 
 1. Open **Task Scheduler** → Create Basic Task.
 2. Trigger: **Weekly** (e.g. Sunday, 2:00 AM).
@@ -167,4 +185,4 @@ After a successful run, `npm run zoho:check` will show updated `synced_at` and r
 |------|------------|
 | **1** | Add `ZOHO_SYNC_CRON_SECRET="<random-secret>"` to `.env`. |
 | **2** | Run sync once: **on server** `ZOHO_SYNC_DIRECT=1 npm run zoho:sync` (no app needed). Or via API: start app then `npm run zoho:sync`. |
-| **3** | Schedule weekly `POST https://your-domain.com/api/zoho/sync` with header `Authorization: Bearer <same-secret>`. |
+| **3** | Schedule weekly: **same server** → `0 2 * * 0 cd /path/to/Procurement-Platform && ZOHO_SYNC_DIRECT=1 npm run zoho:sync` **or** call `POST .../api/zoho/sync` with `Authorization: Bearer <secret>`. |
