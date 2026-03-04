@@ -402,7 +402,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                           const data = await file.arrayBuffer();
                           const wb = XLSX.read(data, { type: "array" });
                           const ws = wb.Sheets[wb.SheetNames[0]];
-                          const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { header: 1 }) as unknown[][];
+                          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
                           if (rows.length < 2) return;
                           const headers = (rows[0] as string[]).map((h) => String(h ?? "").trim());
                           const slNoIdx = headers.findIndex((h) => /sl\.?\s*no|serial/i.test(h));
