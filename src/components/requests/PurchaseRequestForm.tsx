@@ -396,31 +396,35 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         <SectionCard title="Item Info">
           <div className="space-y-6">
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Choose how you want to add items. Item details, estimated cost, and need-by date apply to your selection.
+              Choose how you want to add items. Only the selected option will be shown.
             </p>
-            <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700">
-              <button
-                type="button"
-                onClick={() => { setItemMode("single"); setLookupError(""); setComponentSuggestionsOpen(false); }}
-                className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
-                  itemMode === "single"
-                    ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
-                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-              >
-                Single item
-              </button>
-              <button
-                type="button"
-                onClick={() => { setItemMode("bulk"); setLookupError(""); setComponentSuggestionsOpen(false); }}
-                className={`border-b-2 px-4 py-2 text-sm font-medium transition ${
-                  itemMode === "bulk"
-                    ? "border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400"
-                    : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                }`}
-              >
-                Bulk items
-              </button>
+            <div className="flex flex-wrap items-center gap-4">
+              <fieldset className="flex gap-4">
+                <legend className="sr-only">Add items by</legend>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="itemMode"
+                    checked={itemMode === "single"}
+                    onChange={() => { setItemMode("single"); setLookupError(""); setComponentSuggestionsOpen(false); }}
+                    className="h-4 w-4 border-slate-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Single item</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name="itemMode"
+                    checked={itemMode === "bulk"}
+                    onChange={() => { setItemMode("bulk"); setLookupError(""); setComponentSuggestionsOpen(false); }}
+                    className="h-4 w-4 border-slate-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Bulk items</span>
+                </label>
+              </fieldset>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                {itemMode === "single" ? "Adding one item with Zoho lookup" : "Upload Excel to add multiple items"}
+              </span>
             </div>
 
             {itemMode === "bulk" && (
