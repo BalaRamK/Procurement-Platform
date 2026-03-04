@@ -85,7 +85,7 @@ async function fetchOnePage(
     throw new Error(`Zoho API error: ${res.status} ${text.slice(0, 200)}`);
   }
   if (!text.trim().startsWith("{")) {
-    throw new Error(`Zoho API error: ${res.status} ${text.slice(0, 200)}`);
+    throw new Error("ZOHO_NON_JSON_RESPONSE");
   }
   const data = JSON.parse(text) as {
     items?: ZohoItemRow[];
@@ -126,7 +126,7 @@ export async function syncZohoBooksItemsToDb(): Promise<{
       break;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("ZOHO_CODE_9_USE_ZOHOAPIS")) continue;
+      if (msg.includes("ZOHO_CODE_9_USE_ZOHOAPIS") || msg.includes("ZOHO_NON_JSON_RESPONSE")) continue;
       if (msg.includes("401")) {
         const refresh = await refreshZohoBooksToken();
         if (refresh.token) {
@@ -137,7 +137,7 @@ export async function syncZohoBooksItemsToDb(): Promise<{
             break;
           } catch (retryErr) {
             const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-            if (retryMsg.includes("ZOHO_CODE_9_USE_ZOHOAPIS")) continue;
+            if (retryMsg.includes("ZOHO_CODE_9_USE_ZOHOAPIS") || retryMsg.includes("ZOHO_NON_JSON_RESPONSE")) continue;
             throw retryErr;
           }
         }
