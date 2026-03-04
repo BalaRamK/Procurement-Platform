@@ -103,6 +103,64 @@ Use **one** of the options below. Replace:
 
 ---
 
+## Verify: DB and cron
+
+### Check data in the database
+
+From the project root (with `DATABASE_URL` in `.env`):
+
+```bash
+npm run zoho:check
+```
+
+This prints:
+
+- **Total rows** in `zoho_books_items`
+- **Latest synced_at** (when the last sync ran)
+- **Sample rows** (5 most recently synced: id, name, sku, rate, synced_at)
+
+Or run SQL yourself:
+
+```sql
+SELECT COUNT(*) FROM zoho_books_items;
+SELECT MAX(synced_at) AS last_sync FROM zoho_books_items;
+SELECT id, name, sku, rate, synced_at FROM zoho_books_items ORDER BY synced_at DESC LIMIT 10;
+```
+
+### Check if the cron is running
+
+**Linux/macOS (crontab):**
+
+1. List your cron jobs:
+   ```bash
+   crontab -l
+   ```
+   You should see a line like:
+   ```cron
+   0 2 * * 0 curl -sS -X POST "https://proc.qnulabs.com/api/zoho/sync" -H "Authorization: Bearer YOUR_SECRET"
+   ```
+
+2. Cron runs in a minimal environment. To see errors, redirect output to a log file and check it after the next run:
+   ```cron
+   0 2 * * 0 curl -sS -X POST "https://proc.qnulabs.com/api/zoho/sync" -H "Authorization: Bearer YOUR_SECRET" >> /tmp/zoho-sync.log 2>&1
+   ```
+   After Sunday 2:00 AM, check `/tmp/zoho-sync.log`. A successful sync returns JSON with `"success": true`.
+
+**Test the sync endpoint manually:**
+
+```bash
+curl -sS -X POST "https://proc.qnulabs.com/api/zoho/sync" \
+  -H "Authorization: Bearer YOUR_ZOHO_SYNC_CRON_SECRET"
+```
+
+- If it works you get JSON: `{"success":true,"message":"Zoho Books items synced","syncedCount":123}`.
+- If the secret is wrong: `401 Unauthorized`.
+- If Zoho/DB fails: `500` with an `error` field in the body.
+
+After a successful run, `npm run zoho:check` will show updated `synced_at` and row count.
+
+---
+
 ## Quick reference
 
 | Step | What to do |
