@@ -141,6 +141,47 @@ If the browser shows **504 Gateway Timeout** when looking up an item (e.g. on bl
    - **Cloud load balancers:** Set the backend timeout to at least 90 seconds for the app.
 2. **Optional:** Increase the app’s Zoho request timeout so the app waits longer for Zoho before returning 503: set `ZOHO_REQUEST_TIMEOUT_MS=60000` (or higher) in the app’s environment. Default is 20 seconds.
 
+### 1.5 Sync Zoho Books to database (one-time + weekly cron)
+
+Item lookups are faster when Zoho Books items are synced into the app database. The app uses this cache first; if no row is found, it falls back to calling the Zoho API.
+
+**One-time setup**
+
+1. **Apply the schema** (adds `zoho_books_items` table):
+   ```bash
+   npm run db:init
+   ```
+   Or run the `CREATE TABLE` and index statements from `sql/schema.sql` for `zoho_books_items`.
+
+2. **Run the sync once** (choose one):
+   - **Option A — Script (app must be running):** Set `ZOHO_SYNC_CRON_SECRET` in `.env`, then:
+     ```bash
+     npm run zoho:sync
+     ```
+     (or `npx tsx scripts/sync-zoho-books.ts`)
+   - **Option B — API as SUPER_ADMIN:** Sign in as a user with SUPER_ADMIN role and call:
+     ```bash
+     curl -X POST "https://your-domain.com/api/zoho/sync" -H "Cookie: <your-session-cookie>"
+     ```
+   - **Option C — API with cron secret:** Set `ZOHO_SYNC_CRON_SECRET` in your environment, then:
+     ```bash
+     curl -X POST "https://your-domain.com/api/zoho/sync" -H "Authorization: Bearer YOUR_ZOHO_SYNC_CRON_SECRET"
+     ```
+
+**Weekly cron (recommended)**
+
+Schedule a job to run the sync every week so the cached items stay up to date.
+
+- **Using cron (Linux/macOS):** Add a line to crontab (`crontab -e`), e.g. every Sunday at 2:00 AM:
+  ```cron
+  0 2 * * 0 curl -sS -X POST "https://your-domain.com/api/zoho/sync" -H "Authorization: Bearer YOUR_ZOHO_SYNC_CRON_SECRET"
+  ```
+- **Using a cron service:** Use a service (e.g. cron-job.org, GitHub Actions, or your host’s scheduler) to send the same `POST /api/zoho/sync` request with the `Authorization: Bearer <ZOHO_SYNC_CRON_SECRET>` header on a weekly schedule.
+
+**Environment variable**
+
+- `ZOHO_SYNC_CRON_SECRET` — Optional. When set, `POST /api/zoho/sync` accepts `Authorization: Bearer <this value>` (or `?secret=<this value>`) and runs the sync without requiring a logged-in user. Keep this secret and use it only for the cron job or the one-off script.
+
 ---
 
 ## 2. Zoho CRM integration

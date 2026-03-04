@@ -127,6 +127,22 @@ CREATE TABLE IF NOT EXISTS charge_code_options (
 
 CREATE INDEX IF NOT EXISTS idx_charge_code_options_team ON charge_code_options(team_name);
 
+-- Zoho Books items cache (synced by script/cron for fast lookup)
+CREATE TABLE IF NOT EXISTS zoho_books_items (
+  id TEXT PRIMARY KEY,
+  name TEXT,
+  sku TEXT,
+  rate DECIMAL(12,2),
+  unit TEXT,
+  description TEXT,
+  purchase_rate DECIMAL(12,2),
+  purchase_description TEXT,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_zoho_books_items_sku ON zoho_books_items(sku);
+CREATE INDEX IF NOT EXISTS idx_zoho_books_items_name ON zoho_books_items(name);
+
 -- Email templates
 CREATE TABLE IF NOT EXISTS email_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

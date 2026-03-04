@@ -15,6 +15,7 @@
     "db:migrate-request-options": "tsx scripts/migrate-request-options.ts",
     "db:seed-request-options": "tsx scripts/seed-request-options.ts",
     "grant-super-admin": "tsx scripts/grant-super-admin.ts",
+    "zoho:sync": "tsx scripts/sync-zoho-books.ts",
     "deploy": "npm run clean && npm ci && npm run build"
   },
   "dependencies": {

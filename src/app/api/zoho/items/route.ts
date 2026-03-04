@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { fetchWithProxy } from "@/lib/zoho-fetch";
 import { getEffectiveAccessToken, refreshZohoBooksToken } from "@/lib/zoho-refresh";
+import { getZohoItemFromDb } from "@/lib/zoho-sync";
 
 /** Response shape for Zoho Books → Platform (lookup only). */
 export type ZohoItemResponse = {
@@ -65,6 +66,28 @@ export async function GET(req: NextRequest) {
   const searchTerm = sku.trim();
   const debug = req.nextUrl.searchParams.get("debug") === "1";
   console.log("[Zoho Items] auth OK, search term=" + JSON.stringify(searchTerm));
+
+  const dbItem = await getZohoItemFromDb(searchTerm);
+  if (dbItem) {
+    const rateVal = dbItem.rate ?? 0;
+    const costPerItem =
+      (rateVal === 0 || rateVal === 1) && dbItem.purchase_rate != null
+        ? dbItem.purchase_rate
+        : rateVal;
+    const purchaseDesc = (dbItem.purchase_description ?? "").trim();
+    const desc = (dbItem.description ?? "").trim();
+    const combinedDescription = [purchaseDesc, desc].filter(Boolean).join("\n\n");
+    const payload = {
+      found: true,
+      name: dbItem.name,
+      rate: costPerItem,
+      purchase_rate: dbItem.purchase_rate,
+      unit: dbItem.unit,
+      description: combinedDescription || null,
+    } as Record<string, unknown>;
+    if (debug) payload._debug = { source: "database" };
+    return NextResponse.json(payload);
+  }
 
   let items: CachedItem[] | null = null;
   let fromCache = false;
