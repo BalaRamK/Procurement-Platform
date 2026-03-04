@@ -20,6 +20,7 @@ type ZohoItemRow = {
   purchase_description?: string;
 };
 
+/** Same base URL order as items route: try non-zohoapis first, then zohoapis (code 9 = "Use zohoapis domain"). */
 function getBaseUrls(): string[] {
   const baseOverride = process.env.ZOHO_BOOKS_API_BASE_URL?.trim();
   if (baseOverride) {
@@ -29,16 +30,24 @@ function getBaseUrls(): string[] {
   const isIndia = process.env.ZOHO_BOOKS_ACCOUNTS_SERVER?.toLowerCase().includes("zoho.in");
   return isIndia
     ? [
+        "https://www.zoho.in/books/api/v3/items",
+        "https://www.zoho.in/books/api/v3/items/",
+        "https://books.zoho.in/api/v3/items",
+        "https://books.zoho.in/api/v3/items/",
         "https://www.zohoapis.in/books/api/v3/items",
         "https://www.zohoapis.in/books/api/v3/items/",
-        "https://www.zoho.in/books/api/v3/items",
-        "https://books.zoho.in/api/v3/items",
+        "https://www.zohoapis.in/books/v3/items",
+        "https://www.zohoapis.in/books/v3/items/",
       ]
     : [
+        "https://www.zoho.com/books/api/v3/items",
+        "https://www.zoho.com/books/api/v3/items/",
+        "https://books.zoho.com/api/v3/items",
+        "https://books.zoho.com/api/v3/items/",
         "https://www.zohoapis.com/books/api/v3/items",
         "https://www.zohoapis.com/books/api/v3/items/",
-        "https://www.zoho.com/books/api/v3/items",
-        "https://books.zoho.com/api/v3/items",
+        "https://www.zohoapis.com/books/v3/items",
+        "https://www.zohoapis.com/books/v3/items/",
       ];
 }
 
@@ -62,7 +71,20 @@ async function fetchOnePage(
     },
   });
   const text = await res.text();
-  if (!res.ok || !text.trim().startsWith("{")) {
+  if (!res.ok) {
+    let code: number | undefined;
+    try {
+      const parsed = JSON.parse(text) as { code?: number };
+      code = parsed.code;
+    } catch {
+      /* ignore */
+    }
+    if (res.status === 400 && code === 9) {
+      throw new Error("ZOHO_CODE_9_USE_ZOHOAPIS");
+    }
+    throw new Error(`Zoho API error: ${res.status} ${text.slice(0, 200)}`);
+  }
+  if (!text.trim().startsWith("{")) {
     throw new Error(`Zoho API error: ${res.status} ${text.slice(0, 200)}`);
   }
   const data = JSON.parse(text) as {
@@ -103,16 +125,24 @@ export async function syncZohoBooksItemsToDb(): Promise<{
       workingBase = base;
       break;
     } catch (e) {
-      if (e instanceof Error && e.message.includes("401")) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("ZOHO_CODE_9_USE_ZOHOAPIS")) continue;
+      if (msg.includes("401")) {
         const refresh = await refreshZohoBooksToken();
         if (refresh.token) {
           accessToken = refresh.token;
-          const retry = await fetchOnePage(base, orgId, accessToken, 1);
-          workingBase = base;
-          break;
+          try {
+            const retry = await fetchOnePage(base, orgId, accessToken, 1);
+            workingBase = base;
+            break;
+          } catch (retryErr) {
+            const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+            if (retryMsg.includes("ZOHO_CODE_9_USE_ZOHOAPIS")) continue;
+            throw retryErr;
+          }
         }
       }
-      continue;
+      throw e;
     }
   }
 
