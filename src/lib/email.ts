@@ -1,5 +1,36 @@
 import { queryOne, query } from "@/lib/db";
 
+type SmtpConfig = { host: string; port: string; from: string; user: string; pass: string };
+
+async function getSmtpConfig(): Promise<SmtpConfig | null> {
+  try {
+    const rows = await query<{ key: string; value: string | null }>(
+      `SELECT key, value FROM app_settings WHERE key = ANY($1)`,
+      [["smtp_host", "smtp_port", "smtp_from", "smtp_user", "smtp_pass"]]
+    );
+    const db: Record<string, string> = {};
+    for (const row of rows) if (row.value) db[row.key] = row.value;
+
+    const host = db["smtp_host"] || process.env.SENDGRID_SMTP_HOST || "";
+    const port = db["smtp_port"] || process.env.SENDGRID_SMTP_PORT || "";
+    const from = db["smtp_from"] || process.env.SENDGRID_MAIL || "";
+    const user = db["smtp_user"] || process.env.SENDGRID_API_KEY_ID || process.env.SENDGRID_MAIL || "";
+    const pass = db["smtp_pass"] || process.env.SENDGRID_API_KEY_SECRET || "";
+
+    if (!host || !port || !from || !user || !pass) return null;
+    return { host, port, from, user, pass };
+  } catch {
+    // DB unavailable — fall back to env vars only
+    const host = process.env.SENDGRID_SMTP_HOST || "";
+    const port = process.env.SENDGRID_SMTP_PORT || "";
+    const from = process.env.SENDGRID_MAIL || "";
+    const user = process.env.SENDGRID_API_KEY_ID || process.env.SENDGRID_MAIL || "";
+    const pass = process.env.SENDGRID_API_KEY_SECRET || "";
+    if (!host || !port || !from || !user || !pass) return null;
+    return { host, port, from, user, pass };
+  }
+}
+
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
   assignment: "assigned_to_production",
@@ -53,23 +84,22 @@ export async function getTemplateForTrigger(
 async function sendEmail(to: string, subject: string, body: string): Promise<void> {
   if (!to || !to.includes("@")) return;
 
-  const host = process.env.SENDGRID_SMTP_HOST;
-  const port = process.env.SENDGRID_SMTP_PORT;
-  const from = process.env.SENDGRID_MAIL;
-  const user = process.env.SENDGRID_API_KEY_ID ?? process.env.SENDGRID_MAIL;
-  const pass = process.env.SENDGRID_API_KEY_SECRET;
-
-  if (host && port && from && user && pass) {
+  const cfg = await getSmtpConfig();
+  if (cfg) {
     try {
+      const numPort = parseInt(cfg.port, 10) || 587;
       const nodemailer = await import("nodemailer");
       const transporter = nodemailer.default.createTransport({
-        host,
-        port: parseInt(port, 10) || 587,
-        secure: false,
-        auth: { user, pass },
+        host: cfg.host,
+        port: numPort,
+        secure: numPort === 465,
+        auth: { user: cfg.user, pass: cfg.pass },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
       });
       await transporter.sendMail({
-        from,
+        from: cfg.from,
         to,
         subject,
         text: body,

@@ -159,6 +159,13 @@ CREATE TABLE IF NOT EXISTS zoho_books_items (
 CREATE INDEX IF NOT EXISTS idx_zoho_books_items_sku ON zoho_books_items(sku);
 CREATE INDEX IF NOT EXISTS idx_zoho_books_items_name ON zoho_books_items(name);
 
+-- App settings (key-value store for admin-configurable values)
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Email templates
 CREATE TABLE IF NOT EXISTS email_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

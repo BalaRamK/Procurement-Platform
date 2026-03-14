@@ -70,6 +70,11 @@ export function EmailTemplateManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // SMTP settings state
+  const [smtpForm, setSmtpForm] = useState({ smtp_host: "", smtp_port: "", smtp_from: "", smtp_user: "", smtp_pass: "" });
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpResult, setSmtpResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   // Email logs state
   const [logs, setLogs] = useState<EmailLog[]>([]);
   const [stats, setStats] = useState<EmailStats | null>(null);
@@ -144,10 +149,45 @@ export function EmailTemplateManager() {
       .finally(() => setLogsLoading(false));
   }
 
+  function loadSmtpSettings() {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((data: Record<string, string>) => {
+        setSmtpForm({
+          smtp_host: data["smtp_host"] ?? "",
+          smtp_port: data["smtp_port"] ?? "",
+          smtp_from: data["smtp_from"] ?? "",
+          smtp_user: data["smtp_user"] ?? "",
+          smtp_pass: data["smtp_pass"] ?? "",
+        });
+      })
+      .catch(() => {});
+  }
+
   useEffect(() => {
     loadTemplates();
     loadLogs();
+    loadSmtpSettings();
   }, []);
+
+  async function handleSmtpSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSmtpSaving(true);
+    setSmtpResult(null);
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(smtpForm),
+      });
+      const data = await res.json() as { error?: string };
+      setSmtpResult({ ok: res.ok, message: res.ok ? "Settings saved." : (data.error ?? "Failed to save") });
+    } catch {
+      setSmtpResult({ ok: false, message: "Failed to save settings" });
+    } finally {
+      setSmtpSaving(false);
+    }
+  }
 
   async function handleSendTestEmail(e: React.FormEvent) {
     e.preventDefault();
@@ -253,6 +293,83 @@ export function EmailTemplateManager() {
 
   return (
     <div>
+      {/* SMTP Settings */}
+      <div className="card mb-8 overflow-hidden">
+        <div className="card-header border-b px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">SMTP settings</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">
+            Configure the outgoing mail server. Settings here override environment variables.
+          </p>
+        </div>
+        <form onSubmit={handleSmtpSave} className="space-y-4 px-6 py-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">SMTP host</label>
+              <input
+                type="text"
+                value={smtpForm.smtp_host}
+                onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_host: e.target.value }))}
+                className="input-base"
+                placeholder="e.g. smtp.sendgrid.net"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">SMTP port</label>
+              <input
+                type="text"
+                value={smtpForm.smtp_port}
+                onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_port: e.target.value }))}
+                className="input-base"
+                placeholder="587 or 465"
+              />
+              <p className="mt-1 text-xs text-slate-400">587 = STARTTLS &nbsp;|&nbsp; 465 = SSL</p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">From address</label>
+              <input
+                type="email"
+                value={smtpForm.smtp_from}
+                onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_from: e.target.value }))}
+                className="input-base"
+                placeholder="noreply@yourcompany.com"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">SMTP username</label>
+              <input
+                type="text"
+                value={smtpForm.smtp_user}
+                onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_user: e.target.value }))}
+                className="input-base"
+                placeholder="apikey or email"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">SMTP password / API key</label>
+              <input
+                type="password"
+                value={smtpForm.smtp_pass}
+                onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_pass: e.target.value }))}
+                className="input-base"
+                placeholder={smtpForm.smtp_pass === "••••••••" ? "Leave unchanged or enter a new password" : "Enter password or API key"}
+                autoComplete="new-password"
+              />
+              {smtpForm.smtp_pass === "••••••••" && (
+                <p className="mt-1 text-xs text-slate-400">Password is set. Enter a new value to change it.</p>
+              )}
+            </div>
+          </div>
+          {smtpResult && (
+            <p className={`text-sm font-medium ${smtpResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+              {smtpResult.message}
+            </p>
+          )}
+          <button type="submit" disabled={smtpSaving} className="btn-primary">
+            {smtpSaving ? "Saving…" : "Save SMTP settings"}
+          </button>
+        </form>
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-sm text-slate-500 dark:text-slate-200">
