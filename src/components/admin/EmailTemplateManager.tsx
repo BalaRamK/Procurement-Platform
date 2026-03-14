@@ -4,6 +4,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+type EmailLog = {
+  id: string;
+  ticketId: string;
+  ticketTitle: string | null;
+  type: string;
+  recipient: string;
+  sentAt: string;
+  payload: string | null;
+};
+
+type EmailStats = {
+  total: string;
+  last24h: string;
+  last7d: string;
+};
+
 /** Placeholders available in subject and body (must match EmailContext in lib/email.ts) */
 const TEMPLATE_FIELDS = [
   { key: "requesterName", label: "Requester name" },
@@ -53,6 +69,19 @@ export function EmailTemplateManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Email logs state
+  const [logs, setLogs] = useState<EmailLog[]>([]);
+  const [stats, setStats] = useState<EmailStats | null>(null);
+  const [logsLoading, setLogsLoading] = useState(true);
+
+  // Test email state
+  const [testEmail, setTestEmail] = useState("");
+  const [testSubject, setTestSubject] = useState("Test email from Procurement Platform");
+  const [testBody, setTestBody] = useState("This is a test email to verify your email configuration is working correctly.");
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
   const [form, setForm] = useState({
     name: "",
     trigger: "request_created",
@@ -100,9 +129,44 @@ export function EmailTemplateManager() {
       .finally(() => setLoading(false));
   }
 
+  function loadLogs() {
+    setLogsLoading(true);
+    fetch("/api/admin/email-logs")
+      .then((r) => r.json())
+      .then((data) => {
+        setLogs(Array.isArray(data.logs) ? data.logs : []);
+        setStats(data.stats ?? null);
+      })
+      .catch(() => {
+        setLogs([]);
+        setStats(null);
+      })
+      .finally(() => setLogsLoading(false));
+  }
+
   useEffect(() => {
     loadTemplates();
+    loadLogs();
   }, []);
+
+  async function handleSendTestEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/admin/email-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: testEmail, subject: testSubject, body: testBody }),
+      });
+      const data = await res.json() as { message?: string; error?: string };
+      setTestResult({ ok: res.ok, message: res.ok ? (data.message ?? "Test email sent!") : (data.error ?? "Failed to send") });
+    } catch {
+      setTestResult({ ok: false, message: "Failed to send test email" });
+    } finally {
+      setTestSending(false);
+    }
+  }
 
   function openAdd() {
     setForm({
@@ -393,6 +457,127 @@ export function EmailTemplateManager() {
                       >
                         Delete
                       </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Test Email */}
+      <div className="card mt-8 overflow-hidden">
+        <div className="card-header border-b px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Send test email</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">
+            Verify your SMTP configuration by sending a test email.
+          </p>
+        </div>
+        <form onSubmit={handleSendTestEmail} className="space-y-4 px-6 py-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Send to *</label>
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                className="input-base"
+                placeholder="recipient@example.com"
+                required
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Subject</label>
+              <input
+                type="text"
+                value={testSubject}
+                onChange={(e) => setTestSubject(e.target.value)}
+                className="input-base"
+                placeholder="Test email subject"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Body</label>
+            <textarea
+              value={testBody}
+              onChange={(e) => setTestBody(e.target.value)}
+              className="input-base min-h-[80px]"
+              placeholder="Test email body..."
+            />
+          </div>
+          {testResult && (
+            <p className={`text-sm font-medium ${testResult.ok ? "text-emerald-600" : "text-red-600"}`}>
+              {testResult.message}
+            </p>
+          )}
+          <button type="submit" disabled={testSending} className="btn-primary">
+            {testSending ? "Sending…" : "Send test email"}
+          </button>
+        </form>
+      </div>
+
+      {/* Email Logs */}
+      <div className="card mt-8 overflow-hidden">
+        <div className="card-header border-b px-6 py-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Email activity</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Recent emails triggered by the system (last 100).</p>
+          </div>
+          {stats && (
+            <div className="flex gap-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.last24h}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Last 24h</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{stats.last7d}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Last 7d</p>
+              </div>
+              <button
+                type="button"
+                onClick={loadLogs}
+                className="self-start text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                Refresh
+              </button>
+            </div>
+          )}
+        </div>
+        {logsLoading ? (
+          <div className="px-6 py-8 text-center text-slate-500 dark:text-slate-300">Loading…</div>
+        ) : logs.length === 0 ? (
+          <div className="px-6 py-8 text-center text-slate-500 dark:text-slate-200">No emails sent yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-white/20">
+              <thead>
+                <tr>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Sent to</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Type</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ticket</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Date &amp; Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/20 bg-white/25">
+                {logs.map((log) => (
+                  <tr key={log.id} className="table-row-glass transition-colors">
+                    <td className="px-5 py-3 text-sm font-medium text-slate-900 dark:text-white">{log.recipient}</td>
+                    <td className="px-5 py-3 text-sm text-slate-600 dark:text-slate-300">
+                      <span className="inline-flex rounded-full border border-primary-300/30 bg-primary-100/20 px-2.5 py-0.5 text-xs font-medium text-primary-800 dark:text-primary-300">
+                        {log.type.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="max-w-[200px] truncate px-5 py-3 text-sm text-slate-600 dark:text-slate-300" title={log.ticketTitle ?? log.ticketId}>
+                      {log.ticketTitle ?? <span className="font-mono text-xs">{log.ticketId.slice(0, 8)}…</span>}
+                    </td>
+                    <td className="px-5 py-3 text-sm text-slate-500 dark:text-slate-400">
+                      {new Date(log.sentAt).toLocaleString()}
                     </td>
                   </tr>
                 ))}
