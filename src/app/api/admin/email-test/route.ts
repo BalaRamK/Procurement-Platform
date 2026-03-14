@@ -13,7 +13,7 @@ const schema = z.object({
 async function getSmtpConfig() {
   const rows = await query<{ key: string; value: string | null }>(
     `SELECT key, value FROM app_settings WHERE key = ANY($1)`,
-    [["smtp_host", "smtp_port", "smtp_from", "smtp_user", "smtp_pass"]]
+    [["smtp_host", "smtp_port", "smtp_from", "smtp_user", "smtp_pass", "smtp_proxy"]]
   );
   const db: Record<string, string> = {};
   for (const row of rows) if (row.value) db[row.key] = row.value;
@@ -24,6 +24,7 @@ async function getSmtpConfig() {
     from: db["smtp_from"] || process.env.SENDGRID_MAIL || "",
     user: db["smtp_user"] || process.env.SENDGRID_API_KEY_ID || process.env.SENDGRID_MAIL || "",
     pass: db["smtp_pass"] || process.env.SENDGRID_API_KEY_SECRET || "",
+    proxy: db["smtp_proxy"] || process.env.SMTP_PROXY || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || "",
   };
 }
 
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   try {
     const numPort = parseInt(cfg.port, 10) || 587;
     const nodemailer = await import("nodemailer");
-    const transporter = nodemailer.default.createTransport({
+    const transportOptions: Record<string, unknown> = {
       host: cfg.host,
       port: numPort,
       secure: numPort === 465,
@@ -60,7 +61,9 @@ export async function POST(req: NextRequest) {
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
       socketTimeout: 15_000,
-    });
+    };
+    if (cfg.proxy) transportOptions.proxy = cfg.proxy;
+    const transporter = nodemailer.default.createTransport(transportOptions);
     await transporter.sendMail({
       from: cfg.from,
       to,

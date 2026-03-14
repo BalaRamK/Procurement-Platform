@@ -71,7 +71,7 @@ export function EmailTemplateManager() {
   const [error, setError] = useState("");
 
   // SMTP settings state
-  const [smtpForm, setSmtpForm] = useState({ smtp_host: "", smtp_port: "", smtp_from: "", smtp_user: "", smtp_pass: "" });
+  const [smtpForm, setSmtpForm] = useState({ smtp_host: "", smtp_port: "", smtp_from: "", smtp_user: "", smtp_pass: "", smtp_proxy: "" });
   const [smtpSaving, setSmtpSaving] = useState(false);
   const [smtpResult, setSmtpResult] = useState<{ ok: boolean; message: string } | null>(null);
 
@@ -159,6 +159,7 @@ export function EmailTemplateManager() {
           smtp_from: data["smtp_from"] ?? "",
           smtp_user: data["smtp_user"] ?? "",
           smtp_pass: data["smtp_pass"] ?? "",
+          smtp_proxy: data["smtp_proxy"] ?? "",
         });
       })
       .catch(() => {});
@@ -357,6 +358,22 @@ export function EmailTemplateManager() {
               {smtpForm.smtp_pass === "••••••••" && (
                 <p className="mt-1 text-xs text-slate-400">Password is set. Enter a new value to change it.</p>
               )}
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                Proxy URL <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={smtpForm.smtp_proxy}
+                onChange={(e) => setSmtpForm((f) => ({ ...f, smtp_proxy: e.target.value }))}
+                className="input-base"
+                placeholder="http://proxy-host:8080 or socks5://proxy-host:1080"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Required if the server cannot reach the SMTP host directly. Supports HTTP CONNECT and SOCKS4/SOCKS5 proxies.
+                Leave blank to connect directly.
+              </p>
             </div>
           </div>
           {smtpResult && (

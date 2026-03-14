@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 
-const ALLOWED_KEYS = ["smtp_host", "smtp_port", "smtp_from", "smtp_user", "smtp_pass"] as const;
+const ALLOWED_KEYS = ["smtp_host", "smtp_port", "smtp_from", "smtp_user", "smtp_pass", "smtp_proxy"] as const;
 type SettingKey = (typeof ALLOWED_KEYS)[number];
 
 export async function GET() {
