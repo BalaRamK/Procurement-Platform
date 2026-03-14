@@ -175,10 +175,13 @@ CREATE TABLE IF NOT EXISTS email_templates (
   body_template TEXT NOT NULL,
   timeline TEXT NOT NULL DEFAULT 'immediate',
   delay_minutes INT,
+  extra_recipients TEXT,
   enabled BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Migrate existing tables
+ALTER TABLE email_templates ADD COLUMN IF NOT EXISTS extra_recipients TEXT;
 
 -- Trigger to keep updated_at in sync (optional)
 CREATE OR REPLACE FUNCTION set_updated_at()

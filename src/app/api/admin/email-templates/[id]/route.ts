@@ -11,8 +11,14 @@ const patchSchema = z.object({
   bodyTemplate: z.string().min(1).optional(),
   timeline: z.enum(["immediate", "after_24h", "after_48h", "custom"]).optional(),
   delayMinutes: z.number().int().min(0).nullable().optional(),
+  extraRecipients: z.string().nullable().optional(),
   enabled: z.boolean().optional(),
 });
+
+const SELECT_COLS = `
+  id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+  timeline, delay_minutes AS "delayMinutes", extra_recipients AS "extraRecipients",
+  enabled, created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 export async function GET(
   _req: NextRequest,
@@ -25,9 +31,7 @@ export async function GET(
 
   const { id } = await params;
   const template = await queryOne<Record<string, unknown>>(
-    `SELECT id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
-            timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
-     FROM email_templates WHERE id = $1`,
+    `SELECT ${SELECT_COLS} FROM email_templates WHERE id = $1`,
     [id]
   );
   if (!template) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -59,40 +63,18 @@ export async function PATCH(
   const setClauses: string[] = [];
   const values: unknown[] = [];
   let i = 1;
-  if (data.name !== undefined) {
-    setClauses.push(`name = $${i++}`);
-    values.push(data.name);
-  }
-  if (data.trigger !== undefined) {
-    setClauses.push(`trigger = $${i++}`);
-    values.push(data.trigger);
-  }
-  if (data.subjectTemplate !== undefined) {
-    setClauses.push(`subject_template = $${i++}`);
-    values.push(data.subjectTemplate);
-  }
-  if (data.bodyTemplate !== undefined) {
-    setClauses.push(`body_template = $${i++}`);
-    values.push(data.bodyTemplate);
-  }
-  if (data.timeline !== undefined) {
-    setClauses.push(`timeline = $${i++}`);
-    values.push(data.timeline);
-  }
-  if (data.delayMinutes !== undefined) {
-    setClauses.push(`delay_minutes = $${i++}`);
-    values.push(data.delayMinutes);
-  }
-  if (data.enabled !== undefined) {
-    setClauses.push(`enabled = $${i++}`);
-    values.push(data.enabled);
-  }
+  if (data.name !== undefined) { setClauses.push(`name = $${i++}`); values.push(data.name); }
+  if (data.trigger !== undefined) { setClauses.push(`trigger = $${i++}`); values.push(data.trigger); }
+  if (data.subjectTemplate !== undefined) { setClauses.push(`subject_template = $${i++}`); values.push(data.subjectTemplate); }
+  if (data.bodyTemplate !== undefined) { setClauses.push(`body_template = $${i++}`); values.push(data.bodyTemplate); }
+  if (data.timeline !== undefined) { setClauses.push(`timeline = $${i++}`); values.push(data.timeline); }
+  if (data.delayMinutes !== undefined) { setClauses.push(`delay_minutes = $${i++}`); values.push(data.delayMinutes); }
+  if (data.extraRecipients !== undefined) { setClauses.push(`extra_recipients = $${i++}`); values.push(data.extraRecipients ?? null); }
+  if (data.enabled !== undefined) { setClauses.push(`enabled = $${i++}`); values.push(data.enabled); }
 
   if (setClauses.length === 0) {
     const template = await queryOne<Record<string, unknown>>(
-      `SELECT id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
-              timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM email_templates WHERE id = $1`,
+      `SELECT ${SELECT_COLS} FROM email_templates WHERE id = $1`,
       [id]
     );
     return NextResponse.json(template);
@@ -101,7 +83,7 @@ export async function PATCH(
   setClauses.push("updated_at = now()");
   values.push(id);
   const rows = await query<Record<string, unknown>>(
-    `UPDATE email_templates SET ${setClauses.join(", ")} WHERE id = $${i} RETURNING id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate", timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"`,
+    `UPDATE email_templates SET ${setClauses.join(", ")} WHERE id = $${i} RETURNING ${SELECT_COLS}`,
     values
   );
   return NextResponse.json(rows[0]);

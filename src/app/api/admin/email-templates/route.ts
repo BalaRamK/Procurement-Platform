@@ -11,8 +11,14 @@ const createSchema = z.object({
   bodyTemplate: z.string().min(1),
   timeline: z.enum(["immediate", "after_24h", "after_48h", "custom"]).default("immediate"),
   delayMinutes: z.number().int().min(0).optional().nullable(),
+  extraRecipients: z.string().optional().nullable(),
   enabled: z.boolean().default(true),
 });
+
+const RETURNING = `
+  id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
+  timeline, delay_minutes AS "delayMinutes", extra_recipients AS "extraRecipients",
+  enabled, created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -21,9 +27,7 @@ export async function GET() {
   }
 
   const templates = await query<Record<string, unknown>>(
-    `SELECT id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
-            timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"
-     FROM email_templates ORDER BY created_at DESC`
+    `SELECT ${RETURNING} FROM email_templates ORDER BY created_at DESC`
   );
   return NextResponse.json(templates);
 }
@@ -43,13 +47,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { name, trigger, subjectTemplate, bodyTemplate, timeline, delayMinutes, enabled } = parsed.data;
+  const { name, trigger, subjectTemplate, bodyTemplate, timeline, delayMinutes, extraRecipients, enabled } = parsed.data;
   const rows = await query<Record<string, unknown>>(
-    `INSERT INTO email_templates (name, trigger, subject_template, body_template, timeline, delay_minutes, enabled)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id, name, trigger, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
-               timeline, delay_minutes AS "delayMinutes", enabled, created_at AS "createdAt", updated_at AS "updatedAt"`,
-    [name, trigger, subjectTemplate, bodyTemplate, timeline, timeline === "custom" ? delayMinutes ?? null : null, enabled]
+    `INSERT INTO email_templates (name, trigger, subject_template, body_template, timeline, delay_minutes, extra_recipients, enabled)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING ${RETURNING}`,
+    [name, trigger, subjectTemplate, bodyTemplate, timeline, timeline === "custom" ? delayMinutes ?? null : null, extraRecipients ?? null, enabled]
   );
   const template = rows[0];
   if (!template) return NextResponse.json({ error: "Insert failed" }, { status: 500 });

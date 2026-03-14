@@ -56,6 +56,7 @@ type EmailTemplate = {
   bodyTemplate: string;
   timeline: string;
   delayMinutes: number | null;
+  extraRecipients: string | null;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -94,8 +95,10 @@ export function EmailTemplateManager() {
     bodyTemplate: "",
     timeline: "immediate" as "immediate" | "after_24h" | "after_48h" | "custom",
     delayMinutes: "" as string | number,
+    extraRecipients: [] as string[],
     enabled: true,
   });
+  const [recipientInput, setRecipientInput] = useState("");
   const subjectInputRef = useRef<HTMLInputElement>(null);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -217,8 +220,10 @@ export function EmailTemplateManager() {
       bodyTemplate: "",
       timeline: "immediate",
       delayMinutes: "",
+      extraRecipients: [],
       enabled: true,
     });
+    setRecipientInput("");
     setEditingId(null);
     setFormOpen("add");
     setError("");
@@ -232,8 +237,12 @@ export function EmailTemplateManager() {
       bodyTemplate: t.bodyTemplate,
       timeline: t.timeline as "immediate" | "after_24h" | "after_48h" | "custom",
       delayMinutes: t.delayMinutes ?? "",
+      extraRecipients: t.extraRecipients
+        ? t.extraRecipients.split(",").map((e) => e.trim()).filter(Boolean)
+        : [],
       enabled: t.enabled,
     });
+    setRecipientInput("");
     setEditingId(t.id);
     setFormOpen("add");
     setError("");
@@ -256,6 +265,7 @@ export function EmailTemplateManager() {
         bodyTemplate: form.bodyTemplate.trim(),
         timeline: form.timeline,
         delayMinutes: form.timeline === "custom" && form.delayMinutes !== "" ? Number(form.delayMinutes) : null,
+        extraRecipients: form.extraRecipients.length > 0 ? form.extraRecipients.join(",") : null,
         enabled: form.enabled,
       };
       const url = editingId ? `/api/admin/email-templates/${editingId}` : "/api/admin/email-templates";
@@ -507,6 +517,66 @@ export function EmailTemplateManager() {
                 />
               </div>
               <div>
+                <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  Recipients <span className="font-normal text-slate-400">(additional — always CC&apos;d on this trigger)</span>
+                </label>
+                <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">
+                  The dynamic recipient (requester, assignee, etc.) is always included. Add extra email addresses here.
+                </p>
+                {form.extraRecipients.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-1.5">
+                    {form.extraRecipients.map((email) => (
+                      <span
+                        key={email}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary-300/40 bg-primary-100/30 px-2.5 py-1 text-xs font-medium text-primary-800 dark:border-primary-500/30 dark:bg-primary-900/20 dark:text-primary-300"
+                      >
+                        {email}
+                        <button
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, extraRecipients: f.extraRecipients.filter((e) => e !== email) }))}
+                          className="ml-0.5 rounded-full text-primary-500 hover:text-primary-700 dark:text-primary-400"
+                          aria-label={`Remove ${email}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={recipientInput}
+                    onChange={(e) => setRecipientInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const val = recipientInput.trim().replace(/,$/, "");
+                        if (val.includes("@") && !form.extraRecipients.includes(val)) {
+                          setForm((f) => ({ ...f, extraRecipients: [...f.extraRecipients, val] }));
+                        }
+                        setRecipientInput("");
+                      }
+                    }}
+                    className="input-base flex-1"
+                    placeholder="email@example.com — press Enter or comma to add"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const val = recipientInput.trim();
+                      if (val.includes("@") && !form.extraRecipients.includes(val)) {
+                        setForm((f) => ({ ...f, extraRecipients: [...f.extraRecipients, val] }));
+                      }
+                      setRecipientInput("");
+                    }}
+                    className="btn-secondary shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+              <div>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -551,6 +621,7 @@ export function EmailTemplateManager() {
                   <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trigger</th>
                   <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Timeline</th>
                   <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Subject</th>
+                  <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Extra recipients</th>
                   <th className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Enabled</th>
                   <th className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Actions</th>
                 </tr>
@@ -566,6 +637,19 @@ export function EmailTemplateManager() {
                     </td>
                     <td className="max-w-[200px] truncate px-5 py-4 text-sm text-slate-600" title={t.subjectTemplate}>
                       {t.subjectTemplate}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-slate-600">
+                      {t.extraRecipients ? (
+                        <div className="flex flex-wrap gap-1">
+                          {t.extraRecipients.split(",").map((e) => e.trim()).filter(Boolean).map((email) => (
+                            <span key={email} className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                              {email}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <span

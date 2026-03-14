@@ -71,10 +71,11 @@ export async function getTemplateForTrigger(
     bodyTemplate: string;
     trigger: string;
     timeline: string;
+    extraRecipients: string | null;
     enabled: boolean;
   }>(
     `SELECT id, subject_template AS "subjectTemplate", body_template AS "bodyTemplate",
-            trigger, timeline, enabled
+            trigger, timeline, extra_recipients AS "extraRecipients", enabled
      FROM email_templates
      WHERE trigger = $1 AND timeline = $2 AND enabled = true
      ORDER BY updated_at DESC LIMIT 1`,
@@ -155,7 +156,14 @@ export async function sendNotificationEmail(
     if (!template) return;
     const subject = replacePlaceholders(template.subjectTemplate, context);
     const body = replacePlaceholders(template.bodyTemplate, context);
-    await sendEmail(recipient, subject, body);
+
+    // Build full recipient list: primary + any extra recipients defined on the template
+    const extras = (template.extraRecipients ?? "")
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.includes("@"));
+    const allRecipients = [recipient, ...extras].filter(Boolean);
+    await sendEmail(allRecipients.join(", "), subject, body);
   } catch (e) {
     console.error("[sendNotificationEmail]", trigger, recipient, e);
   }
