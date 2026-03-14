@@ -44,11 +44,37 @@ const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
 
 export type EmailContext = {
   requesterName?: string;
-  ticketId?: string;
+  ticketId?: string;       // human-readable request ID e.g. PR-0042
   ticketTitle?: string;
-  status?: string;
+  status?: string;         // formatted e.g. "Pending FH Approval"
   rejectionRemarks?: string;
+  department?: string;
+  teamName?: string;
+  priority?: string;       // formatted e.g. "High"
+  needByDate?: string;
+  estimatedCost?: string;
+  description?: string;
   [key: string]: string | undefined;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  PENDING_FH_APPROVAL: "Pending FH Approval",
+  PENDING_L1_APPROVAL: "Pending L1 Approval",
+  PENDING_CFO_APPROVAL: "Pending CFO Approval",
+  PENDING_CDO_APPROVAL: "Pending CDO Approval",
+  ASSIGNED_TO_PRODUCTION: "Assigned to Production",
+  DELIVERED_TO_REQUESTER: "Delivered to Requester",
+  CONFIRMED_BY_REQUESTER: "Confirmed by Requester",
+  CLOSED: "Closed",
+  REJECTED: "Rejected",
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  LOW: "Low",
+  MEDIUM: "Medium",
+  HIGH: "High",
+  URGENT: "Urgent",
 };
 
 function replacePlaceholders(text: string, context: EmailContext): string {
@@ -128,28 +154,55 @@ export async function sendNotificationEmail(
   if (!recipient?.includes("@")) return;
   try {
     const ticket = await queryOne<{
-      id: string;
+      requestId: string | null;
       title: string;
       status: string;
       rejectionRemarks: string | null;
       requesterName: string | null;
+      department: string;
+      teamName: string;
+      priority: string;
+      needByDate: string | null;
+      estimatedCost: string | null;
+      costCurrency: string | null;
+      description: string | null;
+      userName: string | null;
     }>(
-      `SELECT t.id, t.title, t.status, t.rejection_remarks AS "rejectionRemarks",
-              t.requester_name AS "requesterName"
+      `SELECT t.request_id AS "requestId", t.title, t.status,
+              t.rejection_remarks AS "rejectionRemarks",
+              t.requester_name AS "requesterName",
+              t.department, t.team_name AS "teamName",
+              t.priority, t.need_by_date AS "needByDate",
+              t.estimated_cost AS "estimatedCost",
+              t.cost_currency AS "costCurrency",
+              t.description,
+              u.name AS "userName"
        FROM tickets t
+       LEFT JOIN users u ON u.id = t.requester_id
        WHERE t.id = $1`,
       [ticketId]
     );
-    const requesterName = await queryOne<{ name: string | null }>(
-      "SELECT name FROM users u JOIN tickets t ON t.requester_id = u.id WHERE t.id = $1",
-      [ticketId]
-    );
+
+    const readableId = ticket?.requestId ?? ticketId;
+    const cost = ticket?.estimatedCost
+      ? `${ticket.costCurrency ?? ""} ${ticket.estimatedCost}`.trim()
+      : "";
+    const needByDate = ticket?.needByDate
+      ? new Date(ticket.needByDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+      : "";
+
     const context: EmailContext = {
-      requesterName: requesterName?.name ?? ticket?.requesterName ?? "",
-      ticketId: ticket?.id ?? ticketId,
+      requesterName: ticket?.userName ?? ticket?.requesterName ?? "",
+      ticketId: readableId,
       ticketTitle: ticket?.title ?? "",
-      status: ticket?.status ?? "",
+      status: STATUS_LABELS[ticket?.status ?? ""] ?? ticket?.status ?? "",
       rejectionRemarks: ticket?.rejectionRemarks ?? extraContext?.rejectionRemarks ?? "",
+      department: ticket?.department ?? "",
+      teamName: ticket?.teamName ?? "",
+      priority: PRIORITY_LABELS[ticket?.priority ?? ""] ?? ticket?.priority ?? "",
+      needByDate,
+      estimatedCost: cost,
+      description: ticket?.description ?? "",
       ...extraContext,
     };
     const template = await getTemplateForTrigger(trigger, "immediate");

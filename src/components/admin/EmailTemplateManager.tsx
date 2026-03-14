@@ -23,9 +23,15 @@ type EmailStats = {
 /** Placeholders available in subject and body (must match EmailContext in lib/email.ts) */
 const TEMPLATE_FIELDS = [
   { key: "requesterName", label: "Requester name" },
-  { key: "ticketId", label: "Ticket ID" },
-  { key: "ticketTitle", label: "Ticket title" },
+  { key: "ticketId", label: "Request ID" },
+  { key: "ticketTitle", label: "Request title" },
   { key: "status", label: "Status" },
+  { key: "department", label: "Department" },
+  { key: "teamName", label: "Team" },
+  { key: "priority", label: "Priority" },
+  { key: "needByDate", label: "Need by date" },
+  { key: "estimatedCost", label: "Estimated cost" },
+  { key: "description", label: "Description" },
   { key: "rejectionRemarks", label: "Rejection remarks" },
 ] as const;
 
