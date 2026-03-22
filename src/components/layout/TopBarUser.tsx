@@ -51,9 +51,13 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
         <p className="truncate text-base font-semibold text-slate-800 dark:text-slate-200 max-w-[240px]" title={userEmail ?? undefined}>
           {userEmail ?? "—"}
         </p>
-        <p className="truncate text-sm text-slate-500 dark:text-slate-400 max-w-[240px]" title={roles.map(roleLabel).join(", ") || "No roles"}>
-          {roles.length ? roles.map(roleLabel).join(", ") : "—"}
-        </p>
+        <div className="mt-0.5 flex flex-wrap justify-end gap-1 max-w-[240px]">
+          {roles.length ? roles.map((r) => (
+            <span key={r} className="inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+              {roleLabel(r)}
+            </span>
+          )) : <span className="text-xs text-slate-400">—</span>}
+        </div>
       </div>
       <div className="relative">
         <button
@@ -72,30 +76,53 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
             <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/25 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
               <div className="border-b border-white/20 px-4 py-3 dark:border-white/10">
                 <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {roles.length ? roles.map(roleLabel).join(", ") : "No roles"}
-                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {roles.length ? roles.map((r) => (
+                    <span key={r} className="inline-block rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/40 dark:text-primary-300">
+                      {roleLabel(r)}
+                    </span>
+                  )) : <span className="text-xs text-slate-400">No roles</span>}
+                </div>
               </div>
               {profiles.length > 0 && (
                 <div className="border-b border-white/20 px-4 py-3 dark:border-white/10">
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Profile</label>
                   {profiles.length === 1 ? (
-                    <p className="text-sm text-slate-700 dark:text-slate-200">
-                      {profiles[0].profileName} ({profiles[0].roles.map(roleLabel).join(", ")})
-                    </p>
+                    <div>
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">{profiles[0].profileName}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {profiles[0].roles.map((r) => (
+                          <span key={r} className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                            {roleLabel(r)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   ) : (
-                    <select
-                      value={currentUserId ?? ""}
-                      onChange={(e) => switchProfile(e.target.value)}
-                      disabled={switching}
-                      className="input-base w-full py-2 text-sm"
-                    >
+                    <div className="space-y-1">
                       {profiles.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.profileName} ({p.roles.map(roleLabel).join(", ")})
-                        </option>
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => switchProfile(p.id)}
+                          disabled={switching}
+                          className={`w-full rounded-xl px-3 py-2 text-left transition ${
+                            p.id === currentUserId
+                              ? "bg-primary-50 ring-1 ring-primary-200 dark:bg-primary-900/30 dark:ring-primary-700"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{p.profileName}</p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {p.roles.map((r) => (
+                              <span key={r} className="inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                                {roleLabel(r)}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
                       ))}
-                    </select>
+                    </div>
                   )}
                 </div>
               )}
