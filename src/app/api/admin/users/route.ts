@@ -23,7 +23,7 @@ const bulkCreateSchema = z.object({
 const patchSchema = z.object({
   userId: z.string().uuid(),
   email: z.string().email().optional(),
-  name: z.string().optional(),
+  name: z.string().nullable().optional(),
   roles: z.union([z.array(z.enum(USER_ROLES)).min(1), z.enum(USER_ROLES)]).optional().transform((v) => (Array.isArray(v) ? v : v ? [v] : undefined)),
   team: z.union([z.enum(TEAM_NAMES), z.literal(""), z.null()]).optional().transform((v) => (v === "" ? null : v ?? undefined)),
   status: z.boolean().optional(),
