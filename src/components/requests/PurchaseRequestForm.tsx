@@ -336,7 +336,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 required
               />
             </FormField>
-            <FormField label="Department" required>
+            <FormField label="Department/Project" required>
               <input
                 type="text"
                 value={department}
@@ -386,7 +386,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 value={placeOfDelivery}
                 onChange={(e) => setPlaceOfDelivery(e.target.value)}
                 className="input-base"
-                placeholder="Global auto search"
+                placeholder="Add the Place along with State and Country"
               />
             </FormField>
           </div>
@@ -878,7 +878,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 value={dealName}
                 onChange={(e) => setDealName(e.target.value)}
                 className="input-base"
-                placeholder="Autofill from Zoho CRM"
+                placeholder="Fill as per Zoho CRM if applicable"
               />
             </FormField>
             <FormField label="Deal ID">
@@ -887,7 +887,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 value={dealId}
                 onChange={(e) => setDealId(e.target.value)}
                 className="input-base"
-                placeholder="Autofill from Zoho CRM"
+                placeholder="Fill as per Zoho CRM if applicable"
               />
             </FormField>
             <FormField label="Estimated PO Date">
@@ -897,7 +897,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   value={estimatedPODate}
                   onChange={(e) => setEstimatedPODate(e.target.value)}
                   className="input-base pr-10 date-picker-visible"
-                  placeholder="Date picker"
+                  //placeholder="Date picker"
                 />
                 <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
