@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { asRolesArray } from "@/types/db";
+import type { UserRole } from "@/types/db";
+import { ROLE_LABELS } from "@/lib/constants";
 import { useState, useEffect } from "react";
 
 type ProfileOption = { id: string; profileName: string; roles: string[] };
@@ -14,10 +15,13 @@ type TopBarUserProps = {
   currentUserId?: string | null;
 };
 
+function roleLabel(r: string) {
+  return ROLE_LABELS[r as UserRole] ?? r;
+}
+
 export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserProps) {
   const roles = asRolesArray(userRoles);
   const { update: updateSession } = useSession();
-  const router = useRouter();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [switching, setSwitching] = useState(false);
   const [open, setOpen] = useState(false);
@@ -35,7 +39,7 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
     setOpen(false);
     try {
       await updateSession({ selectedUserId: userId });
-      router.refresh();
+      window.location.reload();
     } finally {
       setSwitching(false);
     }
@@ -47,8 +51,8 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
         <p className="truncate text-base font-semibold text-slate-800 dark:text-slate-200 max-w-[240px]" title={userEmail ?? undefined}>
           {userEmail ?? "—"}
         </p>
-        <p className="truncate text-sm text-slate-500 dark:text-slate-400 max-w-[240px]" title={roles.join(", ") || "No roles"}>
-          {roles.length ? roles.join(", ") : "—"}
+        <p className="truncate text-sm text-slate-500 dark:text-slate-400 max-w-[240px]" title={roles.map(roleLabel).join(", ") || "No roles"}>
+          {roles.length ? roles.map(roleLabel).join(", ") : "—"}
         </p>
       </div>
       <div className="relative">
@@ -69,24 +73,30 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
               <div className="border-b border-white/20 px-4 py-3 dark:border-white/10">
                 <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {roles.length ? roles.join(", ") : "No roles"}
+                  {roles.length ? roles.map(roleLabel).join(", ") : "No roles"}
                 </p>
               </div>
-              {profiles.length > 1 && (
+              {profiles.length > 0 && (
                 <div className="border-b border-white/20 px-4 py-3 dark:border-white/10">
                   <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Profile</label>
-                  <select
-                    value={currentUserId ?? ""}
-                    onChange={(e) => switchProfile(e.target.value)}
-                    disabled={switching}
-                    className="input-base w-full py-2 text-sm"
-                  >
-                    {profiles.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.profileName} ({p.roles.join(", ")})
-                      </option>
-                    ))}
-                  </select>
+                  {profiles.length === 1 ? (
+                    <p className="text-sm text-slate-700 dark:text-slate-200">
+                      {profiles[0].profileName} ({profiles[0].roles.map(roleLabel).join(", ")})
+                    </p>
+                  ) : (
+                    <select
+                      value={currentUserId ?? ""}
+                      onChange={(e) => switchProfile(e.target.value)}
+                      disabled={switching}
+                      className="input-base w-full py-2 text-sm"
+                    >
+                      {profiles.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.profileName} ({p.roles.map(roleLabel).join(", ")})
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               )}
               <div className="p-2">
