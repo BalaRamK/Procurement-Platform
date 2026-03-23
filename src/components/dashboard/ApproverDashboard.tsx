@@ -29,7 +29,7 @@ export function ApproverDashboard({
   const heading = title ?? "Action required";
   const sub = subtitle ?? `Tickets waiting for your approval (${defaultSub}).`;
 
-  const urgentHigh = tickets.filter((t) => t.priority === "URGENT" || t.priority === "HIGH").length;
+  const urgentHigh = tickets.filter((t) => (t.priority as string) === "URGENT" || (t.priority as string) === "HIGH").length;
   const oldest = tickets.length > 0
     ? Math.max(...tickets.map((t) => daysSince(t.createdAt as string | Date)))
     : null;
@@ -117,12 +117,12 @@ export function ApproverDashboard({
                     <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-300">{t.requester.email}</td>
                     <td className="px-5 py-4 text-sm">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        t.priority === "URGENT" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" :
-                        t.priority === "HIGH" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" :
-                        t.priority === "MEDIUM" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" :
+                        (t.priority as string) === "URGENT" ? "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300" :
+                        (t.priority as string) === "HIGH" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300" :
+                        (t.priority as string) === "MEDIUM" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300" :
                         "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
                       }`}>
-                        {t.priority}
+                        {String(t.priority ?? "")}
                       </span>
                     </td>
                     <td className="px-5 py-4 text-sm text-slate-500 dark:text-slate-300">
