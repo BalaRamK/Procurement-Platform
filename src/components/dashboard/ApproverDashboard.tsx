@@ -31,7 +31,7 @@ export function ApproverDashboard({
 
   const urgentHigh = tickets.filter((t) => t.priority === "URGENT" || t.priority === "HIGH").length;
   const oldest = tickets.length > 0
-    ? Math.max(...tickets.map((t) => daysSince(t.createdAt)))
+    ? Math.max(...tickets.map((t) => daysSince(t.createdAt as string | Date)))
     : null;
 
   return (

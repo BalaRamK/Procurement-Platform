@@ -22,7 +22,7 @@ export function ProductionDashboard({
   const assignedCount = tickets.filter((t) => t.status === "ASSIGNED_TO_PRODUCTION").length;
   const deliveredCount = tickets.filter((t) => t.status === "DELIVERED_TO_REQUESTER").length;
   const oldest = tickets.length > 0
-    ? Math.max(...tickets.map((t) => daysSince(t.createdAt)))
+    ? Math.max(...tickets.map((t) => daysSince(t.createdAt as string | Date)))
     : null;
 
   return (
