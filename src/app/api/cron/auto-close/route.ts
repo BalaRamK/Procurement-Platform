@@ -4,9 +4,13 @@ import { logNotification } from "@/lib/notifications";
 
 const AUTO_CLOSE_HOURS = 48;
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 401 });
+  }
   const authHeader = req.headers.get("authorization");
-  if (process.env.CRON_SECRET && authHeader !== "Bearer " + process.env.CRON_SECRET) {
+  if (authHeader !== "Bearer " + secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -35,5 +39,6 @@ export async function GET(req: NextRequest) {
     closed++;
   }
 
+  console.log(`[cron/auto-close] Closed ${closed} ticket(s)`);
   return NextResponse.json({ ok: true, closed });
 }

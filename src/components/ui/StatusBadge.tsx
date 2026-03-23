@@ -15,6 +15,20 @@ const STATUS_STYLES: Record<string, string> = {
   REJECTED: "bg-red-400/20 text-red-800 border-red-400/30 dark:bg-red-500/25 dark:text-red-200 dark:border-red-400/40",
 };
 
+// Non-color indicator for WCAG AA compliance
+const STATUS_ICON: Record<string, string> = {
+  DRAFT: "○",
+  PENDING_FH_APPROVAL: "⏳",
+  PENDING_L1_APPROVAL: "⏳",
+  PENDING_CFO_APPROVAL: "⏳",
+  PENDING_CDO_APPROVAL: "⏳",
+  ASSIGNED_TO_PRODUCTION: "→",
+  DELIVERED_TO_REQUESTER: "→",
+  CONFIRMED_BY_REQUESTER: "✓",
+  CLOSED: "✓",
+  REJECTED: "✕",
+};
+
 export function StatusBadge({
   status,
   label,
@@ -24,8 +38,13 @@ export function StatusBadge({
 }) {
   const className = STATUS_STYLES[status] ?? "bg-slate-400/20 text-slate-700 border-slate-300/40 dark:bg-slate-500/25 dark:text-slate-200 dark:border-slate-400/40";
   const displayLabel = label ?? STATUS_LABELS[status] ?? status;
+  const icon = STATUS_ICON[status];
   return (
-    <span className={`glass-panel inline-flex items-center px-2.5 py-1 text-xs font-medium ${className}`}>
+    <span
+      className={`glass-panel inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium ${className}`}
+      aria-label={displayLabel}
+    >
+      {icon && <span aria-hidden="true" className="text-[10px]">{icon}</span>}
       {displayLabel}
     </span>
   );

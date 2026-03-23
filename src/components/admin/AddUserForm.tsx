@@ -42,6 +42,10 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
       setError("Select at least one role.");
       return;
     }
+    if (needsTeam && !team) {
+      setError("Team is required for Department Head and L1 Approver roles.");
+      return;
+    }
     setLoading(true);
     try {
       if (mode === "multiple") {

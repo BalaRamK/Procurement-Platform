@@ -7,22 +7,7 @@ import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
-import { hasRole } from "@/types/db";
-
-function canView(
-  roles: UserRole[] | null | undefined,
-  userTeam: TeamName | null,
-  ticket: { requesterId: string; status: TicketStatus; teamName: TeamName }
-) {
-  if (hasRole(roles, "SUPER_ADMIN")) return true;
-  if (ticket.requesterId && hasRole(roles, "REQUESTER")) return true;
-  if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
-  if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_FH_APPROVAL") return true;
-  if (hasRole(roles, "L1_APPROVER") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_L1_APPROVAL") return true;
-  if (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") return true;
-  if (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL") return true;
-  return false;
-}
+import { canViewTicket } from "@/lib/tickets";
 
 const TICKET_SELECT = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
   component_description AS "componentDescription", item_name AS "itemName", bom_id AS "bomId", product_id AS "productId",
@@ -69,7 +54,7 @@ export async function GET(
   const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  if (!canView(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }) && !isRequester) {
+  if (!canViewTicket(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }) && !isRequester) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -159,6 +144,12 @@ export async function PATCH(
       "UPDATE tickets SET status = 'DELIVERED_TO_REQUESTER', delivered_at = now(), updated_at = now() WHERE id = $1",
       [id]
     );
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "mark_delivered",
+    });
     const t = await queryOne<{ email: string | null }>(
       "SELECT u.email FROM tickets tk JOIN users u ON tk.requester_id = u.id WHERE tk.id = $1",
       [id]
@@ -177,14 +168,19 @@ export async function PATCH(
       "UPDATE tickets SET status = 'CONFIRMED_BY_REQUESTER', confirmed_at = now(), updated_at = now() WHERE id = $1",
       [id]
     );
-    await query("UPDATE tickets SET status = 'CLOSED', updated_at = now() WHERE id = $1", [id]);
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "confirm_receipt",
+    });
     await logNotification({
       ticketId: id,
       type: "closure",
       recipient: session.user.email,
       payload: { title: ticket.title },
     });
-    return NextResponse.json({ ok: true, status: "CLOSED" });
+    return NextResponse.json({ ok: true, status: "CONFIRMED_BY_REQUESTER" });
   }
 
   const status = ticket.status as TicketStatus;

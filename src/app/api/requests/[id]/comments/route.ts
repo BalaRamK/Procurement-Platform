@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { logNotification } from "@/lib/notifications";
+import { canViewTicket } from "@/lib/tickets";
+import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 
 export async function GET(
   _req: NextRequest,
@@ -12,23 +14,23 @@ export async function GET(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string }>(
-    "SELECT requester_id AS \"requesterId\" FROM tickets WHERE id = $1",
+  const ticket = await queryOne<{ requesterId: string; status: string; teamName: string }>(
+    `SELECT requester_id AS "requesterId", status, team_name AS "teamName" FROM tickets WHERE id = $1`,
     [ticketId]
   );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const isRequester = ticket.requesterId === session.user.id;
   const roles = session.user.roles ?? [];
-  const canView =
-    roles.includes("SUPER_ADMIN") ||
+  const userTeam = session.user.team ?? null;
+  const isRequester = ticket.requesterId === session.user.id;
+  const authorized =
     isRequester ||
-    roles.includes("FUNCTIONAL_HEAD") ||
-    roles.includes("L1_APPROVER") ||
-    roles.includes("CFO") ||
-    roles.includes("CDO") ||
-    roles.includes("PRODUCTION");
-  if (!canView) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    canViewTicket(
+      roles as UserRole[],
+      userTeam as TeamName | null,
+      ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }
+    );
+  if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const comments = await query<Record<string, unknown>>(
     `SELECT c.id, c.ticket_id AS "ticketId", c.user_id AS "userId", c.body, c.created_at AS "createdAt",
@@ -60,27 +62,30 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string; title: string }>(
-    "SELECT requester_id AS \"requesterId\", title FROM tickets WHERE id = $1",
+  const ticket = await queryOne<{ requesterId: string; status: string; teamName: string; title: string }>(
+    `SELECT requester_id AS "requesterId", status, team_name AS "teamName", title FROM tickets WHERE id = $1`,
     [ticketId]
   );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const isRequester = ticket.requesterId === session.user.id;
   const roles = session.user.roles ?? [];
-  const canComment =
-    roles.includes("SUPER_ADMIN") ||
+  const userTeam = session.user.team ?? null;
+  const isRequester = ticket.requesterId === session.user.id;
+  const authorized =
     isRequester ||
-    roles.includes("FUNCTIONAL_HEAD") ||
-    roles.includes("L1_APPROVER") ||
-    roles.includes("CFO") ||
-    roles.includes("CDO") ||
-    roles.includes("PRODUCTION");
-  if (!canComment) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    canViewTicket(
+      roles as UserRole[],
+      userTeam as TeamName | null,
+      ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }
+    );
+  if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = (await req.json()) as { body: string };
   if (!body.body?.trim()) {
     return NextResponse.json({ error: "Comment body required" }, { status: 400 });
+  }
+  if (body.body.trim().length > 5000) {
+    return NextResponse.json({ error: "Comment body must be 5000 characters or fewer" }, { status: 400 });
   }
 
   const trimmedBody = body.body.trim();
@@ -99,15 +104,17 @@ export async function POST(
   const out = { ...comment, user: user ? { email: user.email, name: user.name } : null };
 
   const mentionIds = Array.from(trimmedBody.matchAll(/@\[[^\]]*\]\(([a-f0-9-]{36})\)/gi), (m) => m[1]);
-  const uniqueIds = Array.from(new Set(mentionIds));
-  for (const userId of uniqueIds) {
-    if (userId === session.user.id) continue;
-    const mentioned = await queryOne<{ email: string }>("SELECT email FROM users WHERE id = $1 AND status = true", [userId]);
-    if (mentioned?.email) {
+  const uniqueIds = Array.from(new Set(mentionIds)).filter((uid) => uid !== session.user.id);
+  if (uniqueIds.length > 0) {
+    const mentioned = await query<{ id: string; email: string }>(
+      "SELECT id, email FROM users WHERE id = ANY($1) AND status = true",
+      [uniqueIds]
+    );
+    for (const u of mentioned) {
       await logNotification({
         ticketId,
         type: "comment_mention",
-        recipient: mentioned.email,
+        recipient: u.email,
         payload: { title: ticket.title ?? "", commentSnippet: trimmedBody.slice(0, 100) },
       });
     }

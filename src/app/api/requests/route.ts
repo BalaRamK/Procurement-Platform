@@ -18,7 +18,7 @@ const lineItemSchema = z.object({
   slNo: z.number().int().min(0).optional(),
   componentName: z.string().optional(),
   bomId: z.string().optional(),
-  costPerItem: z.number().min(0),
+  costPerItem: z.number().min(0.01).max(10_000_000),
   quantity: z.number().int().min(1),
   itemDescription: z.string().optional(),
   zohoAvailable: z.boolean().optional(),

@@ -9,15 +9,17 @@ type AppSidebarProps = {
   userEmail?: string | null;
   userRoles?: string[] | null;
   currentUserId?: string | null;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 };
 
-export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
+export function AppSidebar({ userRoles, mobileOpen, onMobileClose }: AppSidebarProps) {
   const roles = asRolesArray(userRoles);
   const isSuperAdmin = roles.includes("SUPER_ADMIN");
   const pathname = usePathname();
 
-  return (
-    <aside className="sidebar-glass flex w-64 flex-col rounded-r-3xl border-r border-white/25 dark:border-white/10">
+  const navContent = (
+    <>
       <div className="flex h-16 items-center justify-between gap-3 border-b border-white/25 px-6 dark:border-white/10">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary-600 text-sm font-semibold text-white shadow-lg shadow-primary-500/30">
@@ -27,10 +29,11 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
         </div>
         <ThemeToggle />
       </div>
-      <nav className="flex-1 space-y-0.5 p-3">
+      <nav className="flex-1 space-y-0.5 p-3" role="navigation" aria-label="Main navigation">
         <Link
           href="/dashboard"
           className={pathname === "/dashboard" ? "nav-link nav-link-active" : "nav-link"}
+          onClick={onMobileClose}
         >
           <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -40,6 +43,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
         <Link
           href="/dashboard/pending"
           className={pathname === "/dashboard/pending" ? "nav-link nav-link-active" : "nav-link"}
+          onClick={onMobileClose}
         >
           <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -49,6 +53,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
         <Link
           href="/requests/new"
           className={pathname === "/requests/new" ? "nav-link nav-link-active" : "nav-link"}
+          onClick={onMobileClose}
         >
           <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -60,6 +65,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
             <Link
               href="/admin"
               className={pathname === "/admin" ? "nav-link nav-link-active" : "nav-link"}
+              onClick={onMobileClose}
             >
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -69,6 +75,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
             <Link
               href="/admin/users/new"
               className={pathname === "/admin/users/new" ? "nav-link nav-link-active" : "nav-link"}
+              onClick={onMobileClose}
             >
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -78,6 +85,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
             <Link
               href="/admin/reports"
               className={pathname === "/admin/reports" ? "nav-link nav-link-active" : "nav-link"}
+              onClick={onMobileClose}
             >
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -87,6 +95,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
             <Link
               href="/admin/email-templates"
               className={pathname === "/admin/email-templates" ? "nav-link nav-link-active" : "nav-link"}
+              onClick={onMobileClose}
             >
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -96,6 +105,7 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
             <Link
               href="/admin/request-options"
               className={pathname === "/admin/request-options" ? "nav-link nav-link-active" : "nav-link"}
+              onClick={onMobileClose}
             >
               <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
@@ -105,6 +115,29 @@ export function AppSidebar({ userRoles, ..._rest }: AppSidebarProps) {
           </>
         )}
       </nav>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="sidebar-glass hidden md:flex w-64 flex-col rounded-r-3xl border-r border-white/25 dark:border-white/10">
+        {navContent}
+      </aside>
+
+      {/* Mobile drawer overlay */}
+      {mobileOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
+            aria-hidden
+            onClick={onMobileClose}
+          />
+          <aside className="sidebar-glass fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/25 dark:border-white/10 md:hidden">
+            {navContent}
+          </aside>
+        </>
+      )}
+    </>
   );
 }

@@ -6,6 +6,21 @@ import type { UserRole, TeamName } from "@/types/db";
 import { USER_ROLES, TEAM_NAMES } from "@/types/db";
 import { z } from "zod";
 
+const ROLES_REQUIRING_TEAM: UserRole[] = ["FUNCTIONAL_HEAD", "L1_APPROVER"];
+const ROLES_WITHOUT_TEAM: UserRole[] = ["CFO", "CDO", "PRODUCTION", "REQUESTER", "SUPER_ADMIN"];
+
+function validateRoleTeamCombination(roles: string[], team: string | null | undefined): string | null {
+  const needsTeam = roles.some((r) => ROLES_REQUIRING_TEAM.includes(r as UserRole));
+  const noTeam = roles.every((r) => ROLES_WITHOUT_TEAM.includes(r as UserRole));
+  if (needsTeam && !team) {
+    return "Department Head and L1 Approver roles require a team assignment";
+  }
+  if (noTeam && team) {
+    return "CFO, CDO, Production, and Requester roles should not have a team assignment";
+  }
+  return null;
+}
+
 const createSchema = z.object({
   email: z.string().email(),
   profileName: z.string().min(1).max(100).optional(),
@@ -40,6 +55,8 @@ export async function POST(req: NextRequest) {
   const bulkParsed = bulkCreateSchema.safeParse(body);
   if (bulkParsed.success) {
     const { emails, roles, team } = bulkParsed.data;
+    const roleTeamError = validateRoleTeamCombination(roles, team);
+    if (roleTeamError) return NextResponse.json({ error: roleTeamError }, { status: 400 });
     const results: { email: string; created: boolean; updated: boolean }[] = [];
     for (const raw of emails) {
       const normalizedEmail = raw.trim().toLowerCase();
@@ -70,6 +87,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, profileName, name, roles, team } = parsed.data;
+  const roleTeamError = validateRoleTeamCombination(roles, team);
+  if (roleTeamError) return NextResponse.json({ error: roleTeamError }, { status: 400 });
   const normalizedEmail = email.trim().toLowerCase();
   const profile = (profileName ?? "Default").trim() || "Default";
 
@@ -110,6 +129,20 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { userId, email, name, roles, team, status } = parsed.data;
+
+  // Validate role/team combination when either is changing
+  if (roles !== undefined || team !== undefined) {
+    const current = await queryOne<{ roles: string[]; team: string | null }>(
+      "SELECT roles, team FROM users WHERE id = $1",
+      [userId]
+    );
+    if (!current) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const effectiveRoles = roles ?? current.roles;
+    const effectiveTeam = team !== undefined ? team : current.team;
+    const roleTeamError = validateRoleTeamCombination(effectiveRoles, effectiveTeam);
+    if (roleTeamError) return NextResponse.json({ error: roleTeamError }, { status: 400 });
+  }
+
   const update: string[] = [];
   const params: unknown[] = [];
   let i = 1;

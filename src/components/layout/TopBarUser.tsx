@@ -65,6 +65,8 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
           onClick={() => setOpen((o) => !o)}
           className="flex h-12 w-12 items-center justify-center rounded-2xl border-2 border-slate-200/80 bg-white text-slate-600 shadow-sm transition hover:border-primary-300 hover:bg-slate-50 dark:border-slate-600/60 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:border-primary-500 dark:hover:bg-slate-700/80"
           aria-label="User menu"
+          aria-expanded={open}
+          aria-controls="user-menu-dropdown"
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -73,7 +75,7 @@ export function TopBarUser({ userEmail, userRoles, currentUserId }: TopBarUserPr
         {open && (
           <>
             <div className="fixed inset-0 z-40" aria-hidden onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/25 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
+            <div id="user-menu-dropdown" className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/25 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
               <div className="border-b border-white/20 px-4 py-3 dark:border-white/10">
                 <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{userEmail ?? "—"}</p>
                 <div className="mt-1.5 flex flex-wrap gap-1">

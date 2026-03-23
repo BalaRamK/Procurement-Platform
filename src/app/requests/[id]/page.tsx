@@ -6,6 +6,7 @@ import { TicketActions } from "@/components/requests/TicketActions";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { WorkflowStepper } from "@/components/ui/WorkflowStepper";
 import type { TeamName, UserRole } from "@/types/db";
 import { hasRole } from "@/types/db";
 
@@ -109,6 +110,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             </div>
             <StatusBadge status={ticket.status} />
           </div>
+          <div className="mt-4">
+            <WorkflowStepper status={ticket.status} teamName={ticket.teamName} />
+          </div>
           {ticket.description && <p className="mt-2 text-sm text-slate-600 dark:text-slate-200">{ticket.description}</p>}
         </div>
         <dl className="grid gap-0 sm:grid-cols-2">
@@ -130,15 +134,16 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Bulk line items</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
+                <caption className="sr-only">Bulk line items</caption>
                 <thead className="bg-slate-100 dark:bg-slate-800">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium">Sl. No.</th>
-                    <th className="px-3 py-2 text-left font-medium">Component Name</th>
-                    <th className="px-3 py-2 text-left font-medium">BOM ID</th>
-                    <th className="px-3 py-2 text-right font-medium">Cost per item</th>
-                    <th className="px-3 py-2 text-right font-medium">Quantity</th>
-                    <th className="px-3 py-2 text-left font-medium">Item Description</th>
-                    <th className="px-3 py-2 text-left font-medium">Zoho check</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium">Sl. No.</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium">Component Name</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium">BOM ID</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">Cost per item</th>
+                    <th scope="col" className="px-3 py-2 text-right font-medium">Quantity</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium">Item Description</th>
+                    <th scope="col" className="px-3 py-2 text-left font-medium">Zoho check</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-700">

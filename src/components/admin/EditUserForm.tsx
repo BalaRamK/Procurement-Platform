@@ -51,6 +51,10 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
       setError("Select at least one role.");
       return;
     }
+    if (needsTeam && !team) {
+      setError("Team is required for Department Head and L1 Approver roles.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/admin/users", {

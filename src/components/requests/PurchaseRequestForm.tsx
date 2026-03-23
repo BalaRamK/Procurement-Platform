@@ -64,19 +64,29 @@ function FormField({
   required,
   children,
   className = "",
+  error,
+  fieldId,
 }: {
   label: string;
   required?: boolean;
   children: React.ReactNode;
   className?: string;
+  error?: string;
+  fieldId?: string;
 }) {
   return (
     <div className={className}>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
+      <label htmlFor={fieldId} className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">
         {label}
-        {required && <span className="text-red-500"> *</span>}
+        {required && <span className="text-red-500" aria-hidden="true"> *</span>}
+        {required && <span className="sr-only"> (required)</span>}
       </label>
       {children}
+      {error && (
+        <p id={fieldId ? `${fieldId}-error` : undefined} className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -119,6 +129,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lastLookupResponse, setLastLookupResponse] = useState<Record<string, unknown> | null>(null);
   const [itemMode, setItemMode] = useState<"single" | "bulk">("single");
   const [bulkLineItems, setBulkLineItems] = useState<
@@ -247,6 +258,18 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       setLookupError("Add at least one bulk item (upload Excel and add to request) before submitting.");
       return;
     }
+    // Per-field validation
+    const errors: Record<string, string> = {};
+    if (!title.trim()) errors.title = "Title is required.";
+    if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
+    if (!department.trim()) errors.department = "Department is required.";
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstId = Object.keys(errors)[0];
+      document.getElementById(firstId)?.focus();
+      return;
+    }
+    setFieldErrors({});
     setLoading(true);
     setLookupError("");
     try {
@@ -316,34 +339,43 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         {/* Request Info */}
         <SectionCard title="Request Info">
           <div className="grid gap-6 sm:grid-cols-2">
-            <FormField label="Title" required>
+            <FormField label="Title" required fieldId="title" error={fieldErrors.title}>
               <input
+                id="title"
                 type="text"
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="input-base"
+                onChange={(e) => { setTitle(e.target.value); if (fieldErrors.title) setFieldErrors((p) => ({ ...p, title: "" })); }}
+                className={`input-base ${fieldErrors.title ? "border-red-400 focus:ring-red-400/30" : ""}`}
                 placeholder="e.g. Office supplies Q1"
-                required
+                aria-required="true"
+                aria-invalid={!!fieldErrors.title}
+                aria-describedby={fieldErrors.title ? "title-error" : undefined}
               />
             </FormField>
-            <FormField label="Requester Name" required>
+            <FormField label="Requester Name" required fieldId="requesterName" error={fieldErrors.requesterName}>
               <input
+                id="requesterName"
                 type="text"
                 value={requesterNameVal}
-                onChange={(e) => setRequesterNameVal(e.target.value)}
-                className="input-base"
+                onChange={(e) => { setRequesterNameVal(e.target.value); if (fieldErrors.requesterName) setFieldErrors((p) => ({ ...p, requesterName: "" })); }}
+                className={`input-base ${fieldErrors.requesterName ? "border-red-400 focus:ring-red-400/30" : ""}`}
                 placeholder="Autofill"
-                required
+                aria-required="true"
+                aria-invalid={!!fieldErrors.requesterName}
+                aria-describedby={fieldErrors.requesterName ? "requesterName-error" : undefined}
               />
             </FormField>
-            <FormField label="Department/Project" required>
+            <FormField label="Department/Project" required fieldId="department" error={fieldErrors.department}>
               <input
+                id="department"
                 type="text"
                 value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                className="input-base"
+                onChange={(e) => { setDepartment(e.target.value); if (fieldErrors.department) setFieldErrors((p) => ({ ...p, department: "" })); }}
+                className={`input-base ${fieldErrors.department ? "border-red-400 focus:ring-red-400/30" : ""}`}
                 placeholder="e.g. Engineering"
-                required
+                aria-required="true"
+                aria-invalid={!!fieldErrors.department}
+                aria-describedby={fieldErrors.department ? "department-error" : undefined}
               />
             </FormField>
             <FormField label="Team" required>
