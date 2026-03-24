@@ -46,7 +46,7 @@ export default async function DashboardPage({
     ? await (searchParams as Promise<{ q?: string }>)
     : (searchParams as { q?: string }) ?? {};
   const q = resolved.q;
-  const role = getPrimaryRole(session.user.roles);
+  const role = session.user.activeRole ?? getPrimaryRole(session.user.roles);
   const userTeam = session.user.team ?? null;
 
   const searchTickets = searchClauseTicketsOnly(q);

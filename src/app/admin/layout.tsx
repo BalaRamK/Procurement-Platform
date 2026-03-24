@@ -27,7 +27,7 @@ export default async function AdminLayout({
               <HeaderSearch placeholder="Search users, templates, reports…" />
             </Suspense>
           </div>
-          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} />
+          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
         </>
       }
     >

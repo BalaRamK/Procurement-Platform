@@ -31,7 +31,7 @@ export default async function PendingApprovalsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) redirect("/auth/signin");
 
-  const role = getPrimaryRole(session.user.roles);
+  const role = session.user.activeRole ?? getPrimaryRole(session.user.roles);
   const userTeam = session.user.team ?? null;
 
   if (role === "REQUESTER") {

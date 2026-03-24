@@ -54,8 +54,15 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, trigger, session: updateSession }) {
-      if (trigger === "update" && updateSession?.selectedUserId) {
-        token.selectedUserId = updateSession.selectedUserId as string;
+      if (trigger === "update") {
+        if (updateSession?.selectedUserId) {
+          token.selectedUserId = updateSession.selectedUserId as string;
+          // Clear selected role when switching profile so we default to primary role of new profile
+          token.selectedRole = null;
+        }
+        if (updateSession?.selectedRole !== undefined) {
+          token.selectedRole = (updateSession.selectedRole as string) ?? null;
+        }
         return token;
       }
       if (user?.email) {
@@ -127,9 +134,19 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        session.user.roles = rolesFromDb.length > 0 ? rolesFromDb : asRolesArray(token.roles);
+        const finalRoles = rolesFromDb.length > 0 ? rolesFromDb : asRolesArray(token.roles);
+        session.user.roles = finalRoles;
         session.user.id = userId ?? token.id ?? undefined;
         session.user.team = team ?? (token.team as TeamName) ?? null;
+
+        // Resolve active role: use selectedRole from token if it is still valid for this profile
+        const selectedRole = token.selectedRole as UserRole | null | undefined;
+        if (selectedRole && finalRoles.includes(selectedRole)) {
+          session.user.activeRole = selectedRole;
+        } else {
+          const { getPrimaryRole } = await import("@/types/db");
+          session.user.activeRole = getPrimaryRole(finalRoles);
+        }
       }
       return session;
     },

@@ -28,7 +28,7 @@ export default async function DashboardLayout({
             </Suspense>
           </div>
           <NotificationBell />
-          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} />
+          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
         </>
       }
     >
