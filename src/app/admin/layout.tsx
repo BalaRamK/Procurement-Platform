@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
-import { TopBarUser } from "@/components/layout/TopBarUser";
+import { TopBarUserEnhanced } from "@/components/layout/TopBarUserEnhanced";
 
 export default async function AdminLayout({
   children,
@@ -27,7 +27,7 @@ export default async function AdminLayout({
               <HeaderSearch placeholder="Search users, templates, reports…" />
             </Suspense>
           </div>
-          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
+          <TopBarUserEnhanced userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
         </>
       }
     >

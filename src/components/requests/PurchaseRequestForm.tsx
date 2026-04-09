@@ -317,8 +317,6 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
     if (!title.trim()) errors.title = "Title is required.";
     if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
     if (!department.trim()) errors.department = "Department is required.";
-    if (!isBulk && !preferredSupplier.trim()) errors.preferredSupplier = "Preferred supplier is required.";
-    if (!isBulk && !countryOfOrigin.trim()) errors.countryOfOrigin = "Country of origin is required.";
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       const firstId = Object.keys(errors)[0];
@@ -754,10 +752,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               </FormField>
               <FormField
                 label="Preferred supplier"
-                required
                 fieldId="preferredSupplier"
                 error={fieldErrors.preferredSupplier}
-                hint="Required for single-item requests."
+                hint="Optional. Add it if you already know the preferred vendor."
               >
                 <input
                   id="preferredSupplier"
@@ -771,17 +768,15 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   }}
                   className={`input-base ${fieldErrors.preferredSupplier ? "border-red-400 focus:ring-red-400/30" : ""}`}
                   placeholder="Enter preferred supplier"
-                  aria-required="true"
                   aria-invalid={!!fieldErrors.preferredSupplier}
                   aria-describedby={fieldErrors.preferredSupplier ? "preferredSupplier-error" : undefined}
                 />
               </FormField>
               <FormField
                 label="Country of origin"
-                required
                 fieldId="countryOfOrigin"
                 error={fieldErrors.countryOfOrigin}
-                hint="Required for single-item requests."
+                hint="Optional. Capture it when origin matters for sourcing or compliance."
               >
                 <input
                   id="countryOfOrigin"
@@ -795,7 +790,6 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   }}
                   className={`input-base ${fieldErrors.countryOfOrigin ? "border-red-400 focus:ring-red-400/30" : ""}`}
                   placeholder="Enter country of origin"
-                  aria-required="true"
                   aria-invalid={!!fieldErrors.countryOfOrigin}
                   aria-describedby={fieldErrors.countryOfOrigin ? "countryOfOrigin-error" : undefined}
                 />

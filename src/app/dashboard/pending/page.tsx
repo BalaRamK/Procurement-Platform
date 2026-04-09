@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { RequesterDashboard } from "@/components/dashboard/RequesterDashboard";
-import { ApproverDashboard } from "@/components/dashboard/ApproverDashboard";
-import { ProductionDashboard } from "@/components/dashboard/ProductionDashboard";
+import { RequesterDashboardEnhanced } from "@/components/dashboard/RequesterDashboardEnhanced";
+import { ApproverDashboardEnhanced } from "@/components/dashboard/ApproverDashboardEnhanced";
+import { ProductionDashboardEnhanced } from "@/components/dashboard/ProductionDashboardEnhanced";
 import { query } from "@/lib/db";
 import type { Ticket, User } from "@/types/db";
 import { getPrimaryRole } from "@/types/db";
@@ -41,7 +41,7 @@ export default async function PendingApprovalsPage() {
       [session.user.id]
     );
     return (
-      <RequesterDashboard
+      <RequesterDashboardEnhanced
         tickets={tickets as (Ticket & { requester?: User })[]}
         title="Pending your action"
         subtitle="Drafts to submit or delivered requests waiting for your confirmation."
@@ -54,7 +54,7 @@ export default async function PendingApprovalsPage() {
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_FH_APPROVAL' AND t.team_name = $1 ORDER BY t.updated_at DESC`,
       [userTeam]
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
   }
 
   if (role === "L1_APPROVER" && userTeam) {
@@ -62,28 +62,28 @@ export default async function PendingApprovalsPage() {
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_L1_APPROVAL' AND t.team_name = $1 ORDER BY t.updated_at DESC`,
       [userTeam]
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
   }
 
   if (role === "CFO") {
     const rows = await query<Record<string, unknown>>(
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_CFO_APPROVAL' ORDER BY t.updated_at DESC`
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
   }
 
   if (role === "CDO") {
     const rows = await query<Record<string, unknown>>(
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_CDO_APPROVAL' ORDER BY t.updated_at DESC`
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
   }
 
   if (role === "PRODUCTION") {
     const rows = await query<Record<string, unknown>>(
       `${TICKET_JOIN_REQ} WHERE t.status IN ('ASSIGNED_TO_PRODUCTION', 'DELIVERED_TO_REQUESTER') ORDER BY t.updated_at DESC`
     );
-    return <ProductionDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} />;
+    return <ProductionDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} />;
   }
 
   if (role === "SUPER_ADMIN") {
@@ -91,7 +91,7 @@ export default async function PendingApprovalsPage() {
       `${TICKET_JOIN_REQ} WHERE t.status NOT IN ('DRAFT', 'CLOSED', 'REJECTED', 'CONFIRMED_BY_REQUESTER') ORDER BY t.updated_at DESC`
     );
     return (
-      <RequesterDashboard
+      <RequesterDashboardEnhanced
         tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]}
         showAll
         title="Pending (all in progress)"

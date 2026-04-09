@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
-import { TopBarUser } from "@/components/layout/TopBarUser";
+import { TopBarUserEnhanced } from "@/components/layout/TopBarUserEnhanced";
 
 export default async function RequestsLayout({
   children,
@@ -19,7 +19,7 @@ export default async function RequestsLayout({
       currentUserId={session.user.id}
       headerSlot={
         <div className="flex flex-1 justify-end">
-          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
+          <TopBarUserEnhanced userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
         </div>
       }
     >

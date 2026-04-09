@@ -16,6 +16,8 @@ type MetricCardProps = {
   value: ReactNode;
   hint?: string;
   tone?: "default" | "success" | "warning" | "info";
+  valueClassName?: string;
+  hintClassName?: string;
 };
 
 type PillProps = {
@@ -72,12 +74,12 @@ export function SectionCard({ title, description, actions, children, className =
   );
 }
 
-export function MetricCard({ label, value, hint, tone = "default" }: MetricCardProps) {
+export function MetricCard({ label, value, hint, tone = "default", valueClassName = "", hintClassName = "" }: MetricCardProps) {
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${metricStyles[tone]}`}>
+    <div className={`min-w-0 rounded-2xl border p-4 shadow-sm ${metricStyles[tone]}`}>
       <p className="text-xs font-medium uppercase tracking-[0.18em] text-current/70">{label}</p>
-      <div className="mt-2 text-2xl font-semibold tracking-tight">{value}</div>
-      {hint ? <p className="mt-1 text-sm text-current/70">{hint}</p> : null}
+      <div className={`mt-2 break-words text-xl font-semibold leading-tight tracking-tight sm:text-2xl ${valueClassName}`.trim()}>{value}</div>
+      {hint ? <p className={`mt-1 break-words text-sm text-current/70 ${hintClassName}`.trim()}>{hint}</p> : null}
     </div>
   );
 }

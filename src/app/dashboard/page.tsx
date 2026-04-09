@@ -1,8 +1,8 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { RequesterDashboard } from "@/components/dashboard/RequesterDashboard";
-import { ApproverDashboard } from "@/components/dashboard/ApproverDashboard";
-import { ProductionDashboard } from "@/components/dashboard/ProductionDashboard";
+import { RequesterDashboardEnhanced } from "@/components/dashboard/RequesterDashboardEnhanced";
+import { ApproverDashboardEnhanced } from "@/components/dashboard/ApproverDashboardEnhanced";
+import { ProductionDashboardEnhanced } from "@/components/dashboard/ProductionDashboardEnhanced";
 import { query } from "@/lib/db";
 import type { Ticket, User } from "@/types/db";
 import { getPrimaryRole } from "@/types/db";
@@ -66,7 +66,7 @@ export default async function DashboardPage({
        FROM tickets WHERE ${where.join(" AND ")} ORDER BY updated_at DESC`,
       args
     );
-    return <RequesterDashboard tickets={tickets as (Ticket & { requester?: User })[]} />;
+    return <RequesterDashboardEnhanced tickets={tickets as (Ticket & { requester?: User })[]} />;
   }
 
   if (role === "FUNCTIONAL_HEAD" && userTeam) {
@@ -80,7 +80,7 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
   }
 
   if (role === "L1_APPROVER" && userTeam) {
@@ -94,7 +94,7 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
   }
 
   if (role === "CFO") {
@@ -108,7 +108,7 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
   }
 
   if (role === "CDO") {
@@ -122,7 +122,7 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
   }
 
   if (role === "PRODUCTION") {
@@ -136,7 +136,7 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ProductionDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} />;
+    return <ProductionDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} />;
   }
 
   if (role === "SUPER_ADMIN") {
@@ -150,7 +150,7 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY t.updated_at DESC`,
       args
     );
-    return <RequesterDashboard tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} showAll showNewRequestButton />;
+    return <RequesterDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} showAll showNewRequestButton />;
   }
 
   return (

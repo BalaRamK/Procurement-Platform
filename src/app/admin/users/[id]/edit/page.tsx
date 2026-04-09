@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { queryOne } from "@/lib/db";
-import { EditUserForm } from "@/components/admin/EditUserForm";
+import { EditUserFormEnhanced } from "@/components/admin/EditUserFormEnhanced";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { UserRole, User } from "@/types/db";
@@ -47,7 +47,7 @@ export default async function EditUserPage({
           Update email, name, role, team, or status. Disabled users cannot sign in.
         </p>
       </div>
-      <EditUserForm user={user} roleLabels={ROLE_LABELS} roles={ROLES} />
+      <EditUserFormEnhanced user={user} roleLabels={ROLE_LABELS} roles={ROLES} />
     </div>
   );
 }

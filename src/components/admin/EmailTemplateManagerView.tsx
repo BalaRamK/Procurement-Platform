@@ -826,9 +826,28 @@ export function EmailTemplateManagerView() {
       {activeTab === "delivery" ? (
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="SMTP host" value={smtpForm.smtp_host || "Not set"} hint="Outgoing mail server" tone={smtpForm.smtp_host ? "success" : "warning"} />
-            <MetricCard label="Sender" value={smtpForm.smtp_from || "Not set"} hint="From address" tone={smtpForm.smtp_from ? "success" : "warning"} />
-            <MetricCard label="Proxy" value={smtpForm.smtp_proxy ? "Configured" : "Direct"} hint={smtpForm.smtp_proxy || "No proxy configured"} tone={smtpForm.smtp_proxy ? "info" : "default"} />
+            <MetricCard
+              label="SMTP host"
+              value={smtpForm.smtp_host || "Not set"}
+              hint="Outgoing mail server"
+              tone={smtpForm.smtp_host ? "success" : "warning"}
+              valueClassName="text-lg sm:text-xl"
+            />
+            <MetricCard
+              label="Sender"
+              value={smtpForm.smtp_from || "Not set"}
+              hint="From address"
+              tone={smtpForm.smtp_from ? "success" : "warning"}
+              valueClassName="text-lg sm:text-xl"
+            />
+            <MetricCard
+              label="Proxy"
+              value={smtpForm.smtp_proxy ? "Configured" : "Direct"}
+              hint={smtpForm.smtp_proxy || "No proxy configured"}
+              tone={smtpForm.smtp_proxy ? "info" : "default"}
+              valueClassName="text-lg sm:text-xl"
+              hintClassName="text-xs sm:text-sm"
+            />
             <MetricCard label="Always CC" value="Requester + CDO" hint="Applied to every email" tone="info" />
           </div>
 

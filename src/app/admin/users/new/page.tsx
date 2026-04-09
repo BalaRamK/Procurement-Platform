@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import { AddUserForm } from "@/components/admin/AddUserForm";
+import { AddUserFormEnhanced } from "@/components/admin/AddUserFormEnhanced";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/constants";
 import type { UserRole } from "@/types/db";
@@ -34,7 +34,7 @@ export default async function AddUserPage() {
           Add a user by email and assign a role. When they sign in with Azure AD (corporate email), they will get this role. Use corporate email IDs only.
         </p>
       </div>
-      <AddUserForm roles={ROLES} roleLabels={ROLE_LABELS} />
+      <AddUserFormEnhanced roles={ROLES} roleLabels={ROLE_LABELS} />
     </div>
   );
 }

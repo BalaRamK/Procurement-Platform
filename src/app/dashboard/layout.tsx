@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { NotificationBell } from "@/components/layout/NotificationBell";
-import { TopBarUser } from "@/components/layout/TopBarUser";
+import { TopBarUserEnhanced } from "@/components/layout/TopBarUserEnhanced";
 
 export default async function DashboardLayout({
   children,
@@ -28,7 +28,7 @@ export default async function DashboardLayout({
             </Suspense>
           </div>
           <NotificationBell />
-          <TopBarUser userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
+          <TopBarUserEnhanced userEmail={session.user.email} userRoles={session.user.roles} currentUserId={session.user.id} activeRole={session.user.activeRole} />
         </>
       }
     >
