@@ -237,29 +237,46 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
 
       <div className="card overflow-hidden border border-white/25 shadow-lg shadow-slate-950/5 dark:border-white/10">
         <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-white/20 dark:divide-white/10">
+        <table className="min-w-full table-fixed divide-y divide-white/20 dark:divide-white/10">
           <caption className="sr-only">User management</caption>
           <thead>
             <tr>
-              <th scope="col" className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">User</th>
-              <th scope="col" className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Access profile</th>
-              <th scope="col" className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Display name</th>
-              <th scope="col" className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Roles</th>
-              <th scope="col" className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Team</th>
-              <th scope="col" className="card-header px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Status</th>
-              <th scope="col" className="card-header px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Actions</th>
+              <th scope="col" className="card-header w-[18%] px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">User</th>
+              <th scope="col" className="card-header w-[9rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Access profile</th>
+              <th scope="col" className="card-header w-[12%] px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Display name</th>
+              <th scope="col" className="card-header w-[28%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Roles</th>
+              <th scope="col" className="card-header w-[9rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Team</th>
+              <th scope="col" className="card-header w-[8rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Status</th>
+              <th scope="col" className="card-header sticky right-0 z-10 w-[11rem] px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur dark:text-slate-300">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/20 bg-white/25 dark:bg-white/5">
             {visibleUsers.map((user) => (
               <tr key={user.id} className="table-row-glass transition-colors">
-                <td className="whitespace-nowrap px-5 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">{user.email}</td>
-                <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.profileName ?? "Default"}</td>
-                <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.name ?? "-"}</td>
-                <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-700 dark:text-slate-200">
-                  {asRolesArray(user.roles).map((r) => roleLabels[r]).join(", ") || "-"}
+                <td className="px-4 py-4 text-sm font-medium text-slate-900 dark:text-slate-100">
+                  <div className="max-w-[14rem] break-words leading-5">{user.email}</div>
                 </td>
-                <td className="whitespace-nowrap px-5 py-4">
+                <td className="px-5 py-4 text-sm text-slate-600 dark:text-slate-200">{user.profileName ?? "Default"}</td>
+                <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-200">
+                  <div className="max-w-[10rem] break-words leading-5">{user.name ?? "-"}</div>
+                </td>
+                <td className="px-5 py-4 text-sm text-slate-700 dark:text-slate-200">
+                  <div className="flex flex-wrap gap-2">
+                    {asRolesArray(user.roles).length > 0 ? (
+                      asRolesArray(user.roles).map((role) => (
+                        <span
+                          key={role}
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${roleTone(role)}`}
+                        >
+                          {roleLabels[role]}
+                        </span>
+                      ))
+                    ) : (
+                      <span>-</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-5 py-4">
                   {showTeam(asRolesArray(user.roles)) ? (
                     <select
                       value={user.team ?? ""}
@@ -276,7 +293,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
                     <span className="text-sm text-slate-500 dark:text-slate-300">-</span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-5 py-4">
+                <td className="px-5 py-4">
                   <button
                     type="button"
                     disabled={!!updating}
@@ -290,11 +307,11 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
                     {user.status ? "Enabled" : "Disabled"}
                   </button>
                 </td>
-                <td className="whitespace-nowrap px-5 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                <td className="sticky right-0 px-5 py-4 text-right backdrop-blur">
+                  <div className="flex items-center justify-end gap-3">
                     <Link
                       href={`/admin/users/${user.id}/edit`}
-                      className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-sky-200 dark:hover:text-white"
+                      className="rounded-xl border border-primary-200/70 bg-primary-50/80 px-3 py-1.5 text-sm font-medium text-primary-700 hover:bg-primary-100 dark:border-primary-500/30 dark:bg-primary-950/30 dark:text-sky-200 dark:hover:bg-primary-900/40 dark:hover:text-white"
                     >
                       Edit
                     </Link>
