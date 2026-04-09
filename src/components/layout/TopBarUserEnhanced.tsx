@@ -34,7 +34,6 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
   const roles = asRolesArray(userRoles);
   const { update: updateSession } = useSession();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(currentUserId ?? null);
   const [switching, setSwitching] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -45,23 +44,7 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
       .catch(() => setProfiles([]));
   }, [currentUserId]);
 
-  useEffect(() => {
-    setSelectedProfileId(currentUserId ?? null);
-  }, [currentUserId, open]);
-
-  async function switchRole(role: string) {
-    if (role === activeRole || switching) return;
-    setSwitching(true);
-    setOpen(false);
-    try {
-      await updateSession({ selectedRole: role });
-      window.location.reload();
-    } finally {
-      setSwitching(false);
-    }
-  }
-
-  async function switchProfileRole(userId: string, role: string) {
+  async function switchAccess(userId: string, role: string) {
     if (switching) return;
     const currentRole = activeRole || roles[0];
     if (userId === currentUserId && role === currentRole) return;
@@ -81,11 +64,24 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
   const visibleRoles = roles.slice(0, 2);
   const extraRoles = Math.max(roles.length - visibleRoles.length, 0);
   const currentProfile = profiles.find((profile) => profile.id === currentUserId) ?? null;
-  const selectableProfiles = profiles.length > 0
-    ? profiles
-    : [{ id: currentUserId ?? "current", profileName: "Default", roles }];
-  const selectedProfile = selectableProfiles.find((profile) => profile.id === selectedProfileId) ?? currentProfile ?? selectableProfiles[0];
-  const selectedProfileIsCurrent = selectedProfile?.id === currentUserId;
+  const selectableProfiles = profiles.length > 0 ? profiles : [{ id: currentUserId ?? "current", profileName: "Default", roles }];
+  const roleCounts = selectableProfiles.reduce<Record<string, number>>((acc, profile) => {
+    profile.roles.forEach((role) => {
+      acc[role] = (acc[role] ?? 0) + 1;
+    });
+    return acc;
+  }, {});
+  const roleOptions = selectableProfiles.flatMap((profile) =>
+    profile.roles.map((role) => ({
+      id: `${profile.id}:${role}`,
+      userId: profile.id,
+      role,
+      roleName: roleLabel(role),
+      profileName: profile.profileName,
+      isCurrent: profile.id === currentUserId && role === currentRoleKey,
+      showProfileHint: roleCounts[role] > 1 || profile.profileName !== "Default",
+    }))
+  );
 
   return (
     <div className="relative flex items-center gap-4">
@@ -131,92 +127,54 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                       Current access: <span className="font-medium text-slate-900 dark:text-slate-100">{currentProfile?.profileName ?? "Default"}</span>{" -> "}<span className="font-medium text-slate-900 dark:text-slate-100">{primaryRole}</span>
                     </p>
-                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Choose a profile first, then choose the role you want to use in that profile.</p>
+                    <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Choose the role you want to use. The correct access profile will switch automatically if needed.</p>
                   </div>
                 </div>
               </div>
 
-              {selectableProfiles.length > 1 ? (
+              {roleOptions.length > 1 ? (
                 <div className="border-b border-white/20 px-5 py-4 dark:border-white/10">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">1. Choose profile</p>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Pick which saved access profile you want to use.</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Choose role</p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Select how you want to work right now.</p>
                     </div>
-                    <span className="rounded-full border border-white/30 bg-white/35 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">{selectableProfiles.length} profiles</span>
+                    <span className="rounded-full border border-white/30 bg-white/35 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">{roleOptions.length} options</span>
                   </div>
-                  <div className="space-y-2">
-                    {selectableProfiles.map((profile) => {
-                      const isSelected = profile.id === selectedProfile?.id;
-                      const isCurrent = profile.id === currentUserId;
+                  <div className="space-y-2" role="radiogroup" aria-label="Choose active role">
+                    {roleOptions.map((option, index) => {
                       return (
                         <button
-                          key={profile.id}
+                          key={option.id}
                           type="button"
-                          onClick={() => setSelectedProfileId(profile.id)}
-                          disabled={switching}
+                          role="radio"
+                          aria-checked={option.isCurrent}
+                          onClick={() => switchAccess(option.userId, option.role)}
+                          disabled={switching || option.isCurrent}
                           className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${
-                            isSelected
+                            option.isCurrent
                               ? "bg-primary-50 text-primary-800 ring-1 ring-primary-200 dark:bg-primary-950/30 dark:text-primary-200 dark:ring-primary-500/30"
                               : "bg-white/30 text-slate-700 hover:bg-white/50 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                           }`}
                         >
-                          <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${isSelected ? "border-primary-300 bg-primary-500 text-white dark:border-primary-500" : "border-slate-300 bg-white text-slate-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"}`}>
-                            {isSelected ? "OK" : profile.profileName.slice(0, 1).toUpperCase()}
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${option.isCurrent ? "border-primary-500 bg-primary-500" : "border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900"}`}>
+                            {option.isCurrent ? <span className="h-2 w-2 rounded-full bg-white" /> : null}
                           </span>
                           <div>
-                            <p className="text-sm font-semibold">{profile.profileName}</p>
-                            <p className="text-xs opacity-75">{isCurrent ? "Current saved profile" : "Select this profile to choose a role"}</p>
-                          </div>
-                          <span className="ml-auto text-xs opacity-70">{profile.roles.length} role{profile.roles.length === 1 ? "" : "s"}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-
-              {selectedProfile ? (
-                <div className="border-b border-white/20 px-5 py-4 dark:border-white/10">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">2. Choose role</p>
-                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                        {selectedProfileIsCurrent ? "Select how you want to work in the current profile." : `Choose the role you want to use in ${selectedProfile.profileName}.`}
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-white/30 bg-white/35 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                      {selectedProfile.profileName}
-                    </span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {selectedProfile.roles.map((role, index) => {
-                      const isActive = selectedProfileIsCurrent && role === currentRoleKey;
-                      return (
-                        <button
-                          key={`${selectedProfile.id}-${role}`}
-                          type="button"
-                          onClick={() => (selectedProfileIsCurrent ? switchRole(role) : switchProfileRole(selectedProfile.id, role))}
-                          disabled={switching || isActive}
-                          className={`flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition ${
-                            isActive
-                              ? "bg-primary-50 text-primary-800 ring-1 ring-primary-200 dark:bg-primary-950/30 dark:text-primary-200 dark:ring-primary-500/30"
-                              : "bg-white/30 text-slate-700 hover:bg-white/50 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
-                          }`}
-                        >
-                          <span className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${isActive ? "border-primary-300 bg-primary-500 text-white dark:border-primary-500" : roleTone(index)}`}>
-                            {isActive ? "OK" : roleLabel(role).slice(0, 1)}
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold">{roleLabel(role)}</p>
+                            <p className="text-sm font-semibold">{option.roleName}</p>
                             <p className="text-xs opacity-75">
-                              {isActive
+                              {option.isCurrent
                                 ? "You are using this role now"
-                                : selectedProfileIsCurrent
-                                  ? "Use this role in the current profile"
-                                  : `Switch to ${selectedProfile.profileName} with this role`}
+                                : option.showProfileHint
+                                  ? `Uses profile: ${option.profileName}`
+                                  : "Switch to this role"}
                             </p>
                           </div>
+                          {!option.isCurrent && option.showProfileHint ? (
+                            <span className={`ml-auto rounded-full border px-2 py-1 text-[11px] font-medium ${roleTone(index)}`}>
+                              {option.profileName}
+                            </span>
+                          ) : null}
                         </button>
                       );
                     })}
