@@ -68,6 +68,20 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
     }
   }
 
+  async function switchProfileRole(userId: string, role: string) {
+    if (switching) return;
+    const currentRole = activeRole || roles[0];
+    if (userId === currentUserId && role === currentRole) return;
+    setSwitching(true);
+    setOpen(false);
+    try {
+      await updateSession({ selectedUserId: userId, selectedRole: role });
+      window.location.reload();
+    } finally {
+      setSwitching(false);
+    }
+  }
+
   const primaryRole = activeRole ? roleLabel(activeRole) : roles.length ? roleLabel(roles[0]) : "No role";
   const avatarLabel = useMemo(() => (userEmail?.trim()?.[0] ?? "U").toUpperCase(), [userEmail]);
   const visibleRoles = roles.slice(0, 2);
@@ -169,29 +183,61 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
               {profiles.length > 1 ? (
                 <div className="border-b border-white/20 px-5 py-4 dark:border-white/10">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Profiles</p>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Use another stored access profile for the same email.</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Pick the profile and role you want to work in next.</p>
                   <div className="mt-3 space-y-2">
                     {profiles.map((profile) => (
-                      <button
+                      <div
                         key={profile.id}
-                        type="button"
-                        onClick={() => switchProfile(profile.id)}
-                        disabled={switching}
-                        className={`w-full rounded-2xl px-3 py-3 text-left transition ${
+                        className={`rounded-2xl px-3 py-3 transition ${
                           profile.id === currentUserId
                             ? "bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700"
-                            : "bg-white/30 hover:bg-white/50 dark:bg-white/5 dark:hover:bg-white/10"
+                            : "bg-white/30 dark:bg-white/5"
                         }`}
                       >
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{profile.profileName}</p>
-                        <div className="mt-2 flex flex-wrap gap-1.5">
-                          {profile.roles.map((role, index) => (
-                            <span key={role} className={`inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-medium ${roleTone(index)}`}>
-                              {roleLabel(role)}
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{profile.profileName}</p>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              {profile.id === currentUserId ? "Current profile" : "Choose a role below to switch directly"}
+                            </p>
+                          </div>
+                          {profile.id !== currentUserId ? (
+                            <button
+                              type="button"
+                              onClick={() => switchProfile(profile.id)}
+                              disabled={switching}
+                              className="text-xs font-medium text-primary-600 hover:text-primary-700 dark:text-sky-200 dark:hover:text-white"
+                            >
+                              Switch profile
+                            </button>
+                          ) : (
+                            <span className="rounded-full border border-white/30 bg-white/40 px-2 py-1 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:bg-white/10 dark:text-slate-300">
+                              Active
                             </span>
-                          ))}
+                          )}
                         </div>
-                      </button>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {profile.roles.map((role, index) => {
+                            const isCurrentProfile = profile.id === currentUserId;
+                            const isActiveRole = isCurrentProfile && role === (activeRole || roles[0]);
+                            return (
+                              <button
+                                key={role}
+                                type="button"
+                                onClick={() => switchProfileRole(profile.id, role)}
+                                disabled={switching || isActiveRole}
+                                className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                                  isActiveRole
+                                    ? "border-primary-300 bg-primary-500 text-white dark:border-primary-500"
+                                    : `${roleTone(index)} hover:brightness-[0.98]`
+                                }`}
+                              >
+                                {roleLabel(role)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
