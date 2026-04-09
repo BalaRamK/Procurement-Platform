@@ -14,6 +14,7 @@ export async function logNotification(params: {
   type: NotificationType;
   recipient: string;
   payload?: Record<string, unknown>;
+  emailTrigger?: string;
 }) {
   await query(
     `INSERT INTO notifications (ticket_id, type, recipient, payload)
@@ -26,11 +27,16 @@ export async function logNotification(params: {
     ]
   );
   if (params.recipient?.includes("@")) {
-    sendNotificationEmailByType(
-      params.type,
-      params.recipient,
-      params.ticketId,
-      params.payload
-    ).catch((e) => console.error("[logNotification email]", e));
+    const sendPromise = params.emailTrigger
+      ? import("@/lib/email").then(({ sendNotificationEmail }) =>
+          sendNotificationEmail(params.emailTrigger!, params.recipient, params.ticketId, params.payload as Record<string, string> | undefined)
+        )
+      : sendNotificationEmailByType(
+          params.type,
+          params.recipient,
+          params.ticketId,
+          params.payload
+        );
+    sendPromise.catch((e) => console.error("[logNotification email]", e));
   }
 }

@@ -1,4 +1,5 @@
 import { queryOne, query } from "@/lib/db";
+import { SUBJECT_PREFIX } from "@/lib/email-template-catalog";
 
 type SmtpConfig = { host: string; port: string; from: string; user: string; pass: string; proxy: string };
 
@@ -35,18 +36,21 @@ async function getSmtpConfig(): Promise<SmtpConfig | null> {
 
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
-  assignment: "assigned_to_production",
-  delivered: "delivered_to_requester",
-  closure: "request_closed",
-  team_assignment: "assigned_to_production",
+  assignment: "request_submitted_to_fh",
+  delivered: "production_marked_delivered",
+  closure: "requester_confirmed_receipt",
+  team_assignment: "cdo_approved_moved_to_production",
   comment_mention: "comment_mention",
 };
 
 export type EmailContext = {
   requesterName?: string;
+  requesterEmail?: string;
   ticketId?: string;       // human-readable request ID e.g. PR-0042
   ticketTitle?: string;
   status?: string;         // formatted e.g. "Pending FH Approval"
+  currentStage?: string;
+  nextStage?: string;
   rejectionRemarks?: string;
   department?: string;
   teamName?: string;
@@ -54,6 +58,9 @@ export type EmailContext = {
   needByDate?: string;
   estimatedCost?: string;
   description?: string;
+  actionBy?: string;
+  approverName?: string;
+  requestUrl?: string;
   [key: string]: string | undefined;
 };
 
@@ -145,6 +152,65 @@ async function sendEmail(to: string, subject: string, body: string): Promise<voi
   console.log("[Email stub]", { to: to.slice(0, 3) + "…", subject, bodyLength: body.length });
 }
 
+function dedupeEmails(emails: string[]) {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const email of emails) {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized || !normalized.includes("@") || seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+  }
+  return out;
+}
+
+function prefixSubject(subject: string) {
+  return subject.startsWith(SUBJECT_PREFIX) ? subject : `${SUBJECT_PREFIX}${subject}`;
+}
+
+async function sendEmailWithCc(to: string[], cc: string[], subject: string, body: string): Promise<void> {
+  const finalTo = dedupeEmails(to);
+  const finalCc = dedupeEmails(cc).filter((email) => !finalTo.includes(email));
+  if (finalTo.length === 0) return;
+
+  const cfg = await getSmtpConfig();
+  if (cfg) {
+    try {
+      const numPort = parseInt(cfg.port, 10) || 587;
+      const nodemailer = await import("nodemailer");
+      const transportOptions: Record<string, unknown> = {
+        host: cfg.host,
+        port: numPort,
+        secure: numPort === 465,
+        auth: { user: cfg.user, pass: cfg.pass },
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
+      };
+      if (cfg.proxy) transportOptions.proxy = cfg.proxy;
+      const transporter = nodemailer.default.createTransport(transportOptions);
+      await transporter.sendMail({
+        from: cfg.from,
+        to: finalTo.join(", "),
+        cc: finalCc.length > 0 ? finalCc.join(", ") : undefined,
+        subject: prefixSubject(subject),
+        text: body,
+        html: body.replace(/\n/g, "<br>"),
+      });
+      return;
+    } catch (e) {
+      console.error("[sendEmailWithCc] SMTP failed", e);
+    }
+  }
+
+  console.log("[Email stub]", {
+    to: finalTo,
+    cc: finalCc,
+    subject: prefixSubject(subject),
+    bodyLength: body.length,
+  });
+}
+
 export async function sendNotificationEmail(
   trigger: string,
   recipient: string,
@@ -159,6 +225,7 @@ export async function sendNotificationEmail(
       status: string;
       rejectionRemarks: string | null;
       requesterName: string | null;
+      requesterEmail: string | null;
       department: string;
       teamName: string;
       priority: string;
@@ -171,6 +238,7 @@ export async function sendNotificationEmail(
       `SELECT t.request_id AS "requestId", t.title, t.status,
               t.rejection_remarks AS "rejectionRemarks",
               t.requester_name AS "requesterName",
+              u.email AS "requesterEmail",
               t.department, t.team_name AS "teamName",
               t.priority, t.need_by_date AS "needByDate",
               t.estimated_cost AS "estimatedCost",
@@ -184,6 +252,7 @@ export async function sendNotificationEmail(
     );
 
     const readableId = ticket?.requestId ?? ticketId;
+    const requestUrlBase = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
     const cost = ticket?.estimatedCost
       ? `${ticket.costCurrency ?? ""} ${ticket.estimatedCost}`.trim()
       : "";
@@ -193,9 +262,12 @@ export async function sendNotificationEmail(
 
     const context: EmailContext = {
       requesterName: ticket?.userName ?? ticket?.requesterName ?? "",
+      requesterEmail: ticket?.requesterEmail ?? "",
       ticketId: readableId,
       ticketTitle: ticket?.title ?? "",
       status: STATUS_LABELS[ticket?.status ?? ""] ?? ticket?.status ?? "",
+      currentStage: STATUS_LABELS[ticket?.status ?? ""] ?? ticket?.status ?? "",
+      nextStage: "",
       rejectionRemarks: ticket?.rejectionRemarks ?? extraContext?.rejectionRemarks ?? "",
       department: ticket?.department ?? "",
       teamName: ticket?.teamName ?? "",
@@ -203,6 +275,7 @@ export async function sendNotificationEmail(
       needByDate,
       estimatedCost: cost,
       description: ticket?.description ?? "",
+      requestUrl: requestUrlBase ? `${requestUrlBase}/requests/${ticketId}` : "",
       ...extraContext,
     };
     const template = await getTemplateForTrigger(trigger, "immediate");
@@ -210,13 +283,18 @@ export async function sendNotificationEmail(
     const subject = replacePlaceholders(template.subjectTemplate, context);
     const body = replacePlaceholders(template.bodyTemplate, context);
 
-    // Build full recipient list: primary + any extra recipients defined on the template
+    const cdoRows = await query<{ email: string }>(
+      `SELECT email FROM users WHERE roles @> ARRAY['CDO']::"UserRole"[] AND status = true`
+    );
+    const alwaysCc = [
+      ticket?.requesterEmail ?? recipient,
+      ...cdoRows.map((row) => row.email),
+    ];
     const extras = (template.extraRecipients ?? "")
       .split(",")
       .map((e) => e.trim())
       .filter((e) => e.includes("@"));
-    const allRecipients = [recipient, ...extras].filter(Boolean);
-    await sendEmail(allRecipients.join(", "), subject, body);
+    await sendEmailWithCc([recipient], [...alwaysCc, ...extras], subject, body);
   } catch (e) {
     console.error("[sendNotificationEmail]", trigger, recipient, e);
   }

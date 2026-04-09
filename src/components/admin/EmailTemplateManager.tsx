@@ -1,8 +1,12 @@
 "use client";
 
+export { EmailTemplateManagerView as EmailTemplateManager } from "./EmailTemplateManagerView";
+/*
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { EMAIL_TEMPLATE_FIELDS, EMAIL_TEMPLATE_TRIGGER_OPTIONS } from "@/lib/email-template-catalog";
 
 type EmailLog = {
   id: string;
@@ -19,33 +23,6 @@ type EmailStats = {
   last24h: string;
   last7d: string;
 };
-
-/** Placeholders available in subject and body (must match EmailContext in lib/email.ts) */
-const TEMPLATE_FIELDS = [
-  { key: "requesterName", label: "Requester name" },
-  { key: "ticketId", label: "Request ID" },
-  { key: "ticketTitle", label: "Request title" },
-  { key: "status", label: "Status" },
-  { key: "department", label: "Department" },
-  { key: "teamName", label: "Team" },
-  { key: "priority", label: "Priority" },
-  { key: "needByDate", label: "Need by date" },
-  { key: "estimatedCost", label: "Estimated cost" },
-  { key: "description", label: "Description" },
-  { key: "rejectionRemarks", label: "Rejection remarks" },
-] as const;
-
-const TRIGGERS = [
-  { value: "request_created", label: "Request created" },
-  { value: "request_submitted", label: "Request submitted" },
-  { value: "request_rejected", label: "Request rejected" },
-  { value: "pending_fh_reminder", label: "Pending FH approval reminder" },
-  { value: "pending_l1_reminder", label: "Pending L1 approval reminder" },
-  { value: "assigned_to_production", label: "Assigned to production" },
-  { value: "delivered_to_requester", label: "Delivered to requester" },
-  { value: "request_closed", label: "Request closed" },
-  { value: "comment_mention", label: "Comment @mention" },
-] as const;
 
 const TIMELINES = [
   { value: "immediate", label: "Immediate" },
@@ -310,7 +287,7 @@ export function EmailTemplateManager() {
 
   return (
     <div>
-      {/* SMTP Settings */}
+      // SMTP Settings
       <div className="card mb-8 overflow-hidden">
         <div className="card-header border-b px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">SMTP settings</h2>
@@ -442,7 +419,7 @@ export function EmailTemplateManager() {
                     onChange={(e) => setForm((f) => ({ ...f, trigger: e.target.value }))}
                     className="input-base"
                   >
-                    {TRIGGERS.map((t) => (
+                    {EMAIL_TEMPLATE_TRIGGER_OPTIONS.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
@@ -477,7 +454,7 @@ export function EmailTemplateManager() {
                 <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Subject *</label>
                 <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Insert field:</p>
                 <div className="mb-2 flex flex-wrap gap-2">
-                  {TEMPLATE_FIELDS.map(({ key, label }) => (
+                  {EMAIL_TEMPLATE_FIELDS.map(({ key, label }) => (
                     <button
                       key={key}
                       type="button"
@@ -502,7 +479,7 @@ export function EmailTemplateManager() {
                 <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Body *</label>
                 <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">Insert field:</p>
                 <div className="mb-2 flex flex-wrap gap-2">
-                  {TEMPLATE_FIELDS.map(({ key, label }) => (
+                  {EMAIL_TEMPLATE_FIELDS.map(({ key, label }) => (
                     <button
                       key={key}
                       type="button"
@@ -690,7 +667,7 @@ export function EmailTemplateManager() {
         )}
       </div>
 
-      {/* Test Email */}
+      // Test Email
       <div className="card mt-8 overflow-hidden">
         <div className="card-header border-b px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Send test email</h2>
@@ -742,7 +719,7 @@ export function EmailTemplateManager() {
         </form>
       </div>
 
-      {/* Email Logs */}
+      // Email Logs
       <div className="card mt-8 overflow-hidden">
         <div className="card-header border-b px-6 py-4 flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -813,3 +790,4 @@ export function EmailTemplateManager() {
     </div>
   );
 }
+*/

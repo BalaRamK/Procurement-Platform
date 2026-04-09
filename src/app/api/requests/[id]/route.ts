@@ -129,11 +129,22 @@ export async function PATCH(
     const firstApprover =
       initialStatus === "PENDING_L1_APPROVAL" ? assignees.l1Approver : assignees.functionalHead;
     if (firstApprover?.email) {
+      const emailTrigger =
+        initialStatus === "PENDING_L1_APPROVAL"
+          ? "request_submitted_to_l1"
+          : "request_submitted_to_fh";
       await logNotification({
         ticketId: id,
         type: "assignment",
         recipient: firstApprover.email,
-        payload: { status: initialStatus, title: ticket.title },
+        payload: {
+          status: initialStatus,
+          title: ticket.title,
+          currentStage: "Draft",
+          nextStage: initialStatus === "PENDING_L1_APPROVAL" ? "Pending L1 Approval" : "Pending FH Approval",
+          approverName: firstApprover.name ?? "",
+        },
+        emailTrigger,
       });
     }
     return NextResponse.json({ ok: true, status: initialStatus });
@@ -158,7 +169,17 @@ export async function PATCH(
       [id]
     );
     if (t?.email) {
-      await logNotification({ ticketId: id, type: "delivered", recipient: t.email, payload: { title: ticket.title } });
+      await logNotification({
+        ticketId: id,
+        type: "delivered",
+        recipient: t.email,
+        payload: {
+          title: ticket.title,
+          currentStage: "Assigned to Production",
+          nextStage: "Delivered to Requester",
+        },
+        emailTrigger: "production_marked_delivered",
+      });
     }
     return NextResponse.json({ ok: true, status: "DELIVERED_TO_REQUESTER" });
   }
@@ -181,7 +202,12 @@ export async function PATCH(
       ticketId: id,
       type: "closure",
       recipient: session.user.email,
-      payload: { title: ticket.title },
+      payload: {
+        title: ticket.title,
+        currentStage: "Delivered to Requester",
+        nextStage: "Confirmed by Requester",
+      },
+      emailTrigger: "requester_confirmed_receipt",
     });
     return NextResponse.json({ ok: true, status: "CONFIRMED_BY_REQUESTER" });
   }
@@ -218,6 +244,9 @@ export async function PATCH(
     if (requester?.email) {
       sendNotificationEmail("request_rejected", requester.email, id, {
         rejectionRemarks: body.remarks ?? "",
+        currentStage: status,
+        nextStage: "Rejected",
+        actionBy: session.user.name ?? session.user.email ?? "",
       }).catch((e) => console.error("[rejection email]", e));
     }
     return NextResponse.json({ ok: true, status: "REJECTED" });
@@ -236,7 +265,13 @@ export async function PATCH(
         ticketId: id,
         type: "team_assignment",
         recipient: email,
-        payload: { title: ticket.title, status: nextStatus },
+        payload: {
+          title: ticket.title,
+          status: nextStatus,
+          currentStage: "Pending CDO Approval",
+          nextStage: "Assigned to Production",
+        },
+        emailTrigger: "cdo_approved_moved_to_production",
       });
     }
   } else {
@@ -251,11 +286,34 @@ export async function PATCH(
               ? assignees.cdo
               : null;
     if (nextAssignee?.email) {
+      const emailTrigger =
+        nextStatus === "PENDING_L1_APPROVAL"
+          ? "fh_approved_moved_to_l1"
+          : nextStatus === "PENDING_CFO_APPROVAL"
+            ? "l1_approved_moved_to_cfo"
+            : nextStatus === "PENDING_CDO_APPROVAL"
+              ? "cfo_approved_moved_to_cdo"
+              : "request_submitted_to_fh";
       await logNotification({
         ticketId: id,
         type: "assignment",
         recipient: nextAssignee.email,
-        payload: { status: nextStatus, title: ticket.title },
+        payload: {
+          status: nextStatus,
+          title: ticket.title,
+          currentStage: status,
+          nextStage:
+            nextStatus === "PENDING_L1_APPROVAL"
+              ? "Pending L1 Approval"
+              : nextStatus === "PENDING_CFO_APPROVAL"
+                ? "Pending CFO Approval"
+                : nextStatus === "PENDING_CDO_APPROVAL"
+                  ? "Pending CDO Approval"
+                  : nextStatus,
+          approverName: nextAssignee.name ?? "",
+          actionBy: session.user.name ?? session.user.email ?? "",
+        },
+        emailTrigger,
       });
     }
   }

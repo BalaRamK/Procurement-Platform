@@ -33,7 +33,13 @@ export async function POST(req: NextRequest) {
         ticketId: t.id,
         type: "closure",
         recipient: t.requesterEmail,
-        payload: { title: t.title, autoClosed: true },
+        payload: {
+          title: t.title,
+          autoClosed: true,
+          currentStage: "Delivered to Requester",
+          nextStage: "Closed",
+        },
+        emailTrigger: "request_auto_closed",
       });
     }
     closed++;

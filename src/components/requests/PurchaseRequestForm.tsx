@@ -42,17 +42,33 @@ type FlowAssignees = {
 
 function SectionCard({
   title,
+  description,
+  action,
+  className = "",
   children,
 }: {
   title: string;
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="card overflow-hidden">
+    <section className={`card overflow-hidden ${className}`}>
       <div className="card-header border-b border-white/20 px-6 py-4 dark:border-white/10">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-          {title}
-        </h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+              {title}
+            </h2>
+            {description && (
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                {description}
+              </p>
+            )}
+          </div>
+          {action}
+        </div>
       </div>
       <div className="p-6">{children}</div>
     </section>
@@ -62,6 +78,7 @@ function SectionCard({
 function FormField({
   label,
   required,
+  hint,
   children,
   className = "",
   error,
@@ -69,6 +86,7 @@ function FormField({
 }: {
   label: string;
   required?: boolean;
+  hint?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
   error?: string;
@@ -81,12 +99,41 @@ function FormField({
         {required && <span className="text-red-500" aria-hidden="true"> *</span>}
         {required && <span className="sr-only"> (required)</span>}
       </label>
+      {hint && <p className="mb-1.5 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
       {children}
       {error && (
         <p id={fieldId ? `${fieldId}-error` : undefined} className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">
           {error}
         </p>
       )}
+    </div>
+  );
+}
+
+function SummaryStat({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "accent" | "warning" | "success";
+}) {
+  const toneClass =
+    tone === "accent"
+      ? "border-primary-200/70 bg-primary-50/80 text-primary-700 dark:border-primary-500/30 dark:bg-primary-950/30 dark:text-primary-200"
+      : tone === "warning"
+        ? "border-amber-200/70 bg-amber-50/80 text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+        : tone === "success"
+          ? "border-emerald-200/70 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-200"
+          : "border-white/30 bg-white/35 text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200";
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 shadow-[var(--glass-inner)] ${toneClass}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70">
+        {label}
+      </div>
+      <div className="mt-1 text-sm font-semibold">{value}</div>
     </div>
   );
 }
@@ -132,6 +179,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState("");
+  const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lastLookupResponse, setLastLookupResponse] = useState<Record<string, unknown> | null>(null);
   const [itemMode, setItemMode] = useState<"single" | "bulk">("single");
@@ -146,6 +194,10 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [componentSuggestionsLoading, setComponentSuggestionsLoading] = useState(false);
   const componentInputRef = useRef<HTMLDivElement>(null);
 
+  const qtyNum = quantity ? Number(quantity) || 1 : 1;
+  const isBulkReady = itemMode === "bulk" && bulkLineItems.length > 0;
+  const bulkTotal = bulkLineItems.reduce((sum, li) => sum + li.costPerItem * li.quantity, 0);
+  const validationCount = Object.keys(fieldErrors).length;
   const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
 
   useEffect(() => {
@@ -251,12 +303,11 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
     if (bomId.trim()) lookupSku(bomId.trim());
   };
 
-  const qtyNum = quantity ? Number(quantity) || 1 : 1;
   const displayCost = rate ? String(Number(rate) * qtyNum) : "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isBulk = itemMode === "bulk" && bulkLineItems.length > 0;
+    const isBulk = isBulkReady;
     if (itemMode === "bulk" && bulkLineItems.length === 0) {
       setLookupError("Add at least one bulk item (upload Excel and add to request) before submitting.");
       return;
@@ -277,6 +328,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
     setFieldErrors({});
     setLoading(true);
     setLookupError("");
+    setSubmitError("");
     try {
       const payload: Record<string, unknown> = {
         title: title || "Purchase Request",
@@ -327,7 +379,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       router.push("/requests/" + ticket.id);
       router.refresh();
     } catch {
-      setLookupError("Failed to create request");
+      setSubmitError("Failed to create request. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -344,10 +396,19 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Request Info */}
-        <SectionCard title="Request Info">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <FormField label="Title" required fieldId="title" error={fieldErrors.title}>
+        {/* Request essentials */}
+        <SectionCard
+          title="Request essentials"
+          description="Keep this section short. It drives routing and is required to start the request."
+        >
+          <div className="grid gap-6 md:grid-cols-2">
+            <FormField
+              label="Title"
+              required
+              fieldId="title"
+              error={fieldErrors.title}
+              hint="Use a short, clear summary of what you need."
+            >
               <input
                 id="title"
                 type="text"
@@ -373,7 +434,13 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 aria-describedby={fieldErrors.requesterName ? "requesterName-error" : undefined}
               />
             </FormField>
-            <FormField label="Department/Project" required fieldId="department" error={fieldErrors.department}>
+            <FormField
+              label="Department/Project"
+              required
+              fieldId="department"
+              error={fieldErrors.department}
+              hint="This should reflect the business owner for the request."
+            >
               <input
                 id="department"
                 type="text"
@@ -386,7 +453,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 aria-describedby={fieldErrors.department ? "department-error" : undefined}
               />
             </FormField>
-            <FormField label="Team" required>
+            <FormField label="Team" required hint="This controls the approval route and charge code list.">
               <select
                 value={teamName}
                 onChange={(e) => {
@@ -407,7 +474,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 ))}
               </select>
             </FormField>
-            <FormField label="Priority">
+            <FormField label="Priority" hint="Used only to signal urgency, not to bypass approvals.">
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
@@ -420,52 +487,60 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 ))}
               </select>
             </FormField>
-            <FormField label="Place of Delivery" className="sm:col-span-2">
+            <FormField
+              label="Place of Delivery"
+              className="md:col-span-2"
+              hint="Include city, state, and country when possible."
+            >
               <input
                 type="text"
                 value={placeOfDelivery}
                 onChange={(e) => setPlaceOfDelivery(e.target.value)}
                 className="input-base"
-                placeholder="Add the Place along with State and Country"
+                placeholder="Add the place along with state and country"
               />
             </FormField>
           </div>
         </SectionCard>
 
         {/* Component details */}
-        <SectionCard title="Component details">
+        <SectionCard
+          title="Component details"
+          description="Choose a single item or bulk upload path. Supplier and origin stay close to the item details."
+        >
           <div className="space-y-6">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Choose how you want to add items. Only the selected option will be shown.
-            </p>
-            <div className="flex flex-wrap items-center gap-4">
-              <fieldset className="flex gap-4">
+            <div className="grid gap-3 rounded-2xl border border-white/25 bg-white/30 p-4 shadow-[var(--glass-inner)] sm:grid-cols-2 dark:border-white/10 dark:bg-white/5">
+              <fieldset className="flex gap-3">
                 <legend className="sr-only">Add items by</legend>
-                <label className="flex cursor-pointer items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/25 bg-white/25 px-4 py-3 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5">
                   <input
                     type="radio"
                     name="itemMode"
                     checked={itemMode === "single"}
-                    onChange={() => { setItemMode("single"); setLookupError(""); setComponentSuggestionsOpen(false); }}
+                    onChange={() => { setItemMode("single"); setManualAddMode(false); setZohoLocked(false); setLookupError(""); setComponentSuggestionsOpen(false); }}
                     className="h-4 w-4 border-slate-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Single item</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Single item</span>
                 </label>
-                <label className="flex cursor-pointer items-center gap-2">
+              </fieldset>
+              <fieldset className="flex gap-3">
+                <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/25 bg-white/25 px-4 py-3 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5">
                   <input
                     type="radio"
                     name="itemMode"
                     checked={itemMode === "bulk"}
-                    onChange={() => { setItemMode("bulk"); setLookupError(""); setComponentSuggestionsOpen(false); }}
+                    onChange={() => { setItemMode("bulk"); setManualAddMode(false); setZohoLocked(false); setLookupError(""); setComponentSuggestionsOpen(false); }}
                     className="h-4 w-4 border-slate-300 text-primary-600 focus:ring-primary-500"
                   />
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Bulk items</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Bulk items</span>
                 </label>
               </fieldset>
-              <span className="text-sm text-slate-500 dark:text-slate-400">
-                {itemMode === "single" ? "Adding one item with Zoho lookup" : "Upload Excel to add multiple items"}
-              </span>
             </div>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              {itemMode === "single"
+                ? "Adding one item with Zoho lookup or manual entry."
+                : "Upload an Excel file to add multiple items at once."}
+            </p>
 
             {itemMode === "bulk" && (
               <>
@@ -569,7 +644,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             {itemMode === "single" && (
             <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-              <FormField label="Component Name" className="flex-1">
+              <FormField label="Component Name" className="flex-1" hint="Zoho search is the default path; manual entry stays available.">
                 <div className="relative" ref={componentInputRef}>
                   <input
                     type="text"
@@ -656,8 +731,8 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               </p>
             )}
 
-            <div className="grid gap-6 sm:grid-cols-2">
-              <FormField label="Item name">
+            <div className="grid gap-6 md:grid-cols-2">
+              <FormField label="Item name" hint="The item display name used on the request.">
                 <input
                   id="itemName"
                   type="text"
@@ -668,7 +743,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   placeholder="Autofill from Zoho or enter manually"
                 />
               </FormField>
-              <FormField label="Brand name & company">
+              <FormField label="Brand name & company" hint="Keep the vendor identity close to the item for easy review.">
                 <input
                   type="text"
                   value={brandNameCompany}
@@ -682,6 +757,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 required
                 fieldId="preferredSupplier"
                 error={fieldErrors.preferredSupplier}
+                hint="Required for single-item requests."
               >
                 <input
                   id="preferredSupplier"
@@ -705,6 +781,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 required
                 fieldId="countryOfOrigin"
                 error={fieldErrors.countryOfOrigin}
+                hint="Required for single-item requests."
               >
                 <input
                   id="countryOfOrigin"
@@ -723,7 +800,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   aria-describedby={fieldErrors.countryOfOrigin ? "countryOfOrigin-error" : undefined}
                 />
               </FormField>
-              <FormField label="BOM ID">
+              <FormField label="BOM ID" hint="Use the Zoho value when available.">
                 <input
                   type="text"
                   value={bomId}
@@ -734,7 +811,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   placeholder="Autofill/generate if not in Zoho"
                 />
               </FormField>
-              <FormField label="Product ID">
+              <FormField label="Product ID" hint="Shown for reference when available.">
                 <input
                   type="text"
                   value={productId}
@@ -743,7 +820,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   placeholder="Not used"
                 />
               </FormField>
-              <FormField label="Cost per item ($)" required>
+              <FormField label="Cost per item ($)" required hint="This drives the estimated total below.">
                 <input
                   type="number"
                   step="any"
@@ -755,7 +832,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   required
                 />
               </FormField>
-              <FormField label="Quantity" required>
+              <FormField label="Quantity" required hint="Use the stepper if you want a quick adjustment.">
                 <div className="flex items-stretch rounded-2xl border border-white/30 bg-white/35 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5">
                   <input
                     type="number"
@@ -788,7 +865,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               </FormField>
             </div>
 
-            <FormField label="Item Description" required>
+            <FormField label="Item Description" required hint="Add any context or technical notes that help approvers review the item.">
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -831,7 +908,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                   placeholder={itemMode === "bulk" ? "Add items to see total" : "Cost per item × Quantity"}
                 />
               </FormField>
-              <FormField label="Need by date">
+              <FormField label="Need by date" hint="Optional, but helpful for priority planning.">
                 <div className="relative">
                   <input
                     type="date"
@@ -929,10 +1006,13 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
           )}
         </SectionCard>
 
-        {/* Project Info */}
-        <SectionCard title="Project Info">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <FormField label="Project/Customer Name">
+        {/* Project info */}
+        <SectionCard
+          title="Project, logistics & commercial"
+          description="Optional details for planning, charge codes, and delivery timing."
+        >
+          <div className="grid gap-6 md:grid-cols-2">
+            <FormField label="Project/Customer Name" hint="Search or pick from the configured list.">
               <div className="relative">
                 <input
                   type="text"
@@ -954,7 +1034,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 </span>
               </div>
             </FormField>
-            <FormField label="Charge Code">
+            <FormField label="Charge Code" hint="Uses the configured team list when available.">
               {currentChargeCodes.length > 0 ? (
                 <select
                   value={chargeCode}
@@ -978,7 +1058,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 />
               )}
             </FormField>
-            <FormField label="Deal Name">
+            <FormField label="Deal Name" hint="Useful if the request is tied to a CRM opportunity.">
               <input
                 type="text"
                 value={dealName}
@@ -987,7 +1067,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 placeholder="Fill as per Zoho CRM if applicable"
               />
             </FormField>
-            <FormField label="Deal ID">
+            <FormField label="Deal ID" hint="Optional CRM reference.">
               <input
                 type="text"
                 value={dealId}
@@ -996,7 +1076,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 placeholder="Fill as per Zoho CRM if applicable"
               />
             </FormField>
-            <FormField label="Estimated PO Date">
+            <FormField label="Estimated PO Date" hint="Optional planning date.">
               <div className="relative">
                 <input
                   type="date"
@@ -1016,18 +1096,18 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         </SectionCard>
 
         {/* Action buttons */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary"
+            className="btn-primary w-full sm:w-auto"
           >
-            {loading ? "Creating…" : "Create Request"}
+            {loading ? "Creating..." : "Create Request"}
           </button>
           <button
             type="button"
             onClick={() => router.back()}
-            className="btn-secondary"
+            className="btn-secondary w-full sm:w-auto"
           >
             Cancel
           </button>
@@ -1035,7 +1115,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
 
         {/* Map Flow – timeline when Team is set */}
         {teamName && (
-          <SectionCard title="Approval flow">
+          <SectionCard title="Approval flow preview" description="Shows the people who will see the request after submission.">
             <div className="relative py-6">
               <div className="pointer-events-none absolute left-0 right-0 top-1/2 z-0 hidden min-[900px]:block" aria-hidden>
                 <div className="mx-auto h-px max-w-[85%] bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-600" />

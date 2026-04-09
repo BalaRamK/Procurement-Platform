@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
       brand_name_company, preferred_supplier, country_of_origin, project_customer, need_by_date, charge_code,
       cost_currency, estimated_cost, rate, unit, estimated_po_date, place_of_delivery, quantity, deal_name,
       team_name, priority, status, request_id, requester_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'DRAFT', $24, $25)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'DRAFT', $25, $26)
     RETURNING id, title`,
     [
       data.title,

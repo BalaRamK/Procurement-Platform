@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { ensureDefaultEmailTemplates } from "@/lib/email-template-defaults";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -26,6 +27,7 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  await ensureDefaultEmailTemplates();
   const templates = await query<Record<string, unknown>>(
     `SELECT ${RETURNING} FROM email_templates ORDER BY created_at DESC`
   );
