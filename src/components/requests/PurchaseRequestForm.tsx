@@ -103,6 +103,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [bomId, setBomId] = useState("");
   const [productId, setProductId] = useState("");
   const [itemName, setItemName] = useState("");
+  const [brandNameCompany, setBrandNameCompany] = useState("");
+  const [preferredSupplier, setPreferredSupplier] = useState("");
+  const [countryOfOrigin, setCountryOfOrigin] = useState("");
   const [projectCustomer, setProjectCustomer] = useState("");
   const [needByDate, setNeedByDate] = useState("");
   const [chargeCode, setChargeCode] = useState("");
@@ -263,6 +266,8 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
     if (!title.trim()) errors.title = "Title is required.";
     if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
     if (!department.trim()) errors.department = "Department is required.";
+    if (!isBulk && !preferredSupplier.trim()) errors.preferredSupplier = "Preferred supplier is required.";
+    if (!isBulk && !countryOfOrigin.trim()) errors.countryOfOrigin = "Country of origin is required.";
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       const firstId = Object.keys(errors)[0];
@@ -282,6 +287,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         bomId: isBulk ? undefined : (bomId || undefined),
         productId: productId || undefined,
         itemName: isBulk ? undefined : (itemName || undefined),
+        brandNameCompany: isBulk ? undefined : (brandNameCompany || undefined),
+        preferredSupplier: isBulk ? undefined : (preferredSupplier || undefined),
+        countryOfOrigin: isBulk ? undefined : (countryOfOrigin || undefined),
         projectCustomer: projectCustomer || undefined,
         needByDate: needByDate || undefined,
         chargeCode: chargeCode || undefined,
@@ -424,8 +432,8 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
           </div>
         </SectionCard>
 
-        {/* Item Info */}
-        <SectionCard title="Item Info">
+        {/* Component details */}
+        <SectionCard title="Component details">
           <div className="space-y-6">
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Choose how you want to add items. Only the selected option will be shown.
@@ -649,6 +657,72 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             )}
 
             <div className="grid gap-6 sm:grid-cols-2">
+              <FormField label="Item name">
+                <input
+                  id="itemName"
+                  type="text"
+                  value={itemName}
+                  onChange={(e) => setItemName(e.target.value)}
+                  readOnly={zohoLocked && !manualAddMode}
+                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
+                  placeholder="Autofill from Zoho or enter manually"
+                />
+              </FormField>
+              <FormField label="Brand name & company">
+                <input
+                  type="text"
+                  value={brandNameCompany}
+                  onChange={(e) => setBrandNameCompany(e.target.value)}
+                  className="input-base"
+                  placeholder="Enter brand and company"
+                />
+              </FormField>
+              <FormField
+                label="Preferred supplier"
+                required
+                fieldId="preferredSupplier"
+                error={fieldErrors.preferredSupplier}
+              >
+                <input
+                  id="preferredSupplier"
+                  type="text"
+                  value={preferredSupplier}
+                  onChange={(e) => {
+                    setPreferredSupplier(e.target.value);
+                    if (fieldErrors.preferredSupplier) {
+                      setFieldErrors((prev) => ({ ...prev, preferredSupplier: "" }));
+                    }
+                  }}
+                  className={`input-base ${fieldErrors.preferredSupplier ? "border-red-400 focus:ring-red-400/30" : ""}`}
+                  placeholder="Enter preferred supplier"
+                  aria-required="true"
+                  aria-invalid={!!fieldErrors.preferredSupplier}
+                  aria-describedby={fieldErrors.preferredSupplier ? "preferredSupplier-error" : undefined}
+                />
+              </FormField>
+              <FormField
+                label="Country of origin"
+                required
+                fieldId="countryOfOrigin"
+                error={fieldErrors.countryOfOrigin}
+              >
+                <input
+                  id="countryOfOrigin"
+                  type="text"
+                  value={countryOfOrigin}
+                  onChange={(e) => {
+                    setCountryOfOrigin(e.target.value);
+                    if (fieldErrors.countryOfOrigin) {
+                      setFieldErrors((prev) => ({ ...prev, countryOfOrigin: "" }));
+                    }
+                  }}
+                  className={`input-base ${fieldErrors.countryOfOrigin ? "border-red-400 focus:ring-red-400/30" : ""}`}
+                  placeholder="Enter country of origin"
+                  aria-required="true"
+                  aria-invalid={!!fieldErrors.countryOfOrigin}
+                  aria-describedby={fieldErrors.countryOfOrigin ? "countryOfOrigin-error" : undefined}
+                />
+              </FormField>
               <FormField label="BOM ID">
                 <input
                   type="text"

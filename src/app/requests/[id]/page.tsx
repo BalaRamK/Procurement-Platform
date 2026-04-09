@@ -32,8 +32,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const rows = await query<Record<string, unknown>>(
     `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
-     t.department, t.component_description AS "componentDescription", t.item_name AS "itemName", t.team_name AS "teamName",
-     t.priority, t.status, t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
+     t.department, t.component_description AS "componentDescription", t.item_name AS "itemName",
+     t.brand_name_company AS "brandNameCompany", t.preferred_supplier AS "preferredSupplier",
+     t.country_of_origin AS "countryOfOrigin", t.team_name AS "teamName", t.priority, t.status,
+     t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
      t.need_by_date AS "needByDate", t.charge_code AS "chargeCode", t.estimated_cost AS "estimatedCost",
      t.cost_currency AS "costCurrency", t.rate, t.unit, t.estimated_po_date AS "estimatedPoDate",
      t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName", t.bom_id AS "bomId", t.product_id AS "productId",
@@ -59,7 +61,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   delete ticketRaw.rId;
   delete ticketRaw.rEmail;
   delete ticketRaw.rName;
-  type TicketDetail = { requesterId: string; status: string; teamName: TeamName; title: string; id: string; requestId?: string; requesterName: string; department: string; description?: string; componentDescription?: string; itemName?: string; priority: string; rejectionRemarks?: string; needByDate?: string; chargeCode?: string; estimatedCost?: string | number; costCurrency?: string; rate?: string | number; unit?: string; estimatedPoDate?: string | null; placeOfDelivery?: string; quantity?: number; dealName?: string; bomId?: string; productId?: string; projectCustomer?: string; createdAt: string; updatedAt: string; requester: { id: string; email: string; name: string | null } | null };
+  type TicketDetail = { requesterId: string; status: string; teamName: TeamName; title: string; id: string; requestId?: string; requesterName: string; department: string; description?: string; componentDescription?: string; itemName?: string; brandNameCompany?: string; preferredSupplier?: string; countryOfOrigin?: string; priority: string; rejectionRemarks?: string; needByDate?: string; chargeCode?: string; estimatedCost?: string | number; costCurrency?: string; rate?: string | number; unit?: string; estimatedPoDate?: string | null; placeOfDelivery?: string; quantity?: number; dealName?: string; bomId?: string; productId?: string; projectCustomer?: string; createdAt: string; updatedAt: string; requester: { id: string; email: string; name: string | null } | null };
   const ticket = ticketRaw as TicketDetail;
 
   const roles = session.user.roles ?? [];
@@ -85,6 +87,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     { label: "Created", value: new Date(ticket.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) },
     { label: "Item description", value: ticket.description ?? undefined },
     { label: "Component description", value: ticket.componentDescription ?? undefined },
+    { label: "Item name", value: ticket.itemName ?? undefined },
+    { label: "Brand name & company", value: ticket.brandNameCompany ?? undefined },
+    { label: "Preferred supplier", value: ticket.preferredSupplier ?? undefined },
+    { label: "Country of origin", value: ticket.countryOfOrigin ?? undefined },
     { label: "BOM / Product ID", value: ticket.bomId ?? ticket.productId ?? undefined },
     { label: "Project / Customer", value: ticket.projectCustomer ?? undefined },
     { label: "Need by date", value: ticket.needByDate ? new Date(ticket.needByDate).toLocaleDateString() : undefined },

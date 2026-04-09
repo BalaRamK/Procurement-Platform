@@ -78,6 +78,9 @@ model Ticket {
   department            String
   componentDescription  String?        @map("component_description")
   itemName             String?        @map("item_name")   // From Zoho lookup
+  brandNameCompany     String?        @map("brand_name_company")
+  preferredSupplier    String?        @map("preferred_supplier")
+  countryOfOrigin      String?        @map("country_of_origin")
   bomId                 String?        @map("bom_id")
   productId            String?        @map("product_id")
   projectCustomer      String?        @map("project_customer")

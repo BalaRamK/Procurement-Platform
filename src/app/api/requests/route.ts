@@ -33,6 +33,9 @@ const createSchema = z.object({
   bomId: z.string().optional(),
   productId: z.string().optional(),
   itemName: z.string().optional(),
+  brandNameCompany: z.string().optional(),
+  preferredSupplier: z.string().optional(),
+  countryOfOrigin: z.string().optional(),
   projectCustomer: z.string().optional(),
   needByDate: z.string().optional(),
   chargeCode: z.string().optional(),
@@ -50,7 +53,8 @@ const createSchema = z.object({
 });
 
 const TICKET_COLS = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
-  component_description AS "componentDescription", item_name AS "itemName", bom_id AS "bomId", product_id AS "productId",
+  component_description AS "componentDescription", item_name AS "itemName", brand_name_company AS "brandNameCompany",
+  preferred_supplier AS "preferredSupplier", country_of_origin AS "countryOfOrigin", bom_id AS "bomId", product_id AS "productId",
   project_customer AS "projectCustomer", need_by_date AS "needByDate", charge_code AS "chargeCode",
   cost_currency AS "costCurrency", estimated_cost AS "estimatedCost", rate, unit, estimated_po_date AS "estimatedPoDate",
   place_of_delivery AS "placeOfDelivery", quantity, deal_name AS "dealName", team_name AS "teamName", priority, status,
@@ -58,8 +62,10 @@ const TICKET_COLS = `id, request_id AS "requestId", title, description, requeste
   confirmed_at AS "confirmedAt", auto_closed_at AS "autoClosedAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 const TICKET_JOIN_REQ = `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
-  t.department, t.component_description AS "componentDescription", t.item_name AS "itemName", t.bom_id AS "bomId",
-  t.product_id AS "productId", t.project_customer AS "projectCustomer", t.need_by_date AS "needByDate",
+  t.department, t.component_description AS "componentDescription", t.item_name AS "itemName",
+  t.brand_name_company AS "brandNameCompany", t.preferred_supplier AS "preferredSupplier",
+  t.country_of_origin AS "countryOfOrigin", t.bom_id AS "bomId", t.product_id AS "productId",
+  t.project_customer AS "projectCustomer", t.need_by_date AS "needByDate",
   t.charge_code AS "chargeCode", t.cost_currency AS "costCurrency", t.estimated_cost AS "estimatedCost", t.rate, t.unit,
   t.estimated_po_date AS "estimatedPoDate", t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName",
   t.team_name AS "teamName", t.priority, t.status, t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
@@ -159,6 +165,9 @@ export async function POST(req: NextRequest) {
   let ticketEstimatedCost = data.estimatedCost ?? null;
   let ticketComponentDescription = data.componentDescription ?? null;
   let ticketItemName = data.itemName ?? null;
+  let ticketBrandNameCompany = data.brandNameCompany ?? null;
+  let ticketPreferredSupplier = data.preferredSupplier ?? null;
+  let ticketCountryOfOrigin = data.countryOfOrigin ?? null;
   let ticketBomId = data.bomId ?? null;
   let ticketRate = data.rate ?? null;
   let ticketQuantity = data.quantity ?? null;
@@ -167,6 +176,9 @@ export async function POST(req: NextRequest) {
     ticketEstimatedCost = lineItems.reduce((sum, li) => sum + li.costPerItem * li.quantity, 0);
     ticketComponentDescription = "Bulk items";
     ticketItemName = lineItems[0].componentName ?? null;
+    ticketBrandNameCompany = null;
+    ticketPreferredSupplier = null;
+    ticketCountryOfOrigin = null;
     ticketBomId = lineItems[0].bomId ?? null;
     ticketRate = lineItems[0].costPerItem;
     ticketQuantity = lineItems.reduce((s, li) => s + li.quantity, 0);
@@ -175,9 +187,10 @@ export async function POST(req: NextRequest) {
   const rows = await query<{ id: string; title: string }>(
     `INSERT INTO tickets (
       title, description, requester_name, department, component_description, item_name, bom_id, product_id,
-      project_customer, need_by_date, charge_code, cost_currency, estimated_cost, rate, unit, estimated_po_date,
-      place_of_delivery, quantity, deal_name, team_name, priority, status, request_id, requester_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, 'DRAFT', $22, $23)
+      brand_name_company, preferred_supplier, country_of_origin, project_customer, need_by_date, charge_code,
+      cost_currency, estimated_cost, rate, unit, estimated_po_date, place_of_delivery, quantity, deal_name,
+      team_name, priority, status, request_id, requester_id
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, 'DRAFT', $24, $25)
     RETURNING id, title`,
     [
       data.title,
@@ -188,6 +201,9 @@ export async function POST(req: NextRequest) {
       ticketItemName,
       ticketBomId,
       data.productId ?? null,
+      ticketBrandNameCompany,
+      ticketPreferredSupplier,
+      ticketCountryOfOrigin,
       data.projectCustomer ?? null,
       needByDate,
       data.chargeCode ?? null,

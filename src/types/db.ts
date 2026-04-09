@@ -99,6 +99,9 @@ export interface Ticket {
   updatedAt: Date;
   requesterName?: string;
   itemName?: string | null;
+  brandNameCompany?: string | null;
+  preferredSupplier?: string | null;
+  countryOfOrigin?: string | null;
   componentDescription?: string | null;
   quantity?: number | null;
   [key: string]: unknown;

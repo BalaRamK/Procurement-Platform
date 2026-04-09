@@ -10,7 +10,8 @@ import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 import { canViewTicket } from "@/lib/tickets";
 
 const TICKET_SELECT = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
-  component_description AS "componentDescription", item_name AS "itemName", bom_id AS "bomId", product_id AS "productId",
+  component_description AS "componentDescription", item_name AS "itemName", brand_name_company AS "brandNameCompany",
+  preferred_supplier AS "preferredSupplier", country_of_origin AS "countryOfOrigin", bom_id AS "bomId", product_id AS "productId",
   project_customer AS "projectCustomer", need_by_date AS "needByDate", charge_code AS "chargeCode",
   cost_currency AS "costCurrency", estimated_cost AS "estimatedCost", rate, unit, estimated_po_date AS "estimatedPoDate",
   place_of_delivery AS "placeOfDelivery", quantity, deal_name AS "dealName", team_name AS "teamName", priority, status,
@@ -18,8 +19,10 @@ const TICKET_SELECT = `id, request_id AS "requestId", title, description, reques
   confirmed_at AS "confirmedAt", auto_closed_at AS "autoClosedAt", created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 const TICKET_JOIN_REQ = `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
-  t.department, t.component_description AS "componentDescription", t.item_name AS "itemName", t.bom_id AS "bomId",
-  t.product_id AS "productId", t.project_customer AS "projectCustomer", t.need_by_date AS "needByDate",
+  t.department, t.component_description AS "componentDescription", t.item_name AS "itemName",
+  t.brand_name_company AS "brandNameCompany", t.preferred_supplier AS "preferredSupplier",
+  t.country_of_origin AS "countryOfOrigin", t.bom_id AS "bomId", t.product_id AS "productId",
+  t.project_customer AS "projectCustomer", t.need_by_date AS "needByDate",
   t.charge_code AS "chargeCode", t.cost_currency AS "costCurrency", t.estimated_cost AS "estimatedCost", t.rate, t.unit,
   t.estimated_po_date AS "estimatedPoDate", t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName",
   t.team_name AS "teamName", t.priority, t.status, t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
