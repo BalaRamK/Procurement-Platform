@@ -93,14 +93,6 @@ export function AppSidebar({ userRoles, userEmail, mobileOpen, onMobileClose }: 
             </Link>
           </div>
         )}
-      <div className="mt-auto border-t border-white/15 px-4 py-4 dark:border-white/10">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-          Signed in as
-        </p>
-        <p className="mt-2 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
-          {userEmail ?? "Active session"}
-        </p>
-      </div>
       </nav>
     </>
   );
