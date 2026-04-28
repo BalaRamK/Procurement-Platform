@@ -100,7 +100,6 @@ export function AppSidebar({ userRoles, userEmail, mobileOpen, onMobileClose }: 
         <p className="mt-2 truncate text-sm font-medium text-slate-700 dark:text-slate-200">
           {userEmail ?? "Active session"}
         </p>
-        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{roleSummary}</p>
       </div>
       </nav>
     </>

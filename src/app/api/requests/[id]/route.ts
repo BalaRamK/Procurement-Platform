@@ -57,7 +57,7 @@ export async function GET(
   const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  if (!canViewTicket(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }) && !isRequester) {
+  if (!canViewTicket(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }, session.user.id) && !isRequester) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

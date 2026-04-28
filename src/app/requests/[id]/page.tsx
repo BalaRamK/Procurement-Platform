@@ -14,10 +14,11 @@ import { hasRole } from "@/types/db";
 function canView(
   roles: UserRole[] | null | undefined,
   userTeam: TeamName | null,
-  ticket: { requesterId: string; status: string; teamName: TeamName }
+  ticket: { requesterId: string; status: string; teamName: TeamName },
+  currentUserId?: string
 ) {
   if (hasRole(roles, "SUPER_ADMIN")) return true;
-  if (ticket.requesterId && hasRole(roles, "REQUESTER")) return true;
+  if (currentUserId && ticket.requesterId === currentUserId && hasRole(roles, "REQUESTER")) return true;
   if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
   if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") return true;
   if (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") return true;
@@ -170,7 +171,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") ||
     (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL");
 
-  if (!canView(roles, userTeam, ticket) && !isRequester) redirect("/dashboard");
+  if (!canView(roles, userTeam, ticket, session.user.id) && !isRequester) redirect("/dashboard");
 
   const isRejected = ticket.status === "REJECTED" && !!ticket.rejectionRemarks;
   const costValue =

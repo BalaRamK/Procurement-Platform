@@ -128,7 +128,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Failed to delete");
       }
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: false } : u)));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete user");
     } finally {
