@@ -6,17 +6,17 @@ import type { UserRole, TeamName } from "@/types/db";
 import { USER_ROLES, TEAM_NAMES } from "@/types/db";
 import { z } from "zod";
 
-const ROLES_REQUIRING_TEAM: UserRole[] = ["FUNCTIONAL_HEAD", "L1_APPROVER"];
-const ROLES_WITHOUT_TEAM: UserRole[] = ["CFO", "CDO", "PRODUCTION", "REQUESTER", "SUPER_ADMIN"];
+const ROLES_REQUIRING_TEAM: UserRole[] = ["REQUESTER", "FUNCTIONAL_HEAD", "L1_APPROVER"];
+const ROLES_WITHOUT_TEAM: UserRole[] = ["CFO", "CDO", "PRODUCTION", "SUPER_ADMIN"];
 
 function validateRoleTeamCombination(roles: string[], team: string | null | undefined): string | null {
   const needsTeam = roles.some((r) => ROLES_REQUIRING_TEAM.includes(r as UserRole));
   const noTeam = roles.every((r) => ROLES_WITHOUT_TEAM.includes(r as UserRole));
   if (needsTeam && !team) {
-    return "Department Head and L1 Approver roles require a team assignment";
+    return "Requester, Department Head, and L1 Approver roles require a team assignment";
   }
   if (noTeam && team) {
-    return "CFO, CDO, Production, and Requester roles should not have a team assignment";
+    return "CFO, CDO, Production, and Super Admin roles should not have a team assignment";
   }
   return null;
 }
@@ -202,6 +202,33 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
   }
 
-  await query("UPDATE users SET status = false, updated_at = now() WHERE id = $1", [userId]);
-  return NextResponse.json({ ok: true });
+  const usage = await queryOne<{
+    ticketCount: number;
+    approvalCount: number;
+    notificationCount: number;
+    commentCount: number;
+  }>(
+    `SELECT
+       (SELECT COUNT(*)::int FROM tickets WHERE requester_id = $1) AS "ticketCount",
+       (SELECT COUNT(*)::int FROM approval_logs WHERE user_id = $1) AS "approvalCount",
+       (SELECT COUNT(*)::int FROM notifications WHERE recipient = (SELECT email FROM users WHERE id = $1)) AS "notificationCount",
+       (SELECT COUNT(*)::int FROM comments WHERE user_id = $1) AS "commentCount"`,
+    [userId]
+  );
+  const hasHistory =
+    (usage?.ticketCount ?? 0) > 0 ||
+    (usage?.approvalCount ?? 0) > 0 ||
+    (usage?.notificationCount ?? 0) > 0 ||
+    (usage?.commentCount ?? 0) > 0;
+  if (hasHistory) {
+    return NextResponse.json(
+      {
+        error: "This user cannot be deleted because request history is attached. Disable the account instead to preserve audit history.",
+      },
+      { status: 400 }
+    );
+  }
+
+  await query("DELETE FROM users WHERE id = $1", [userId]);
+  return NextResponse.json({ ok: true, deleted: true });
 }

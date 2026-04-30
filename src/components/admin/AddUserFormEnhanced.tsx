@@ -76,7 +76,7 @@ export function AddUserFormEnhanced({ roles, roleLabels }: AddUserFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const needsTeam = selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
+  const needsTeam = selectedRoles.includes("REQUESTER") || selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
   const parsedBulkEmails = useMemo(
     () =>
       Array.from(
@@ -102,7 +102,7 @@ export function AddUserFormEnhanced({ roles, roleLabels }: AddUserFormProps) {
       return;
     }
     if (needsTeam && !team) {
-      setError("Team is required for Department Head and L1 Approver roles.");
+      setError("Team is required for Requester, Department Head, and L1 Approver roles.");
       return;
     }
 
@@ -238,7 +238,7 @@ export function AddUserFormEnhanced({ roles, roleLabels }: AddUserFormProps) {
           )}
         </SectionCard>
 
-        <SectionCard title="Roles and routing" description="Assign one or more roles. Team is only needed when approvals should be limited to a specific team.">
+        <SectionCard title="Roles and routing" description="Assign one or more roles. Team is needed for requester and team-based approval roles.">
           <div className="grid gap-3 md:grid-cols-2">
             {roles.map((role) => {
               const selected = selectedRoles.includes(role);
@@ -279,7 +279,7 @@ export function AddUserFormEnhanced({ roles, roleLabels }: AddUserFormProps) {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Department Head and L1 Approver roles only see requests from their assigned team.</p>
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Requester, Department Head, and L1 Approver roles use team assignment for routing and visibility.</p>
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-white/30 bg-white/35 p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">

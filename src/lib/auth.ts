@@ -70,13 +70,13 @@ export const authOptions: NextAuthOptions = {
         let profiles: { id: string; roles?: unknown; role?: unknown; team: string | null }[] = [];
         try {
           profiles = await query(
-            'SELECT id, roles, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+            'SELECT id, roles, team FROM users WHERE LOWER(email) = $1 AND status = true ORDER BY created_at ASC',
             [email]
           );
         } catch {
           try {
             profiles = await query(
-              'SELECT id, role, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+              'SELECT id, role, team FROM users WHERE LOWER(email) = $1 AND status = true ORDER BY created_at ASC',
               [email]
             );
           } catch {
@@ -105,7 +105,7 @@ export const authOptions: NextAuthOptions = {
         if (email) {
           try {
             const profiles = await query<{ id: string; roles?: unknown; role?: unknown; team: string | null }>(
-              'SELECT id, roles, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+              'SELECT id, roles, team FROM users WHERE LOWER(email) = $1 AND status = true ORDER BY created_at ASC',
               [email]
             );
             const selected = selectedId
@@ -119,7 +119,7 @@ export const authOptions: NextAuthOptions = {
           } catch {
             try {
               const legacy = await query<{ id: string; role: unknown; team: string | null }>(
-                'SELECT id, role, team FROM users WHERE LOWER(email) = $1 ORDER BY created_at ASC',
+                'SELECT id, role, team FROM users WHERE LOWER(email) = $1 AND status = true ORDER BY created_at ASC',
                 [email]
               );
               const selected = selectedId ? legacy.find((p) => p.id === selectedId) : legacy[0];
@@ -134,18 +134,20 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        const finalRoles = rolesFromDb.length > 0 ? rolesFromDb : asRolesArray(token.roles);
+        const finalRoles = rolesFromDb.length > 0 ? rolesFromDb : [];
         session.user.roles = finalRoles;
-        session.user.id = userId ?? token.id ?? undefined;
-        session.user.team = team ?? (token.team as TeamName) ?? null;
+        session.user.id = userId;
+        session.user.team = team;
 
         // Resolve active role: use selectedRole from token if it is still valid for this profile
         const selectedRole = token.selectedRole as UserRole | null | undefined;
         if (selectedRole && finalRoles.includes(selectedRole)) {
           session.user.activeRole = selectedRole;
-        } else {
+        } else if (finalRoles.length > 0) {
           const { getPrimaryRole } = await import("@/types/db");
           session.user.activeRole = getPrimaryRole(finalRoles);
+        } else {
+          session.user.activeRole = null;
         }
       }
       return session;

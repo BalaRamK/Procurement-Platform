@@ -120,7 +120,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
   }
 
   async function deleteUser(userId: string) {
-    if (!confirm("Deactivate this user? They will no longer be able to sign in. You can re-enable them later.")) return;
+    if (!confirm("Delete this user permanently? This cannot be undone.")) return;
     setDeleting(userId);
     try {
       const res = await fetch(`/api/admin/users?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
@@ -128,7 +128,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Failed to delete");
       }
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, status: false } : u)));
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete user");
     } finally {
@@ -137,7 +137,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
   }
 
   const showTeam = (roles: UserRole[]) =>
-    roles?.includes("FUNCTIONAL_HEAD") || roles?.includes("L1_APPROVER");
+    roles?.includes("REQUESTER") || roles?.includes("FUNCTIONAL_HEAD") || roles?.includes("L1_APPROVER");
 
   function resetFilters() {
     setSearch("");
@@ -322,7 +322,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
                         onClick={() => deleteUser(user.id)}
                         className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-50 dark:text-red-300 dark:hover:text-red-200"
                       >
-                        {deleting === user.id ? "..." : "Deactivate"}
+                        {deleting === user.id ? "Deleting..." : "Delete"}
                       </button>
                     )}
                   </div>
@@ -336,4 +336,3 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
   </div>
   );
 }
-

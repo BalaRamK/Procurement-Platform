@@ -8,6 +8,7 @@ import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 import { canViewTicket } from "@/lib/tickets";
+import { getPrimaryRole } from "@/types/db";
 
 const TICKET_SELECT = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
   component_description AS "componentDescription", item_name AS "itemName", brand_name_company AS "brandNameCompany",
@@ -54,7 +55,8 @@ export async function GET(
   delete ticket.rEmail;
   delete ticket.rName;
 
-  const roles = session.user.roles ?? [];
+  const activeRole = session.user.activeRole ?? getPrimaryRole(session.user.roles);
+  const roles = activeRole ? [activeRole] : [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
   if (!canViewTicket(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }, session.user.id) && !isRequester) {
@@ -111,7 +113,8 @@ export async function PATCH(
   if (!ticketRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as ApprovalBody;
-  const roles = session.user.roles ?? [];
+  const activeRole = session.user.activeRole ?? getPrimaryRole(session.user.roles);
+  const roles = activeRole ? [activeRole] : [];
   const userTeam = session.user.team ?? null;
   const ticket = ticketRow;
 
@@ -151,7 +154,7 @@ export async function PATCH(
   }
 
   if (body.action === "mark_delivered") {
-    if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || !roles.includes("PRODUCTION")) {
+    if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || activeRole !== "PRODUCTION") {
       return NextResponse.json({ error: "Only Production can mark as delivered" }, { status: 403 });
     }
     await query(
@@ -214,7 +217,7 @@ export async function PATCH(
 
   const status = ticket.status as TicketStatus;
   const allowed = roleAndTeamForStatus[status];
-  if (!allowed || !roles.includes(allowed.role as UserRole)) {
+  if (!allowed || activeRole !== (allowed.role as UserRole)) {
     return NextResponse.json({ error: "Not your stage to approve" }, { status: 403 });
   }
   if (allowed.teamRequired && userTeam !== ticket.teamName) {

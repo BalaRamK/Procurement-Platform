@@ -1,5 +1,6 @@
 import { queryOne, query } from "@/lib/db";
 import { SUBJECT_PREFIX } from "@/lib/email-template-catalog";
+import { ensureDefaultEmailTemplates } from "@/lib/email-template-defaults";
 
 type SmtpConfig = { host: string; port: string; from: string; user: string; pass: string; proxy: string };
 
@@ -98,6 +99,7 @@ export async function getTemplateForTrigger(
   trigger: string,
   timeline: "immediate" | "after_24h" | "after_48h" = "immediate"
 ) {
+  await ensureDefaultEmailTemplates();
   const template = await queryOne<{
     id: string;
     subjectTemplate: string;

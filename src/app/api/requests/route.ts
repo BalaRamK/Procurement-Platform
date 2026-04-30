@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { query } from "@/lib/db";
+import { query, queryClient, withTransaction } from "@/lib/db";
 import { z } from "zod";
 import {
   type TeamName,
@@ -87,7 +87,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const role = getPrimaryRole(session.user.roles);
+  const role = session.user.activeRole ?? getPrimaryRole(session.user.roles);
   const userId = session.user.id;
   const userTeam = session.user.team ?? null;
 
@@ -142,7 +142,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!session.user.roles?.includes("REQUESTER") && !session.user.roles?.includes("SUPER_ADMIN")) {
+  const activeRole = session.user.activeRole ?? getPrimaryRole(session.user.roles);
+  if (activeRole !== "REQUESTER" && activeRole !== "SUPER_ADMIN") {
     return NextResponse.json({ error: "Only requesters can create tickets" }, { status: 403 });
   }
 
@@ -160,7 +161,10 @@ export async function POST(req: NextRequest) {
   delete (data as Record<string, unknown>).estimatedPODate;
   delete (data as Record<string, unknown>).lineItems;
 
-  const requestId = await generateRequestId(data.teamName);
+  const effectiveTeamName =
+    activeRole === "SUPER_ADMIN" ? data.teamName : session.user.team ?? data.teamName;
+
+  const requestId = await generateRequestId(effectiveTeamName);
 
   let ticketEstimatedCost = data.estimatedCost ?? null;
   let ticketComponentDescription = data.componentDescription ?? null;
@@ -184,76 +188,105 @@ export async function POST(req: NextRequest) {
     ticketQuantity = lineItems.reduce((s, li) => s + li.quantity, 0);
   }
 
-  const rows = await query<{ id: string; title: string }>(
-    `INSERT INTO tickets (
-      title, description, requester_name, department, component_description, item_name, bom_id, product_id,
-      brand_name_company, preferred_supplier, country_of_origin, project_customer, need_by_date, charge_code,
-      cost_currency, estimated_cost, rate, unit, estimated_po_date, place_of_delivery, quantity, deal_name,
-      team_name, priority, status, request_id, requester_id
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'DRAFT', $25, $26)
-    RETURNING id, title`,
-    [
-      data.title,
-      data.description ?? null,
-      data.requesterName,
-      data.department,
-      ticketComponentDescription,
-      ticketItemName,
-      ticketBomId,
-      data.productId ?? null,
-      ticketBrandNameCompany,
-      ticketPreferredSupplier,
-      ticketCountryOfOrigin,
-      data.projectCustomer ?? null,
-      needByDate,
-      data.chargeCode ?? null,
-      data.costCurrency ?? null,
-      ticketEstimatedCost,
-      ticketRate,
-      data.unit ?? null,
-      estimatedPODate,
-      data.placeOfDelivery ?? null,
-      ticketQuantity,
-      data.dealName ?? null,
-      data.teamName,
-      data.priority ?? "MEDIUM",
-      requestId,
-      session.user.id,
-    ]
-  );
-  const ticket = rows[0];
-  if (!ticket) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
-
-  if (lineItems && lineItems.length > 0) {
-    for (let i = 0; i < lineItems.length; i++) {
-      const li = lineItems[i];
-      await query(
-        `INSERT INTO ticket_line_items (ticket_id, sort_order, component_name, bom_id, cost_per_item, quantity, item_description, zoho_available)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+  try {
+    const ticket = await withTransaction(async (client) => {
+      const rows = await queryClient<{ id: string; title: string }>(
+        client,
+        `INSERT INTO tickets (
+          title, description, requester_name, department, component_description, item_name, bom_id, product_id,
+          brand_name_company, preferred_supplier, country_of_origin, project_customer, need_by_date, charge_code,
+          cost_currency, estimated_cost, rate, unit, estimated_po_date, place_of_delivery, quantity, deal_name,
+          team_name, priority, status, request_id, requester_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'DRAFT', $25, $26)
+        RETURNING id, title`,
         [
-          ticket.id,
-          i,
-          li.componentName ?? null,
-          li.bomId ?? null,
-          li.costPerItem,
-          li.quantity,
-          li.itemDescription ?? null,
-          li.zohoAvailable ?? null,
+          data.title,
+          data.description ?? null,
+          data.requesterName,
+          data.department,
+          ticketComponentDescription,
+          ticketItemName,
+          ticketBomId,
+          data.productId ?? null,
+          ticketBrandNameCompany,
+          ticketPreferredSupplier,
+          ticketCountryOfOrigin,
+          data.projectCustomer ?? null,
+          needByDate,
+          data.chargeCode ?? null,
+          data.costCurrency ?? null,
+          ticketEstimatedCost,
+          ticketRate,
+          data.unit ?? null,
+          estimatedPODate,
+          data.placeOfDelivery ?? null,
+          ticketQuantity,
+          data.dealName ?? null,
+          effectiveTeamName,
+          data.priority ?? "MEDIUM",
+          requestId,
+          session.user.id,
         ]
       );
+      const inserted = rows[0];
+      if (!inserted) {
+        throw new Error("Insert failed");
+      }
+
+      if (lineItems && lineItems.length > 0) {
+        for (let i = 0; i < lineItems.length; i++) {
+          const li = lineItems[i];
+          await queryClient(
+            client,
+            `INSERT INTO ticket_line_items (ticket_id, sort_order, component_name, bom_id, cost_per_item, quantity, item_description, zoho_available)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              inserted.id,
+              i,
+              li.componentName ?? null,
+              li.bomId ?? null,
+              li.costPerItem,
+              li.quantity,
+              li.itemDescription ?? null,
+              li.zohoAvailable ?? null,
+            ]
+          );
+        }
+      }
+
+      return inserted;
+    });
+
+    await logNotification({
+      ticketId: ticket.id,
+      type: "on_creation",
+      recipient: session.user.email ?? "",
+      payload: { title: ticket.title },
+    });
+
+    const full = await query<Record<string, unknown>>(
+      `SELECT ${TICKET_COLS} FROM tickets WHERE id = $1`,
+      [ticket.id]
+    );
+    return NextResponse.json(full[0]);
+  } catch (error) {
+    console.error("[POST /api/requests]", error);
+    const dbError = error as { code?: string; message?: string };
+    if (dbError.code === "42703" || dbError.code === "42P01") {
+      return NextResponse.json(
+        {
+          error: "Request creation is blocked by a database schema mismatch.",
+          details: "The database is missing one or more required ticket fields. Apply the latest schema or migrations and try again.",
+        },
+        { status: 500 }
+      );
     }
+    return NextResponse.json(
+      {
+        error: "Failed to create request",
+        details: dbError.message ?? "Unexpected error",
+      },
+      { status: 500 }
+    );
   }
-
-  await logNotification({
-    ticketId: ticket.id,
-    type: "on_creation",
-    recipient: session.user.email ?? "",
-    payload: { title: ticket.title },
-  });
-
-  const full = await query<Record<string, unknown>>(
-    `SELECT ${TICKET_COLS} FROM tickets WHERE id = $1`,
-    [ticket.id]
-  );
-  return NextResponse.json(full[0]);
 }

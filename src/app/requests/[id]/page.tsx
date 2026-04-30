@@ -9,7 +9,7 @@ import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WorkflowStepper } from "@/components/ui/WorkflowStepper";
 import type { TeamName, UserRole } from "@/types/db";
-import { hasRole } from "@/types/db";
+import { getPrimaryRole, hasRole } from "@/types/db";
 
 function canView(
   roles: UserRole[] | null | undefined,
@@ -159,17 +159,18 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   };
   const ticket = ticketRaw as TicketDetail;
 
-  const roles = session.user.roles ?? [];
+  const activeRole = session.user.activeRole ?? getPrimaryRole(session.user.roles);
+  const roles = activeRole ? [activeRole] : [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  const isProduction = hasRole(roles, "PRODUCTION");
+  const isProduction = activeRole === "PRODUCTION";
   const canShowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
-    (isProduction && ticket.status === "ASSIGNED_TO_PRODUCTION") ||
-    (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
-    (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
-    (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") ||
-    (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL");
+    (activeRole === "PRODUCTION" && ticket.status === "ASSIGNED_TO_PRODUCTION") ||
+    (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
+    (activeRole === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
+    (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
+    (activeRole === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
 
   if (!canView(roles, userTeam, ticket, session.user.id) && !isRequester) redirect("/dashboard");
 

@@ -6,11 +6,19 @@ import { PurchaseRequestForm } from "@/components/requests/PurchaseRequestForm";
 export default async function NewRequestPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
-  if (!session.user.roles?.includes("REQUESTER") && !session.user.roles?.includes("SUPER_ADMIN")) {
+  const activeRole = session.user.activeRole;
+  if (activeRole !== "REQUESTER" && activeRole !== "SUPER_ADMIN") {
     redirect("/dashboard");
   }
 
   const requesterName = session.user.name ?? session.user.email ?? "";
   const requesterEmail = session.user.email ?? "";
-  return <PurchaseRequestForm requesterName={requesterName} requesterEmail={requesterEmail} />;
+  return (
+    <PurchaseRequestForm
+      requesterName={requesterName}
+      requesterEmail={requesterEmail}
+      requesterTeam={session.user.team ?? null}
+      canChooseTeam={activeRole === "SUPER_ADMIN"}
+    />
+  );
 }

@@ -138,9 +138,19 @@ function SummaryStat({
   );
 }
 
-type Props = { requesterName: string; requesterEmail: string };
+type Props = {
+  requesterName: string;
+  requesterEmail: string;
+  requesterTeam?: TeamName | null;
+  canChooseTeam?: boolean;
+};
 
-export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
+export function PurchaseRequestForm({
+  requesterName,
+  requesterEmail,
+  requesterTeam = null,
+  canChooseTeam = false,
+}: Props) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -165,7 +175,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
   const [quantity, setQuantity] = useState("1");
   const [dealName, setDealName] = useState("");
   const [dealId, setDealId] = useState("");
-  const [teamName, setTeamName] = useState<TeamName>("ENGINEERING");
+  const [teamName, setTeamName] = useState<TeamName>(requesterTeam ?? "ENGINEERING");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [zohoLocked, setZohoLocked] = useState(false);
   const [manualAddMode, setManualAddMode] = useState(false); // + Add Component: user enters details manually (not in Zoho)
@@ -317,6 +327,16 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
     if (!title.trim()) errors.title = "Title is required.";
     if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
     if (!department.trim()) errors.department = "Department is required.";
+    if (isBulk) {
+      const invalidRow = bulkLineItems.find((row) => row.costPerItem <= 0 || row.quantity < 1);
+      if (invalidRow) {
+        errors.bulkLineItems = `Bulk row ${invalidRow.slNo || bulkLineItems.indexOf(invalidRow) + 1} has an invalid cost or quantity.`;
+      }
+    } else {
+      if (!rate || Number(rate) <= 0) errors.rate = "Cost per item must be greater than 0.";
+      if (!quantity || Number(quantity) < 1) errors.quantity = "Quantity must be at least 1.";
+      if (!description.trim()) errors.description = "Item description is required.";
+    }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       const firstId = Object.keys(errors)[0];
@@ -372,12 +392,24 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to create");
+      if (!res.ok) {
+        const errorPayload = (await res.json().catch(() => null)) as
+          | { error?: string; details?: string; message?: string }
+          | null;
+        throw new Error(
+          errorPayload?.details ??
+            errorPayload?.message ??
+            errorPayload?.error ??
+            "Failed to create request."
+        );
+      }
       const ticket = await res.json();
       router.push("/requests/" + ticket.id);
       router.refresh();
-    } catch {
-      setSubmitError("Failed to create request. Please try again.");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to create request. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -451,7 +483,15 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 aria-describedby={fieldErrors.department ? "department-error" : undefined}
               />
             </FormField>
-            <FormField label="Team" required hint="This controls the approval route and charge code list.">
+            <FormField
+              label="Team"
+              required
+              hint={
+                canChooseTeam
+                  ? "This controls the approval route and charge code list."
+                  : "Your assigned team controls the approval route for this request."
+              }
+            >
               <select
                 value={teamName}
                 onChange={(e) => {
@@ -464,6 +504,7 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                 }}
                 className="input-base"
                 required
+                disabled={!canChooseTeam}
               >
                 {TEAMS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -574,6 +615,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                             const costPerItem = costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
                             const quantity = qtyIdx >= 0 ? Math.max(1, Math.floor(Number(row[qtyIdx]) || 1)) : 1;
                             if (!componentName && costPerItem === 0) continue;
+                            if (costPerItem <= 0) {
+                              throw new Error("Each bulk line item must have a cost per item greater than 0.");
+                            }
                             parsed.push({
                               slNo: slNoIdx >= 0 ? Math.floor(Number(row[slNoIdx]) || i) : i,
                               componentName,
@@ -586,7 +630,11 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                           setBulkModalRows(parsed);
                           setBulkModalOpen(true);
                         } catch (err) {
-                          setLookupError("Failed to parse Excel. Check columns: Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description.");
+                          setLookupError(
+                            err instanceof Error
+                              ? err.message
+                              : "Failed to parse Excel. Check columns: Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description."
+                          );
                         }
                         e.target.value = "";
                       }}
@@ -816,26 +864,43 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
               </FormField>
               <FormField label="Cost per item ($)" required hint="This drives the estimated total below.">
                 <input
+                  id="rate"
                   type="number"
                   step="any"
                   min={0}
                   value={rate}
-                  onChange={(e) => setRate(e.target.value)}
-                  className="input-base"
+                  onChange={(e) => {
+                    setRate(e.target.value);
+                    if (fieldErrors.rate) setFieldErrors((prev) => ({ ...prev, rate: "" }));
+                  }}
+                  className={`input-base ${fieldErrors.rate ? "border-red-400 focus:ring-red-400/30" : ""}`}
                   placeholder="From Zoho or enter manually"
                   required
+                  aria-invalid={!!fieldErrors.rate}
+                  aria-describedby={fieldErrors.rate ? "rate-error" : undefined}
                 />
+                {fieldErrors.rate && (
+                  <p id="rate-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {fieldErrors.rate}
+                  </p>
+                )}
               </FormField>
               <FormField label="Quantity" required hint="Use the stepper if you want a quick adjustment.">
                 <div className="flex items-stretch rounded-2xl border border-white/30 bg-white/35 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5">
                   <input
+                    id="quantity"
                     type="number"
                     min={1}
                     max={9999}
                     value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="input-base w-20 min-w-0 flex-1 rounded-r-none border-0 border-r border-white/25 bg-transparent dark:border-white/10"
+                    onChange={(e) => {
+                      setQuantity(e.target.value);
+                      if (fieldErrors.quantity) setFieldErrors((prev) => ({ ...prev, quantity: "" }));
+                    }}
+                    className={`input-base w-20 min-w-0 flex-1 rounded-r-none border-0 border-r border-white/25 bg-transparent dark:border-white/10 ${fieldErrors.quantity ? "border-red-400 focus:ring-red-400/30" : ""}`}
                     required
+                    aria-invalid={!!fieldErrors.quantity}
+                    aria-describedby={fieldErrors.quantity ? "quantity-error" : undefined}
                   />
                   <div className="flex flex-col border-l border-white/25 dark:border-white/10">
                     <button
@@ -856,18 +921,34 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
                     </button>
                   </div>
                 </div>
+                {fieldErrors.quantity && (
+                  <p id="quantity-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {fieldErrors.quantity}
+                  </p>
+                )}
               </FormField>
             </div>
 
             <FormField label="Item Description" required hint="Add any context or technical notes that help approvers review the item.">
               <textarea
+                id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="input-base min-h-[100px] resize-y"
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  if (fieldErrors.description) setFieldErrors((prev) => ({ ...prev, description: "" }));
+                }}
+                className={`input-base min-h-[100px] resize-y ${fieldErrors.description ? "border-red-400 focus:ring-red-400/30" : ""}`}
                 placeholder="Multiple lines"
                 rows={3}
                 required
+                aria-invalid={!!fieldErrors.description}
+                aria-describedby={fieldErrors.description ? "description-error" : undefined}
               />
+              {fieldErrors.description && (
+                <p id="description-error" className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {fieldErrors.description}
+                </p>
+              )}
             </FormField>
 
             {lookupLoading && (
@@ -875,6 +956,9 @@ export function PurchaseRequestForm({ requesterName, requesterEmail }: Props) {
             )}
             {lookupError && (
               <p className="text-sm text-red-600 dark:text-red-400">{lookupError}</p>
+            )}
+            {fieldErrors.bulkLineItems && (
+              <p className="text-sm text-red-600 dark:text-red-400">{fieldErrors.bulkLineItems}</p>
             )}
             {lastLookupResponse && (
               <details className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">

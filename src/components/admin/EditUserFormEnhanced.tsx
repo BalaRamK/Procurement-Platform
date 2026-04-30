@@ -85,7 +85,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const needsTeam = selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
+  const needsTeam = selectedRoles.includes("REQUESTER") || selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
 
   function toggleRole(role: UserRole) {
     setSelectedRoles((prev) => (prev.includes(role) ? prev.filter((item) => item !== role) : [...prev, role]));
@@ -99,7 +99,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
       return;
     }
     if (needsTeam && !team) {
-      setError("Team is required for Department Head and L1 Approver roles.");
+      setError("Team is required for Requester, Department Head, and L1 Approver roles.");
       return;
     }
 
@@ -159,7 +159,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
           </div>
         </SectionCard>
 
-        <SectionCard title="Roles and routing" description="Adjust what this profile can do and whether approvals should be scoped to a team.">
+        <SectionCard title="Roles and routing" description="Adjust what this profile can do and whether routing should be scoped to a team.">
           <div className="grid gap-3 md:grid-cols-2">
             {roles.map((role) => {
               const selected = selectedRoles.includes(role);
@@ -200,7 +200,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Department Head and L1 Approver roles only see requests from their assigned team.</p>
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Requester, Department Head, and L1 Approver roles use team assignment for routing and visibility.</p>
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-white/30 bg-white/35 p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
