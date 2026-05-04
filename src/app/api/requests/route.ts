@@ -16,7 +16,7 @@ import { generateRequestId } from "@/lib/request-id";
 
 const lineItemSchema = z.object({
   slNo: z.number().int().min(0).optional(),
-  componentName: z.string().optional(),
+  componentName: z.string().trim().min(1, "Component name is required"),
   bomId: z.string().optional(),
   costPerItem: z.number().min(0.01).max(10_000_000),
   quantity: z.number().int().min(1),
@@ -25,10 +25,10 @@ const lineItemSchema = z.object({
 });
 
 const createSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().trim().min(1),
   description: z.string().optional(),
-  requesterName: z.string().min(1),
-  department: z.string().min(1),
+  requesterName: z.string().trim().min(1),
+  department: z.string().trim().min(1),
   componentDescription: z.string().optional(),
   bomId: z.string().optional(),
   productId: z.string().optional(),
@@ -37,11 +37,11 @@ const createSchema = z.object({
   preferredSupplier: z.string().optional(),
   countryOfOrigin: z.string().optional(),
   projectCustomer: z.string().optional(),
-  needByDate: z.string().optional(),
+  needByDate: z.string().trim().min(1, "Need by date is required"),
   chargeCode: z.string().optional(),
   costCurrency: z.enum(COST_CURRENCIES).optional(),
-  estimatedCost: z.number().optional(),
-  rate: z.number().optional(),
+  estimatedCost: z.number().positive().optional(),
+  rate: z.number().positive().optional(),
   unit: z.string().optional(),
   estimatedPODate: z.string().optional(),
   placeOfDelivery: z.string().optional(),
@@ -50,6 +50,40 @@ const createSchema = z.object({
   teamName: z.enum(TEAM_NAMES),
   priority: z.enum(PRIORITIES).default("MEDIUM"),
   lineItems: z.array(lineItemSchema).optional(),
+}).superRefine((data, ctx) => {
+  const hasLineItems = Array.isArray(data.lineItems) && data.lineItems.length > 0;
+  if (hasLineItems) return;
+
+  const componentName = data.componentDescription?.trim();
+  const itemName = data.itemName?.trim() || componentName;
+  if (!componentName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["componentDescription"],
+      message: "Component name is required",
+    });
+  }
+  if (!itemName) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["itemName"],
+      message: "Item name is required",
+    });
+  }
+  if (!data.rate || data.rate <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["rate"],
+      message: "Cost per item must be greater than 0",
+    });
+  }
+  if (!data.estimatedCost || data.estimatedCost <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["estimatedCost"],
+      message: "Estimated cost must be greater than 0",
+    });
+  }
 });
 
 const TICKET_COLS = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
@@ -93,7 +127,7 @@ export async function GET() {
 
   if (role === "REQUESTER") {
     const rows = await query<Record<string, unknown>>(
-      `SELECT ${TICKET_COLS} FROM tickets WHERE requester_id = $1 ORDER BY updated_at DESC`,
+      `SELECT ${TICKET_COLS} FROM tickets WHERE requester_id = $1 ORDER BY created_at DESC`,
       [userId]
     );
     return NextResponse.json(rows);
@@ -101,7 +135,7 @@ export async function GET() {
 
   if (role === "SUPER_ADMIN") {
     const rows = await query<Record<string, unknown>>(
-      `${TICKET_JOIN_REQ} ORDER BY t.updated_at DESC`
+      `${TICKET_JOIN_REQ} ORDER BY t.created_at DESC`
     );
     return NextResponse.json(rows.map(mapRowWithRequester));
   }
@@ -167,8 +201,8 @@ export async function POST(req: NextRequest) {
   const requestId = await generateRequestId(effectiveTeamName);
 
   let ticketEstimatedCost = data.estimatedCost ?? null;
-  let ticketComponentDescription = data.componentDescription ?? null;
-  let ticketItemName = data.itemName ?? null;
+  let ticketComponentDescription = data.componentDescription?.trim() || null;
+  let ticketItemName = data.itemName?.trim() || ticketComponentDescription;
   let ticketBrandNameCompany = data.brandNameCompany ?? null;
   let ticketPreferredSupplier = data.preferredSupplier ?? null;
   let ticketCountryOfOrigin = data.countryOfOrigin ?? null;

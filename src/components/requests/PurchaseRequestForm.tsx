@@ -283,10 +283,12 @@ export function PurchaseRequestForm({
         return;
       }
       if (data.found) {
-        const name = (data.name as string) ?? "";
-        setComponentDescription(name);
-        setItemName(name);
-        setBomId(name);
+        const componentName = ((data.componentName as string | null) ?? (data.name as string | null) ?? "").trim();
+        const zohoItemName = ((data.itemName as string | null) ?? componentName).trim();
+        const sku = ((data.sku as string | null) ?? "").trim();
+        setComponentDescription(componentName);
+        setItemName(zohoItemName || componentName);
+        setBomId(sku);
         setProductId("");
         setRate(data.rate != null ? String(data.rate) : "");
         setUnit((data.unit as string) ?? "");
@@ -328,15 +330,23 @@ export function PurchaseRequestForm({
     if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
     if (!department.trim()) errors.department = "Department is required.";
     if (isBulk) {
+      const missingComponentRow = bulkLineItems.find((row) => !row.componentName.trim());
+      if (missingComponentRow) {
+        errors.bulkLineItems = `Bulk row ${missingComponentRow.slNo || bulkLineItems.indexOf(missingComponentRow) + 1} is missing component name.`;
+      }
       const invalidRow = bulkLineItems.find((row) => row.costPerItem <= 0 || row.quantity < 1);
       if (invalidRow) {
         errors.bulkLineItems = `Bulk row ${invalidRow.slNo || bulkLineItems.indexOf(invalidRow) + 1} has an invalid cost or quantity.`;
       }
     } else {
-      if (!rate || Number(rate) <= 0) errors.rate = "Cost per item must be greater than 0.";
+      if (!componentDescription.trim()) errors.componentDescription = "Component name is required.";
+      const resolvedItemName = itemName.trim() || componentDescription.trim();
+      if (!resolvedItemName) errors.itemName = "Item name is required.";
+      if (!rate || !Number.isFinite(Number(rate)) || Number(rate) <= 0) errors.rate = "Cost per item must be greater than 0.";
       if (!quantity || Number(quantity) < 1) errors.quantity = "Quantity must be at least 1.";
       if (!description.trim()) errors.description = "Item description is required.";
     }
+    if (!needByDate) errors.needByDate = "Need by date is required.";
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
       const firstId = Object.keys(errors)[0];
@@ -356,7 +366,7 @@ export function PurchaseRequestForm({
         componentDescription: isBulk ? undefined : (componentDescription || undefined),
         bomId: isBulk ? undefined : (bomId || undefined),
         productId: productId || undefined,
-        itemName: isBulk ? undefined : (itemName || undefined),
+        itemName: isBulk ? undefined : ((itemName || componentDescription) || undefined),
         brandNameCompany: isBulk ? undefined : (brandNameCompany || undefined),
         preferredSupplier: isBulk ? undefined : (preferredSupplier || undefined),
         countryOfOrigin: isBulk ? undefined : (countryOfOrigin || undefined),
@@ -690,22 +700,35 @@ export function PurchaseRequestForm({
             {itemMode === "single" && (
             <>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
-              <FormField label="Component Name" className="flex-1" hint="Zoho search is the default path; manual entry stays available.">
+              <FormField
+                label="Component Name"
+                required
+                className="flex-1"
+                fieldId="componentDescription"
+                error={fieldErrors.componentDescription}
+                hint="Zoho search is the default path; manual entry stays available."
+              >
                 <div className="relative" ref={componentInputRef}>
                   <input
+                    id="componentDescription"
                     type="text"
                     value={componentDescription || itemName}
                     onChange={(e) => {
                       const v = e.target.value;
                       setComponentDescription(v);
                       if (!zohoLocked) setItemName(v);
+                      if (fieldErrors.componentDescription) setFieldErrors((prev) => ({ ...prev, componentDescription: "" }));
+                      if (fieldErrors.itemName) setFieldErrors((prev) => ({ ...prev, itemName: "" }));
                     }}
                     onFocus={() => componentSearchQuery.length >= 2 && setComponentSuggestionsOpen(componentSuggestions.length > 0)}
                     onBlur={() => !manualAddMode && componentDescription.trim() && !componentSuggestionsOpen && lookupSku(componentDescription.trim())}
-                    className="input-base pr-10"
+                    className={`input-base pr-10 ${fieldErrors.componentDescription ? "border-red-400 focus:ring-red-400/30" : ""}`}
                     placeholder={manualAddMode ? "Enter component name (not in Zoho)" : "Type to see matching items from Zoho (min 2 characters)"}
                     readOnly={manualAddMode ? false : undefined}
                     autoComplete="off"
+                    required
+                    aria-invalid={!!fieldErrors.componentDescription}
+                    aria-describedby={fieldErrors.componentDescription ? "componentDescription-error" : undefined}
                   />
                   {!manualAddMode && (
                     <button
@@ -739,6 +762,7 @@ export function PurchaseRequestForm({
                                 const display = (item.name || item.sku || "").trim();
                                 setComponentDescription(display);
                                 setItemName(display);
+                                setBomId(item.sku ?? "");
                                 setComponentSuggestionsOpen(false);
                                 setComponentSuggestions([]);
                                 if (display) lookupSku(display);
@@ -778,15 +802,21 @@ export function PurchaseRequestForm({
             )}
 
             <div className="grid gap-6 md:grid-cols-2">
-              <FormField label="Item name" hint="The item display name used on the request.">
+              <FormField label="Item name" required fieldId="itemName" error={fieldErrors.itemName} hint="If left blank after Zoho lookup, component name will be used.">
                 <input
                   id="itemName"
                   type="text"
                   value={itemName}
-                  onChange={(e) => setItemName(e.target.value)}
+                  onChange={(e) => {
+                    setItemName(e.target.value);
+                    if (fieldErrors.itemName) setFieldErrors((prev) => ({ ...prev, itemName: "" }));
+                  }}
                   readOnly={zohoLocked && !manualAddMode}
-                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
+                  className={`input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10 ${fieldErrors.itemName ? "border-red-400 focus:ring-red-400/30" : ""}`}
                   placeholder="Autofill from Zoho or enter manually"
+                  required
+                  aria-invalid={!!fieldErrors.itemName}
+                  aria-describedby={fieldErrors.itemName ? "itemName-error" : undefined}
                 />
               </FormField>
               <FormField label="Brand name & company" hint="Keep the vendor identity close to the item for easy review.">
@@ -862,12 +892,12 @@ export function PurchaseRequestForm({
                   placeholder="Not used"
                 />
               </FormField>
-              <FormField label="Cost per item ($)" required hint="This drives the estimated total below.">
+              <FormField label="Cost per item ($)" required hint="This drives the estimated total below. Zero or blank cost cannot be submitted.">
                 <input
                   id="rate"
                   type="number"
                   step="any"
-                  min={0}
+                  min={0.01}
                   value={rate}
                   onChange={(e) => {
                     setRate(e.target.value);
@@ -986,13 +1016,26 @@ export function PurchaseRequestForm({
                   placeholder={itemMode === "bulk" ? "Add items to see total" : "Cost per item × Quantity"}
                 />
               </FormField>
-              <FormField label="Need by date" hint="Optional, but helpful for priority planning.">
+              <FormField
+                label="Need by date"
+                required
+                fieldId="needByDate"
+                error={fieldErrors.needByDate}
+                hint='Delivery date will not be guaranteed; this is only helpful for procurement planning.'
+              >
                 <div className="relative">
                   <input
+                    id="needByDate"
                     type="date"
                     value={needByDate}
-                    onChange={(e) => setNeedByDate(e.target.value)}
-                    className="input-base pr-10 date-picker-visible"
+                    onChange={(e) => {
+                      setNeedByDate(e.target.value);
+                      if (fieldErrors.needByDate) setFieldErrors((prev) => ({ ...prev, needByDate: "" }));
+                    }}
+                    className={`input-base pr-10 date-picker-visible ${fieldErrors.needByDate ? "border-red-400 focus:ring-red-400/30" : ""}`}
+                    required
+                    aria-invalid={!!fieldErrors.needByDate}
+                    aria-describedby={fieldErrors.needByDate ? "needByDate-error" : undefined}
                   />
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
                     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

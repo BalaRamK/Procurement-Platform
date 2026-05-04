@@ -6,7 +6,10 @@ import { getZohoItemFromDb } from "@/lib/zoho-sync";
 
 /** Response shape for Zoho Books → Platform (lookup only). */
 export type ZohoItemResponse = {
+  componentName?: string;
+  itemName?: string;
   name?: string;
+  sku?: string;
   rate?: number;
   unit?: string;
   description?: string;
@@ -79,7 +82,10 @@ export async function GET(req: NextRequest) {
     const combinedDescription = [purchaseDesc, desc].filter(Boolean).join("\n\n");
     const payload = {
       found: true,
+      componentName: dbItem.name ?? dbItem.sku ?? null,
+      itemName: dbItem.name ?? dbItem.sku ?? null,
       name: dbItem.name,
+      sku: dbItem.sku,
       rate: costPerItem,
       purchase_rate: dbItem.purchase_rate,
       unit: dbItem.unit,
@@ -324,7 +330,10 @@ export async function GET(req: NextRequest) {
   console.log("[Zoho Items] Data from Zoho: 1 item for search=" + JSON.stringify(searchTerm));
   const payload = {
     found: true,
+    componentName: match.name ?? match.sku ?? null,
+    itemName: match.name ?? match.sku ?? null,
     name: match.name ?? null,
+    sku: match.sku ?? null,
     rate: costPerItem,
     purchase_rate: match.purchase_rate ?? null,
     unit: match.unit ?? null,

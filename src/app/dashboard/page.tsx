@@ -82,7 +82,7 @@ export default async function DashboardPage({
       `SELECT id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
        component_description AS "componentDescription", item_name AS "itemName", team_name AS "teamName", priority, status,
        rejection_remarks AS "rejectionRemarks", requester_id AS "requesterId", created_at AS "createdAt", updated_at AS "updatedAt"
-       FROM tickets WHERE ${where.join(" AND ")} ORDER BY updated_at DESC`,
+       FROM tickets WHERE ${where.join(" AND ")} ORDER BY created_at DESC`,
       args
     );
     return <RequesterDashboardEnhanced tickets={tickets as (Ticket & { requester?: User })[]} />;
@@ -170,7 +170,7 @@ export default async function DashboardPage({
       args.push(searchJoin.param);
     }
     const rows = await query<Record<string, unknown>>(
-      `${TICKET_JOIN_REQ} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY t.updated_at DESC`,
+      `${TICKET_JOIN_REQ} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY t.created_at DESC`,
       args
     );
     return <RequesterDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} showAll showNewRequestButton />;
