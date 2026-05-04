@@ -1023,26 +1023,19 @@ export function PurchaseRequestForm({
                 error={fieldErrors.needByDate}
                 hint='Delivery date will not be guaranteed; this is only helpful for procurement planning.'
               >
-                <div className="relative">
-                  <input
-                    id="needByDate"
-                    type="date"
-                    value={needByDate}
-                    onChange={(e) => {
-                      setNeedByDate(e.target.value);
-                      if (fieldErrors.needByDate) setFieldErrors((prev) => ({ ...prev, needByDate: "" }));
-                    }}
-                    className={`input-base pr-10 date-picker-visible ${fieldErrors.needByDate ? "border-red-400 focus:ring-red-400/30" : ""}`}
-                    required
-                    aria-invalid={!!fieldErrors.needByDate}
-                    aria-describedby={fieldErrors.needByDate ? "needByDate-error" : undefined}
-                  />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </span>
-                </div>
+                <input
+                  id="needByDate"
+                  type="date"
+                  value={needByDate}
+                  onChange={(e) => {
+                    setNeedByDate(e.target.value);
+                    if (fieldErrors.needByDate) setFieldErrors((prev) => ({ ...prev, needByDate: "" }));
+                  }}
+                  className={`input-base date-picker-visible ${fieldErrors.needByDate ? "border-red-400 focus:ring-red-400/30" : ""}`}
+                  required
+                  aria-invalid={!!fieldErrors.needByDate}
+                  aria-describedby={fieldErrors.needByDate ? "needByDate-error" : undefined}
+                />
               </FormField>
             </div>
           </div>
@@ -1198,20 +1191,12 @@ export function PurchaseRequestForm({
               />
             </FormField>
             <FormField label="Estimated PO Date" hint="Optional planning date.">
-              <div className="relative">
-                <input
-                  type="date"
-                  value={estimatedPODate}
-                  onChange={(e) => setEstimatedPODate(e.target.value)}
-                  className="input-base pr-10 date-picker-visible"
-                  //placeholder="Date picker"
-                />
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </span>
-              </div>
+              <input
+                type="date"
+                value={estimatedPODate}
+                onChange={(e) => setEstimatedPODate(e.target.value)}
+                className="input-base date-picker-visible"
+              />
             </FormField>
           </div>
         </SectionCard>

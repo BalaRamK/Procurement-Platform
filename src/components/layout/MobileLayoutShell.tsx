@@ -31,7 +31,7 @@ export function MobileLayoutShell({
       />
       <main className="flex-1 overflow-auto" id="main-content">
         <header className="sticky top-0 z-20 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur-md dark:border-slate-700/80 dark:bg-slate-900/95">
-          <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4 sm:px-6">
+          <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-3 py-3 sm:gap-4 sm:px-5 lg:px-6">
             <button
               type="button"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 dark:border-slate-600/60 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-700/80 md:hidden"
@@ -45,7 +45,7 @@ export function MobileLayoutShell({
             {headerSlot}
           </div>
         </header>
-        <div className="mx-auto max-w-6xl px-4 py-6 pb-8 sm:px-6">{children}</div>
+        <div className="mx-auto w-full max-w-7xl px-3 py-4 pb-8 sm:px-5 sm:py-6 lg:px-6">{children}</div>
       </main>
     </div>
   );

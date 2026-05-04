@@ -20,9 +20,18 @@ export function TicketActions({
   const [loading, setLoading] = useState<Action | null>(null);
   const [rejectionRemarks, setRejectionRemarks] = useState("");
   const [showReject, setShowReject] = useState(false);
+  const [error, setError] = useState("");
 
   async function act(action: Action, payload?: { remarks?: string }) {
+    if (
+      action === "confirm_receipt" &&
+      !window.confirm("Confirm that you have received the requested item? This will close the ticket.")
+    ) {
+      return;
+    }
+
     setLoading(action);
+    setError("");
     try {
       const res = await fetch("/api/requests/" + ticketId, {
         method: "PATCH",
@@ -33,52 +42,50 @@ export function TicketActions({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error ?? "Failed");
+        throw new Error((data as { error?: string }).error ?? "Action failed. Please try again.");
       }
       setShowReject(false);
       setRejectionRemarks("");
       router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Action failed. Please try again.");
     } finally {
       setLoading(null);
     }
   }
 
+  const errorMessage = error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null;
+
   if (status === "DRAFT" && isRequester) {
     return (
-      <button
-        type="button"
-        onClick={() => act("submit")}
-        disabled={!!loading}
-        className="btn-primary"
-      >
-        {loading === "submit" ? "Submitting…" : "Submit for approval"}
-      </button>
+      <div className="space-y-3">
+        <button type="button" onClick={() => act("submit")} disabled={!!loading} className="btn-primary">
+          {loading === "submit" ? "Submitting..." : "Submit for approval"}
+        </button>
+        {errorMessage}
+      </div>
     );
   }
 
   if (status === "DELIVERED_TO_REQUESTER" && isRequester) {
     return (
-      <button
-        type="button"
-        onClick={() => act("confirm_receipt")}
-        disabled={!!loading}
-        className="btn-success"
-      >
-        {loading === "confirm_receipt" ? "Processing…" : "Confirm receipt & close"}
-      </button>
+      <div className="space-y-3">
+        <button type="button" onClick={() => act("confirm_receipt")} disabled={!!loading} className="btn-success">
+          {loading === "confirm_receipt" ? "Processing..." : "Confirm receipt & close"}
+        </button>
+        {errorMessage}
+      </div>
     );
   }
 
   if (status === "ASSIGNED_TO_PRODUCTION" && isProduction) {
     return (
-      <button
-        type="button"
-        onClick={() => act("mark_delivered")}
-        disabled={!!loading}
-        className="btn-primary"
-      >
-        {loading === "mark_delivered" ? "Processing…" : "Mark as delivered"}
-      </button>
+      <div className="space-y-3">
+        <button type="button" onClick={() => act("mark_delivered")} disabled={!!loading} className="btn-primary">
+          {loading === "mark_delivered" ? "Processing..." : "Mark as delivered"}
+        </button>
+        {errorMessage}
+      </div>
     );
   }
 
@@ -93,49 +100,43 @@ export function TicketActions({
   if (showReject) {
     return (
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-slate-700">Rejection remarks (mandatory)</label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Rejection remarks (mandatory)</label>
         <textarea
           value={rejectionRemarks}
           onChange={(e) => setRejectionRemarks(e.target.value)}
           className="input-base min-h-[80px]"
-          placeholder="Reason for rejection…"
+          placeholder="Reason for rejection..."
           rows={3}
         />
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
             type="button"
             onClick={() => act("rejected")}
             disabled={!!loading || !rejectionRemarks.trim()}
             className="btn-danger"
           >
-            {loading === "rejected" ? "Processing…" : "Reject"}
+            {loading === "rejected" ? "Processing..." : "Reject"}
           </button>
           <button type="button" onClick={() => setShowReject(false)} className="btn-secondary">
             Cancel
           </button>
         </div>
+        {errorMessage}
       </div>
     );
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
-      <button
-        type="button"
-        onClick={() => act("approved")}
-        disabled={!!loading}
-        className="btn-success"
-      >
-        {loading === "approved" ? "Processing…" : "Approve"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowReject(true)}
-        disabled={!!loading}
-        className="btn-danger"
-      >
-        Reject
-      </button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-3">
+        <button type="button" onClick={() => act("approved")} disabled={!!loading} className="btn-success">
+          {loading === "approved" ? "Processing..." : "Approve"}
+        </button>
+        <button type="button" onClick={() => setShowReject(true)} disabled={!!loading} className="btn-danger">
+          Reject
+        </button>
+      </div>
+      {errorMessage}
     </div>
   );
 }

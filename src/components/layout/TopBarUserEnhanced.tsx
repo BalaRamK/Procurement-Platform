@@ -34,20 +34,27 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
   const roles = asRolesArray(userRoles);
   const { update: updateSession } = useSession();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(currentUserId ?? null);
   const [switching, setSwitching] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/auth/profiles")
       .then((response) => response.json())
-      .then((data) => setProfiles(data.profiles ?? []))
-      .catch(() => setProfiles([]));
+      .then((data) => {
+        setProfiles(data.profiles ?? []);
+        setResolvedUserId(data.currentUserId ?? currentUserId ?? null);
+      })
+      .catch(() => {
+        setProfiles([]);
+        setResolvedUserId(currentUserId ?? null);
+      });
   }, [currentUserId]);
 
   async function switchAccess(userId: string, role: string) {
     if (switching) return;
     const currentRole = activeRole || roles[0];
-    if (userId === currentUserId && role === currentRole) return;
+    if (userId === resolvedUserId && role === currentRole) return;
     setSwitching(true);
     setOpen(false);
     try {
@@ -61,9 +68,7 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
   const currentRoleKey = activeRole || roles[0];
   const primaryRole = currentRoleKey ? roleLabel(currentRoleKey) : "No role";
   const avatarLabel = useMemo(() => (userEmail?.trim()?.[0] ?? "U").toUpperCase(), [userEmail]);
-  const visibleRoles = roles.slice(0, 2);
-  const extraRoles = Math.max(roles.length - visibleRoles.length, 0);
-  const currentProfile = profiles.find((profile) => profile.id === currentUserId) ?? null;
+  const currentProfile = profiles.find((profile) => profile.id === resolvedUserId) ?? null;
   const selectableProfiles = profiles.length > 0 ? profiles : [{ id: currentUserId ?? "current", profileName: "Default", roles }];
   const roleCounts = selectableProfiles.reduce<Record<string, number>>((acc, profile) => {
     profile.roles.forEach((role) => {
@@ -78,7 +83,7 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
       role,
       roleName: roleLabel(role),
       profileName: profile.profileName,
-      isCurrent: profile.id === currentUserId && role === currentRoleKey,
+      isCurrent: profile.id === resolvedUserId && role === currentRoleKey,
       showProfileHint: roleCounts[role] > 1 || profile.profileName !== "Default",
     }))
   );
@@ -89,17 +94,10 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
         <p className="max-w-[260px] truncate text-base font-semibold text-slate-800 dark:text-slate-200" title={userEmail ?? undefined}>
           {userEmail ?? "No email"}
         </p>
-        <div className="mt-1 flex max-w-[260px] flex-wrap justify-end gap-1.5">
-          {visibleRoles.map((role, index) => (
-            <span key={role} className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${roleTone(index)}`}>
-              {roleLabel(role)}
-            </span>
-          ))}
-          {extraRoles > 0 ? (
-            <span className="inline-flex items-center rounded-full border border-white/30 bg-white/35 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-              +{extraRoles} more
-            </span>
-          ) : null}
+        <div className="mt-1 flex max-w-[260px] justify-end">
+          <span className="inline-flex max-w-full items-center rounded-full border border-primary-300/60 bg-primary-50/80 px-2.5 py-1 text-xs font-semibold text-primary-800 dark:border-primary-500/30 dark:bg-primary-950/30 dark:text-primary-200">
+            <span className="truncate">Working as {primaryRole}</span>
+          </span>
         </div>
       </div>
       <div className="relative">
@@ -116,7 +114,7 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
         {open ? (
           <>
             <div className="fixed inset-0 z-40" aria-hidden onClick={() => setOpen(false)} />
-            <div id="user-menu-dropdown" className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-3xl border border-white/25 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
+            <div id="user-menu-dropdown" className="absolute right-0 top-full z-50 mt-2 flex max-h-[min(34rem,calc(100vh-5rem))] w-[min(22rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-white/25 bg-white/95 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
               <div className="border-b border-white/20 px-5 py-4 dark:border-white/10">
                   <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary-600 text-sm font-semibold text-white shadow-lg shadow-primary-500/25">
@@ -133,7 +131,7 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
               </div>
 
               {roleOptions.length > 1 ? (
-                <div className="border-b border-white/20 px-5 py-4 dark:border-white/10">
+                <div className="min-h-0 overflow-y-auto border-b border-white/20 px-5 py-4 dark:border-white/10">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Choose role</p>
@@ -141,7 +139,7 @@ export function TopBarUserEnhanced({ userEmail, userRoles, currentUserId, active
                     </div>
                     <span className="rounded-full border border-white/30 bg-white/35 px-2.5 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">{roleOptions.length} options</span>
                   </div>
-                  <div className="space-y-2" role="radiogroup" aria-label="Choose active role">
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1" role="radiogroup" aria-label="Choose active role">
                     {roleOptions.map((option, index) => {
                       return (
                         <button

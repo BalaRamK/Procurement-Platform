@@ -40,11 +40,11 @@ function DetailCard({
 }) {
   return (
     <section className={`card overflow-hidden ${className}`}>
-      <div className="card-header border-b border-white/20 px-6 py-4 dark:border-white/10">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
-        {description && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{description}</p>}
+      <div className="card-header border-b border-white/20 px-4 py-3 dark:border-white/10 sm:px-5 sm:py-4">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 sm:text-base">{title}</h2>
+        {description && <p className="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">{description}</p>}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </section>
   );
 }
@@ -57,11 +57,11 @@ function DetailItem({
   value: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/20 bg-white/25 px-4 py-3 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5">
-      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+    <div className="rounded-2xl border border-white/20 bg-white/25 px-3 py-2.5 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5 sm:px-4 sm:py-3">
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400 sm:text-[11px]">
         {label}
       </dt>
-      <dd className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+      <dd className="mt-1 break-words text-sm font-medium text-slate-900 dark:text-slate-100">
         {value}
       </dd>
     </div>
@@ -219,8 +219,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     <div className="space-y-6">
       <PageHeader backHref="/dashboard" backLabel="Back to Dashboard" />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <aside className="order-first space-y-4 xl:sticky xl:top-6 xl:order-last xl:self-start">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+        <aside className="order-first space-y-4 lg:sticky lg:top-24 lg:order-last lg:self-start">
           <DetailCard title="Next action" description="Primary controls are kept near the top so they are easy to find.">
             {canShowActions ? (
               <TicketActions ticketId={ticket.id} status={ticket.status} isRequester={isRequester} isProduction={isProduction} />
@@ -245,15 +245,15 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
         <main className="space-y-6">
           <section className="card overflow-hidden">
-            <div className="card-header border-b border-white/20 px-6 py-5 dark:border-white/10">
+            <div className="card-header border-b border-white/20 px-4 py-4 dark:border-white/10 sm:px-5">
               <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="space-y-2">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-600 dark:text-primary-300">
                       Request detail
                     </p>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{ticket.title}</h1>
-                    <div className="flex flex-wrap gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 sm:text-2xl">{ticket.title}</h1>
+                    <div className="flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300 sm:text-sm">
                       {ticket.requestId && <span className="rounded-full border border-white/20 bg-white/30 px-3 py-1">Request ID: {ticket.requestId}</span>}
                       <span className="rounded-full border border-white/20 bg-white/30 px-3 py-1">Requester: {ticket.requesterName}</span>
                       <span className="rounded-full border border-white/20 bg-white/30 px-3 py-1">Team: {ticket.teamName}</span>
@@ -273,7 +273,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </section>
 
           <DetailCard title="Request overview" description="Identity, ownership, and timing for the ticket.">
-            <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {overviewFields.map((field) => (
                 <DetailItem key={field.label} label={field.label} value={field.value} />
               ))}
@@ -281,7 +281,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </DetailCard>
 
           <DetailCard title="Item and supplier" description="The item itself plus the supply chain details attached to it.">
-            <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {itemFields.map((field) => (
                 <DetailItem key={field.label} label={field.label} value={field.value} />
               ))}
@@ -289,7 +289,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           </DetailCard>
 
           <DetailCard title="Commercial and logistics" description="Purchase planning, delivery, and costing details.">
-            <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {commercialFields.map((field) => (
                 <DetailItem key={field.label} label={field.label} value={field.value} />
               ))}

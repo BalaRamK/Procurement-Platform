@@ -221,7 +221,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Only the requester can confirm receipt" }, { status: 403 });
     }
     await query(
-      "UPDATE tickets SET status = 'CONFIRMED_BY_REQUESTER', confirmed_at = now(), updated_at = now() WHERE id = $1",
+      "UPDATE tickets SET status = 'CLOSED', confirmed_at = now(), auto_closed_at = now(), updated_at = now() WHERE id = $1",
       [id]
     );
     await logApproval({
@@ -237,14 +237,14 @@ export async function PATCH(
       payload: {
         title: ticket.title,
         currentStage: "Delivered to Requester",
-        nextStage: "Confirmed by Requester",
+        nextStage: "Closed",
         actionBy: actorName(session.user),
         approverPosition: "Not applicable",
         approverName: "Not applicable",
       },
       emailTrigger: "requester_confirmed_receipt",
     });
-    return NextResponse.json({ ok: true, status: "CONFIRMED_BY_REQUESTER" });
+    return NextResponse.json({ ok: true, status: "CLOSED" });
   }
 
   const status = ticket.status as TicketStatus;
