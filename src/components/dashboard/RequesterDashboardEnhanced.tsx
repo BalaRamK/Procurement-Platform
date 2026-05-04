@@ -11,7 +11,7 @@ type TicketWithRequester = Ticket & { requester?: User };
 type SortKey = "requestId" | "title" | "requester" | "teamName" | "status" | "priority" | "createdAt" | "updatedAt";
 type SortDirection = "asc" | "desc";
 
-const COMPLETED_STATUSES = new Set(["CLOSED", "REJECTED", "CONFIRMED_BY_REQUESTER"]);
+const COMPLETED_STATUSES = new Set(["CLOSED", "REJECTED"]);
 
 function ticketDateValue(value: unknown) {
   const time = value ? new Date(value as string | Date).getTime() : 0;
