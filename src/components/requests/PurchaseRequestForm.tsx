@@ -27,9 +27,9 @@ const PRIORITIES: { value: Priority; label: string }[] = [
 
 /** Map flow steps by team (constant per team) */
 const TEAM_FLOW_STEPS: Record<TeamName, string[]> = {
-  INNOVATION: ["Requester", "Functional Head", "L1 Approver", "CFO"],
-  ENGINEERING: ["Requester", "Functional Head", "L1 Approver", "CFO"],
-  SALES: ["Requester", "Functional Head", "L1 Approver", "CDO"],
+  INNOVATION: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
+  ENGINEERING: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
+  SALES: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
 };
 
 type FlowAssignee = { name: string | null; email: string } | null;
@@ -484,7 +484,7 @@ export function PurchaseRequestForm({
               />
             </FormField>
             <FormField
-              label="Team"
+              label="Department / Team"
               required
               hint={
                 canChooseTeam
@@ -1195,31 +1195,37 @@ export function PurchaseRequestForm({
         {teamName && (
           <SectionCard title="Approval flow preview" description="Shows the people who will see the request after submission.">
             <div className="relative py-6">
-              <div className="pointer-events-none absolute left-0 right-0 top-1/2 z-0 hidden min-[900px]:block" aria-hidden>
+              <div className="pointer-events-none absolute left-0 right-0 top-1/2 z-0 hidden" aria-hidden>
                 <div className="mx-auto h-px max-w-[85%] bg-gradient-to-r from-transparent via-slate-200 to-transparent dark:via-slate-600" />
               </div>
-              <div className="relative z-10 flex flex-wrap items-stretch justify-center gap-4 min-[900px]:gap-2">
+              <div className="relative z-10 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {TEAM_FLOW_STEPS[teamName].map((label, i) => {
-                  const isLast = i === TEAM_FLOW_STEPS[teamName].length - 1;
                   let nameEmail = "";
                   if (i === 0) {
                     nameEmail = requesterNameVal ? `${requesterNameVal} (${requesterEmail})` : requesterEmail || "—";
-                  } else if (i === 1 && flowAssignees?.functionalHead) {
-                    nameEmail = flowAssignees.functionalHead.name
-                      ? `${flowAssignees.functionalHead.name} (${flowAssignees.functionalHead.email})`
-                      : flowAssignees.functionalHead.email;
-                  } else if (i === 2 && flowAssignees?.l1Approver) {
+                  } else if (i === 1 && flowAssignees?.l1Approver) {
                     nameEmail = flowAssignees.l1Approver.name
                       ? `${flowAssignees.l1Approver.name} (${flowAssignees.l1Approver.email})`
                       : flowAssignees.l1Approver.email;
+                  } else if (i === 2 && flowAssignees?.functionalHead) {
+                    nameEmail = flowAssignees.functionalHead.name
+                      ? `${flowAssignees.functionalHead.name} (${flowAssignees.functionalHead.email})`
+                      : flowAssignees.functionalHead.email;
                   } else if (i === 3) {
-                    const last = teamName === "SALES" ? flowAssignees?.cdo : flowAssignees?.cfo;
+                    const last = flowAssignees?.cfo;
                     nameEmail = last
                       ? (last.name ? `${last.name} (${last.email})` : last.email)
                       : "—";
+                  } else if (i === 4) {
+                    const last = flowAssignees?.cdo;
+                    nameEmail = last
+                      ? (last.name ? `${last.name} (${last.email})` : last.email)
+                      : "—";
+                  } else if (i === 5) {
+                    nameEmail = "Procurement Team";
                   }
                   return (
-                    <div key={i} className="flex min-w-0 max-w-[220px] flex-1 items-center min-[900px]:max-w-[200px]">
+                    <div key={i} className="flex min-w-0 items-center">
                       <div
                         className="relative z-10 flex w-full min-w-0 flex-col rounded-xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 shadow-sm transition hover:border-primary-300 hover:bg-slate-50 dark:border-slate-600/60 dark:bg-slate-800/60 dark:hover:border-primary-500 dark:hover:bg-slate-800/80"
                         title={label + (nameEmail ? ": " + nameEmail : "")}
@@ -1234,13 +1240,6 @@ export function PurchaseRequestForm({
                           {nameEmail || "—"}
                         </span>
                       </div>
-                      {!isLast && (
-                        <div className="hidden shrink-0 items-center px-2 min-[900px]:flex" aria-hidden>
-                          <svg className="h-5 w-5 text-slate-300 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                          </svg>
-                        </div>
-                      )}
                     </div>
                   );
                 })}

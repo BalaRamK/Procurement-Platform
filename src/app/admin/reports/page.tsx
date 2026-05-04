@@ -102,7 +102,7 @@ export default async function AdminReportsPage() {
       <div className="card overflow-hidden mb-8 dark:bg-[#171717] dark:border-white/10">
         <div className="card-header border-b px-6 py-4 dark:bg-[#1f1f1f] dark:border-white/10">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Tickets by status (lifecycle)</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Open → Pending FH → Pending L1 → Pending CFO → Pending CDO → Assigned to Production → Delivered → Confirmed → Closed.</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Open &gt; Pending L1 &gt; Pending Department Head &gt; Pending CFO &gt; Pending CDO &gt; Assigned to Production &gt; Delivered &gt; Confirmed &gt; Closed.</p>
         </div>
         <dl className="grid gap-0 sm:grid-cols-2 lg:grid-cols-3 dark:bg-[#171717]">
           {LIFECYCLE_ORDER.map((status) => (

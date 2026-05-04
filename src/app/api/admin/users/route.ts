@@ -13,7 +13,7 @@ function validateRoleTeamCombination(roles: string[], team: string | null | unde
   const needsTeam = roles.some((r) => ROLES_REQUIRING_TEAM.includes(r as UserRole));
   const noTeam = roles.every((r) => ROLES_WITHOUT_TEAM.includes(r as UserRole));
   if (needsTeam && !team) {
-    return "Requester, Department Head, and L1 Approver roles require a team assignment";
+    return "Requester, L1 Approver, and Department Head roles require a department assignment";
   }
   if (noTeam && team) {
     return "CFO, CDO, Production, and Super Admin roles should not have a team assignment";

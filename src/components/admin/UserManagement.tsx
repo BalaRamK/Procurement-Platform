@@ -89,21 +89,6 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
   const hasActiveFilters =
     normalizedSearch.length > 0 || roleFilter !== "all" || teamFilter !== "all" || statusFilter !== "all";
 
-  async function updateTeam(userId: string, team: TeamName | null) {
-    setUpdating(userId);
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, team }),
-      });
-      if (!res.ok) throw new Error("Failed to update");
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, team } : u)));
-    } finally {
-      setUpdating(null);
-    }
-  }
-
   async function toggleStatus(userId: string, status: boolean) {
     setUpdating(userId);
     try {
@@ -155,7 +140,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
               Access filters
             </h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Search by email, name, profile, team, or role. Narrow the list before editing access.
+              Search by email, name, profile, department, or role. Narrow the list before editing access.
             </p>
           </div>
           <button
@@ -213,7 +198,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
           </div>
           <div className="lg:col-span-2">
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
-              Team
+              Department
             </label>
             <select
               value={teamFilter}
@@ -245,7 +230,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
               <th scope="col" className="card-header w-[9rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Access profile</th>
               <th scope="col" className="card-header w-[12%] px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Display name</th>
               <th scope="col" className="card-header w-[28%] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Roles</th>
-              <th scope="col" className="card-header w-[9rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Team</th>
+              <th scope="col" className="card-header w-[9rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Department</th>
               <th scope="col" className="card-header w-[8rem] px-5 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">Status</th>
               <th scope="col" className="card-header sticky right-0 z-10 w-[11rem] px-5 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 backdrop-blur dark:text-slate-300">Actions</th>
             </tr>
@@ -277,18 +262,10 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
                   </div>
                 </td>
                 <td className="px-5 py-4">
-                  {showTeam(asRolesArray(user.roles)) ? (
-                    <select
-                      value={user.team ?? ""}
-                      disabled={!!updating}
-                      onChange={(e) => updateTeam(user.id, e.target.value ? (e.target.value as TeamName) : null)}
-                      className="input-base w-auto min-w-[120px] py-2"
-                    >
-                      <option value="">-</option>
-                      {TEAMS.map((t) => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
+                  {showTeam(asRolesArray(user.roles)) && user.team ? (
+                    <span className="inline-flex rounded-full border border-slate-200 bg-white/60 px-3 py-1.5 text-sm font-medium text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-slate-200">
+                      {TEAM_LABELS[user.team]}
+                    </span>
                   ) : (
                     <span className="text-sm text-slate-500 dark:text-slate-300">-</span>
                   )}

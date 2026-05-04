@@ -21,7 +21,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
  */
 export const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Open",
-  PENDING_FH_APPROVAL: "Pending FH Approval",
+  PENDING_FH_APPROVAL: "Pending Department Head Approval",
   PENDING_L1_APPROVAL: "Pending L1 Approval",
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",

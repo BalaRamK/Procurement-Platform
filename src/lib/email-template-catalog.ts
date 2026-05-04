@@ -16,16 +16,16 @@ export const EMAIL_TEMPLATE_FIELDS = [
   { key: "description", label: "Description" },
   { key: "rejectionRemarks", label: "Rejection remarks" },
   { key: "actionBy", label: "Action by" },
+  { key: "approverPosition", label: "Approver position" },
   { key: "approverName", label: "Approver name" },
   { key: "requestUrl", label: "Request URL" },
 ] as const;
 
 export const EMAIL_TEMPLATE_TRIGGER_OPTIONS = [
   { value: "request_created", label: "Request created" },
-  { value: "request_submitted_to_fh", label: "Request submitted to FH" },
   { value: "request_submitted_to_l1", label: "Request submitted to L1" },
-  { value: "fh_approved_moved_to_l1", label: "FH approved and moved to L1" },
-  { value: "l1_approved_moved_to_cfo", label: "L1 approved and moved to CFO" },
+  { value: "l1_approved_moved_to_fh", label: "L1 approved and moved to Department Head" },
+  { value: "fh_approved_moved_to_cfo", label: "Department Head approved and moved to CFO" },
   { value: "cfo_approved_moved_to_cdo", label: "CFO approved and moved to CDO" },
   { value: "cdo_approved_moved_to_production", label: "CDO approved and moved to Production" },
   { value: "production_marked_delivered", label: "Production marked delivered" },
@@ -74,7 +74,7 @@ function standardBody(summary: string, actionLine: string, includeRemarks = fals
     "Current stage: {{currentStage}}",
     "Next stage: {{nextStage}}",
     "Action by: {{actionBy}}",
-    "Approver: {{approverName}}",
+    "Next owner: {{approverName}}",
     includeRemarks ? "Rejection remarks: {{rejectionRemarks}}" : "",
     "",
     "Open request: {{requestUrl}}",
@@ -94,15 +94,6 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     ),
   },
   {
-    name: "Request submitted to FH",
-    trigger: "request_submitted_to_fh",
-    subjectTemplate: prefixedSubject("Approval required: {{ticketId}} submitted to Department Head"),
-    bodyTemplate: standardBody(
-      "A procurement request has been submitted for Department Head approval.",
-      "Please review and take action on the request."
-    ),
-  },
-  {
     name: "Request submitted to L1",
     trigger: "request_submitted_to_l1",
     subjectTemplate: prefixedSubject("Approval required: {{ticketId}} submitted to L1 Approver"),
@@ -112,20 +103,20 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     ),
   },
   {
-    name: "FH approved and moved to L1",
-    trigger: "fh_approved_moved_to_l1",
-    subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to L1 Approver"),
+    name: "L1 approved and moved to Department Head",
+    trigger: "l1_approved_moved_to_fh",
+    subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to Department Head"),
     bodyTemplate: standardBody(
-      "The Department Head has approved the procurement request.",
-      "The request is now awaiting L1 approval."
+      "The L1 approver has approved the procurement request.",
+      "The request is now awaiting Department Head approval."
     ),
   },
   {
-    name: "L1 approved and moved to CFO",
-    trigger: "l1_approved_moved_to_cfo",
+    name: "Department Head approved and moved to CFO",
+    trigger: "fh_approved_moved_to_cfo",
     subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to CFO"),
     bodyTemplate: standardBody(
-      "The L1 approver has approved the procurement request.",
+      "The Department Head has approved the procurement request.",
       "The request is now awaiting CFO approval."
     ),
   },

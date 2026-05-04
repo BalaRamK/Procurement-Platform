@@ -37,7 +37,7 @@ async function getSmtpConfig(): Promise<SmtpConfig | null> {
 
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
-  assignment: "request_submitted_to_fh",
+  assignment: "request_submitted_to_l1",
   delivered: "production_marked_delivered",
   closure: "requester_confirmed_receipt",
   team_assignment: "cdo_approved_moved_to_production",
@@ -49,7 +49,7 @@ export type EmailContext = {
   requesterEmail?: string;
   ticketId?: string;       // human-readable request ID e.g. PR-0042
   ticketTitle?: string;
-  status?: string;         // formatted e.g. "Pending FH Approval"
+  status?: string;         // formatted e.g. "Pending Department Head Approval"
   currentStage?: string;
   nextStage?: string;
   rejectionRemarks?: string;
@@ -60,6 +60,7 @@ export type EmailContext = {
   estimatedCost?: string;
   description?: string;
   actionBy?: string;
+  approverPosition?: string;
   approverName?: string;
   requestUrl?: string;
   [key: string]: string | undefined;
@@ -67,7 +68,7 @@ export type EmailContext = {
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
-  PENDING_FH_APPROVAL: "Pending FH Approval",
+  PENDING_FH_APPROVAL: "Pending Department Head Approval",
   PENDING_L1_APPROVAL: "Pending L1 Approval",
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",
@@ -92,7 +93,7 @@ function replacePlaceholders(text: string, context: EmailContext): string {
       out = out.replace(new RegExp(`\\{\\{${key}\\}\\}`, "gi"), String(value));
     }
   }
-  return out;
+  return out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, "Not applicable");
 }
 
 export async function getTemplateForTrigger(
@@ -278,6 +279,9 @@ export async function sendNotificationEmail(
       estimatedCost: cost,
       description: ticket?.description ?? "",
       requestUrl: requestUrlBase ? `${requestUrlBase}/requests/${ticketId}` : "",
+      actionBy: "System",
+      approverPosition: "Not applicable",
+      approverName: "Not applicable",
       ...extraContext,
     };
     const template = await getTemplateForTrigger(trigger, "immediate");

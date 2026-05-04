@@ -10,6 +10,36 @@ import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 import { canViewTicket } from "@/lib/tickets";
 import { getPrimaryRole } from "@/types/db";
 
+const STAGE_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  PENDING_L1_APPROVAL: "Pending L1 Approval",
+  PENDING_FH_APPROVAL: "Pending Department Head Approval",
+  PENDING_CFO_APPROVAL: "Pending CFO Approval",
+  PENDING_CDO_APPROVAL: "Pending CDO Approval",
+  ASSIGNED_TO_PRODUCTION: "Assigned to Production",
+  DELIVERED_TO_REQUESTER: "Delivered to Requester",
+  CONFIRMED_BY_REQUESTER: "Confirmed by Requester",
+  CLOSED: "Closed",
+  REJECTED: "Rejected",
+};
+
+const ROLE_POSITION_LABELS: Partial<Record<UserRole, string>> = {
+  L1_APPROVER: "L1 Approver",
+  FUNCTIONAL_HEAD: "Department Head",
+  CFO: "Finance Team",
+  CDO: "CDO Approval",
+  PRODUCTION: "Procurement Team",
+};
+
+function actorName(sessionUser: { name?: string | null; email?: string | null }) {
+  return sessionUser.name || sessionUser.email || "System";
+}
+
+function assigneeLabel(position: string, assignee?: { name: string | null; email: string } | null) {
+  if (!assignee) return position;
+  return `${position}: ${assignee.name || assignee.email}`;
+}
+
 const TICKET_SELECT = `id, request_id AS "requestId", title, description, requester_name AS "requesterName", department,
   component_description AS "componentDescription", item_name AS "itemName", brand_name_company AS "brandNameCompany",
   preferred_supplier AS "preferredSupplier", country_of_origin AS "countryOfOrigin", bom_id AS "bomId", product_id AS "productId",
@@ -77,8 +107,8 @@ export async function GET(
 type ApprovalBody = { action: "approved" | "rejected" | "submit" | "mark_delivered" | "confirm_receipt"; remarks?: string };
 
 const nextStatusOnApproval: Partial<Record<TicketStatus, TicketStatus>> = {
-  PENDING_FH_APPROVAL: "PENDING_L1_APPROVAL",
-  PENDING_L1_APPROVAL: "PENDING_CFO_APPROVAL",
+  PENDING_L1_APPROVAL: "PENDING_FH_APPROVAL",
+  PENDING_FH_APPROVAL: "PENDING_CFO_APPROVAL",
   PENDING_CFO_APPROVAL: "PENDING_CDO_APPROVAL",
   PENDING_CDO_APPROVAL: "ASSIGNED_TO_PRODUCTION",
 };
@@ -125,17 +155,11 @@ export async function PATCH(
     if (ticket.requesterId !== session.user.id) {
       return NextResponse.json({ error: "Only the requester can submit" }, { status: 403 });
     }
-    const initialStatus: TicketStatus =
-      ticket.teamName === "SALES" ? "PENDING_L1_APPROVAL" : "PENDING_FH_APPROVAL";
+    const initialStatus: TicketStatus = "PENDING_L1_APPROVAL";
     await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [initialStatus, id]);
     const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
-    const firstApprover =
-      initialStatus === "PENDING_L1_APPROVAL" ? assignees.l1Approver : assignees.functionalHead;
+    const firstApprover = assignees.l1Approver;
     if (firstApprover?.email) {
-      const emailTrigger =
-        initialStatus === "PENDING_L1_APPROVAL"
-          ? "request_submitted_to_l1"
-          : "request_submitted_to_fh";
       await logNotification({
         ticketId: id,
         type: "assignment",
@@ -144,10 +168,12 @@ export async function PATCH(
           status: initialStatus,
           title: ticket.title,
           currentStage: "Draft",
-          nextStage: initialStatus === "PENDING_L1_APPROVAL" ? "Pending L1 Approval" : "Pending FH Approval",
-          approverName: firstApprover.name ?? "",
+          nextStage: STAGE_LABELS[initialStatus],
+          actionBy: actorName(session.user),
+          approverPosition: "L1 Approver",
+          approverName: assigneeLabel("L1 Approver", firstApprover),
         },
-        emailTrigger,
+        emailTrigger: "request_submitted_to_l1",
       });
     }
     return NextResponse.json({ ok: true, status: initialStatus });
@@ -180,6 +206,9 @@ export async function PATCH(
           title: ticket.title,
           currentStage: "Assigned to Production",
           nextStage: "Delivered to Requester",
+          actionBy: actorName(session.user),
+          approverPosition: "Requester",
+          approverName: assigneeLabel("Requester", { name: null, email: t.email }),
         },
         emailTrigger: "production_marked_delivered",
       });
@@ -209,6 +238,9 @@ export async function PATCH(
         title: ticket.title,
         currentStage: "Delivered to Requester",
         nextStage: "Confirmed by Requester",
+        actionBy: actorName(session.user),
+        approverPosition: "Not applicable",
+        approverName: "Not applicable",
       },
       emailTrigger: "requester_confirmed_receipt",
     });
@@ -249,7 +281,9 @@ export async function PATCH(
         rejectionRemarks: body.remarks ?? "",
         currentStage: status,
         nextStage: "Rejected",
-        actionBy: session.user.name ?? session.user.email ?? "",
+        actionBy: actorName(session.user),
+        approverPosition: "Not applicable",
+        approverName: "Not applicable",
       }).catch((e) => console.error("[rejection email]", e));
     }
     return NextResponse.json({ ok: true, status: "REJECTED" });
@@ -273,12 +307,15 @@ export async function PATCH(
           status: nextStatus,
           currentStage: "Pending CDO Approval",
           nextStage: "Assigned to Production",
+          actionBy: actorName(session.user),
+          approverPosition: "Procurement Team",
+          approverName: "Procurement Team",
         },
         emailTrigger: "cdo_approved_moved_to_production",
       });
     }
   } else {
-    const nextAssignee =
+      const nextAssignee =
       nextStatus === "PENDING_FH_APPROVAL"
         ? assignees.functionalHead
         : nextStatus === "PENDING_L1_APPROVAL"
@@ -290,13 +327,22 @@ export async function PATCH(
               : null;
     if (nextAssignee?.email) {
       const emailTrigger =
-        nextStatus === "PENDING_L1_APPROVAL"
-          ? "fh_approved_moved_to_l1"
+        nextStatus === "PENDING_FH_APPROVAL"
+          ? "l1_approved_moved_to_fh"
           : nextStatus === "PENDING_CFO_APPROVAL"
-            ? "l1_approved_moved_to_cfo"
+            ? "fh_approved_moved_to_cfo"
             : nextStatus === "PENDING_CDO_APPROVAL"
               ? "cfo_approved_moved_to_cdo"
-              : "request_submitted_to_fh";
+              : "request_submitted_to_l1";
+      const nextRole =
+        nextStatus === "PENDING_FH_APPROVAL"
+          ? "FUNCTIONAL_HEAD"
+          : nextStatus === "PENDING_CFO_APPROVAL"
+            ? "CFO"
+            : nextStatus === "PENDING_CDO_APPROVAL"
+              ? "CDO"
+              : null;
+      const nextPosition = nextRole ? ROLE_POSITION_LABELS[nextRole] ?? nextStatus : nextStatus;
       await logNotification({
         ticketId: id,
         type: "assignment",
@@ -304,17 +350,11 @@ export async function PATCH(
         payload: {
           status: nextStatus,
           title: ticket.title,
-          currentStage: status,
-          nextStage:
-            nextStatus === "PENDING_L1_APPROVAL"
-              ? "Pending L1 Approval"
-              : nextStatus === "PENDING_CFO_APPROVAL"
-                ? "Pending CFO Approval"
-                : nextStatus === "PENDING_CDO_APPROVAL"
-                  ? "Pending CDO Approval"
-                  : nextStatus,
-          approverName: nextAssignee.name ?? "",
-          actionBy: session.user.name ?? session.user.email ?? "",
+          currentStage: STAGE_LABELS[status] ?? status,
+          nextStage: STAGE_LABELS[nextStatus] ?? nextStatus,
+          approverPosition: nextPosition,
+          approverName: assigneeLabel(nextPosition, nextAssignee),
+          actionBy: actorName(session.user),
         },
         emailTrigger,
       });

@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { RequesterDashboardEnhanced } from "@/components/dashboard/RequesterDashboardEnhanced";
-import { ApproverDashboardEnhanced } from "@/components/dashboard/ApproverDashboardEnhanced";
+import { ApproverDashboardEnhanced, type ApprovalHistoryTicket } from "@/components/dashboard/ApproverDashboardEnhanced";
 import { ProductionDashboardEnhanced } from "@/components/dashboard/ProductionDashboardEnhanced";
 import { query } from "@/lib/db";
 import type { Ticket, User } from "@/types/db";
@@ -32,6 +32,25 @@ function searchClause(q: string | undefined): { param: string } | null {
   const trimmed = q?.trim();
   if (!trimmed) return null;
   return { param: `%${trimmed}%` };
+}
+
+async function getApprovalHistory(userId: string) {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT t.id, t.request_id AS "requestId", t.title, t.description, t.requester_name AS "requesterName",
+      t.department, t.component_description AS "componentDescription", t.item_name AS "itemName",
+      t.team_name AS "teamName", t.priority, t.status, t.rejection_remarks AS "rejectionRemarks",
+      t.requester_id AS "requesterId", t.created_at AS "createdAt", t.updated_at AS "updatedAt",
+      a.action AS "approvalAction", a.remarks AS "approvalRemarks", a.created_at AS "approvalAt",
+      u.id AS "rId", u.email AS "rEmail", u.name AS "rName"
+     FROM approval_logs a
+     JOIN tickets t ON t.id = a.ticket_id
+     LEFT JOIN users u ON t.requester_id = u.id
+     WHERE a.user_id = $1 AND a.action IN ('approved', 'rejected')
+     ORDER BY a.created_at DESC
+     LIMIT 50`,
+    [userId]
+  );
+  return rows.map(mapWithRequester) as unknown as ApprovalHistoryTicket[];
 }
 
 export default async function DashboardPage({
@@ -80,7 +99,8 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
+    const history = await getApprovalHistory(session.user.id);
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} historyTickets={history} role={role} teamName={userTeam} />;
   }
 
   if (role === "L1_APPROVER" && userTeam) {
@@ -94,7 +114,8 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
+    const history = await getApprovalHistory(session.user.id);
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} historyTickets={history} role={role} teamName={userTeam} />;
   }
 
   if (role === "CFO") {
@@ -108,7 +129,8 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+    const history = await getApprovalHistory(session.user.id);
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} historyTickets={history} role={role} />;
   }
 
   if (role === "CDO") {
@@ -122,7 +144,8 @@ export default async function DashboardPage({
       `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
       args
     );
-    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+    const history = await getApprovalHistory(session.user.id);
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} historyTickets={history} role={role} />;
   }
 
   if (role === "PRODUCTION") {

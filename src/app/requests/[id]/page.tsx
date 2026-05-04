@@ -236,7 +236,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           <DetailCard title="At a glance" description="Quick summary for the current request.">
             <div className="grid gap-3">
               <DetailItem label="Status" value={<StatusBadge status={ticket.status} />} />
-              <DetailItem label="Team flow" value={ticket.teamName === "SALES" ? "Requester -> L1 -> CFO -> CDO -> Production" : "Requester -> FH -> L1 -> CFO -> CDO -> Production"} />
+              <DetailItem label="Team flow" value="Requester -> L1 -> Department Head -> CFO -> CDO -> Production" />
               <DetailItem label="Created" value={formatDate(ticket.createdAt)} />
               <DetailItem label="Updated" value={formatDate(ticket.updatedAt)} />
             </div>
