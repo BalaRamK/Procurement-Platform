@@ -162,11 +162,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const activeRole = session.user.activeRole ?? getPrimaryRole(session.user.roles);
   const roles = activeRole ? [activeRole] : [];
   const userTeam = session.user.team ?? null;
-  const isRequester = ticket.requesterId === session.user.id;
-  const isProduction = activeRole === "PRODUCTION";
+  const sessionEmail = session.user.email?.trim().toLowerCase() ?? "";
+  const requesterEmail = ticket.requester?.email?.trim().toLowerCase() ?? "";
+  const isRequester = ticket.requesterId === session.user.id || (!!sessionEmail && requesterEmail === sessionEmail);
+  const isProduction = activeRole === "PRODUCTION" || hasRole(session.user.roles, "PRODUCTION");
   const canShowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
-    (activeRole === "PRODUCTION" && ticket.status === "ASSIGNED_TO_PRODUCTION") ||
+    (isProduction && ticket.status === "ASSIGNED_TO_PRODUCTION") ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
     (activeRole === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
     (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||

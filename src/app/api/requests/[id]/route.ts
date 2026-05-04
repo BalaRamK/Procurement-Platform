@@ -137,9 +137,14 @@ export async function PATCH(
   const ticketRow = await queryOne<{
     status: string;
     requesterId: string;
+    requesterEmail: string | null;
     teamName: string;
     title: string;
-  }>(`SELECT status, requester_id AS "requesterId", team_name AS "teamName", title FROM tickets WHERE id = $1`, [id]);
+  }>(
+    `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail", t.team_name AS "teamName", t.title
+     FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
+    [id]
+  );
   if (!ticketRow) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = (await req.json()) as ApprovalBody;
@@ -147,12 +152,16 @@ export async function PATCH(
   const roles = activeRole ? [activeRole] : [];
   const userTeam = session.user.team ?? null;
   const ticket = ticketRow;
+  const requesterEmail = ticket.requesterEmail?.trim().toLowerCase() ?? "";
+  const sessionEmail = session.user.email.trim().toLowerCase();
+  const isRequester = ticket.requesterId === session.user.id || (!!requesterEmail && requesterEmail === sessionEmail);
+  const isProduction = activeRole === "PRODUCTION" || session.user.roles?.includes("PRODUCTION");
 
   if (body.action === "submit") {
     if (ticket.status !== "DRAFT") {
       return NextResponse.json({ error: "Only draft tickets can be submitted" }, { status: 400 });
     }
-    if (ticket.requesterId !== session.user.id) {
+    if (!isRequester) {
       return NextResponse.json({ error: "Only the requester can submit" }, { status: 403 });
     }
     const initialStatus: TicketStatus = "PENDING_L1_APPROVAL";
@@ -180,7 +189,7 @@ export async function PATCH(
   }
 
   if (body.action === "mark_delivered") {
-    if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || activeRole !== "PRODUCTION") {
+    if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || !isProduction) {
       return NextResponse.json({ error: "Only Production can mark as delivered" }, { status: 403 });
     }
     await query(
@@ -217,7 +226,7 @@ export async function PATCH(
   }
 
   if (body.action === "confirm_receipt") {
-    if (ticket.status !== "DELIVERED_TO_REQUESTER" || ticket.requesterId !== session.user.id) {
+    if (ticket.status !== "DELIVERED_TO_REQUESTER" || !isRequester) {
       return NextResponse.json({ error: "Only the requester can confirm receipt" }, { status: 403 });
     }
     await query(
