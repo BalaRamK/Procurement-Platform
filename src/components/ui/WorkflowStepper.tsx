@@ -7,6 +7,7 @@ const STEPS: Step[] = [
   { key: "PENDING_CFO_APPROVAL", label: "CFO" },
   { key: "PENDING_CDO_APPROVAL", label: "CDO" },
   { key: "ASSIGNED_TO_PRODUCTION", label: "Production" },
+  { key: "ORDER_PLACED", label: "Order Placed" },
   { key: "DELIVERED_TO_REQUESTER", label: "Delivered" },
   { key: "CONFIRMED_BY_REQUESTER", label: "Confirmed" },
   { key: "CLOSED", label: "Closed" },

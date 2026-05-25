@@ -81,7 +81,7 @@ export default async function PendingApprovalsPage() {
 
   if (role === "PRODUCTION") {
     const rows = await query<Record<string, unknown>>(
-      `${TICKET_JOIN_REQ} WHERE t.status IN ('ASSIGNED_TO_PRODUCTION', 'DELIVERED_TO_REQUESTER') ORDER BY t.updated_at DESC`
+      `${TICKET_JOIN_REQ} WHERE t.status IN ('ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER') ORDER BY t.updated_at DESC`
     );
     return <ProductionDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} />;
   }

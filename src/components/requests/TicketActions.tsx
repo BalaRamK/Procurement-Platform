@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Action = "approved" | "rejected" | "submit" | "mark_delivered" | "confirm_receipt";
+type Action = "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt";
 
 export function TicketActions({
   ticketId,
@@ -79,6 +79,17 @@ export function TicketActions({
   }
 
   if (status === "ASSIGNED_TO_PRODUCTION" && isProduction) {
+    return (
+      <div className="space-y-3">
+        <button type="button" onClick={() => act("order_placed")} disabled={!!loading} className="btn-primary">
+          {loading === "order_placed" ? "Processing..." : "Order placed"}
+        </button>
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (status === "ORDER_PLACED" && isProduction) {
     return (
       <div className="space-y-3">
         <button type="button" onClick={() => act("mark_delivered")} disabled={!!loading} className="btn-primary">

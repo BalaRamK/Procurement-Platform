@@ -21,6 +21,7 @@ export function ProductionDashboardEnhanced({
   subtitle?: string;
 }) {
   const assignedCount = tickets.filter((ticket) => ticket.status === "ASSIGNED_TO_PRODUCTION").length;
+  const orderPlacedCount = tickets.filter((ticket) => ticket.status === "ORDER_PLACED").length;
   const deliveredCount = tickets.filter((ticket) => ticket.status === "DELIVERED_TO_REQUESTER").length;
   const oldest = tickets.length > 0 ? Math.max(...tickets.map((ticket) => daysSince(ticket.createdAt as string | Date))) : null;
 
@@ -29,11 +30,12 @@ export function ProductionDashboardEnhanced({
       <DashboardHero
         eyebrow="Procurement queue"
         title={title ?? "Assigned to procurement"}
-        description={subtitle ?? "Track what needs sourcing or delivery, then mark requests as delivered once material has been sent."}
+        description={subtitle ?? "Track what needs ordering or delivery, then mark requests as delivered once material has been sent."}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <MetricTile label="Awaiting delivery" value={assignedCount} hint="Requests that still need fulfillment." tone="info" />
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricTile label="Awaiting order" value={assignedCount} hint="Requests ready for procurement action." tone="info" />
+        <MetricTile label="Order placed" value={orderPlacedCount} hint="Orders placed and awaiting delivery." tone="warning" />
         <MetricTile label="Delivered" value={deliveredCount} hint="Sent to requester and waiting for confirmation." tone="success" />
         <MetricTile label="Oldest request age" value={oldest !== null ? `${oldest}d` : "-"} hint="Age of the oldest request in this queue." tone="warning" />
       </div>

@@ -13,6 +13,7 @@ type NotificationItem = {
 const TYPE_LABELS: Record<string, string> = {
   on_creation: "Request created",
   assignment: "Assigned",
+  order_placed: "Order placed",
   delivered: "Delivered",
   closure: "Closed",
   team_assignment: "Team assignment",

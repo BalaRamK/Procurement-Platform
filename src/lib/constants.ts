@@ -26,6 +26,7 @@ export const STATUS_LABELS: Record<string, string> = {
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",
   ASSIGNED_TO_PRODUCTION: "Assigned to Production",
+  ORDER_PLACED: "Order Placed",
   DELIVERED_TO_REQUESTER: "Delivered to Requester",
   CONFIRMED_BY_REQUESTER: "Confirmed by Requester",
   CLOSED: "Closed",

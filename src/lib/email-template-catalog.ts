@@ -28,7 +28,8 @@ export const EMAIL_TEMPLATE_TRIGGER_OPTIONS = [
   { value: "fh_approved_moved_to_cfo", label: "Department Head approved and moved to CFO" },
   { value: "cfo_approved_moved_to_cdo", label: "CFO approved and moved to CDO" },
   { value: "cdo_approved_moved_to_production", label: "CDO approved and moved to Production" },
-  { value: "production_marked_delivered", label: "Production marked delivered" },
+  { value: "production_marked_order_placed", label: "Procurement Team marked order placed" },
+  { value: "production_marked_delivered", label: "Procurement Team marked delivered" },
   { value: "requester_confirmed_receipt", label: "Requester confirmed receipt" },
   { value: "request_rejected", label: "Request rejected" },
   { value: "pending_fh_reminder", label: "Pending FH reminder" },
@@ -58,9 +59,13 @@ function standardBody(summary: string, actionLine: string, includeRemarks = fals
   return [
     "Hello,",
     "",
+    "This is an automated Procurement Platform update for the request below.",
+    "",
     summary,
     "",
     actionLine,
+    "",
+    "Use the request link to review the ticket, check the latest workflow stage, and add any clarification comments if needed.",
     "",
     "Request details:",
     "Request ID: {{ticketId}}",
@@ -78,6 +83,8 @@ function standardBody(summary: string, actionLine: string, includeRemarks = fals
     includeRemarks ? "Rejection remarks: {{rejectionRemarks}}" : "",
     "",
     "Open request: {{requestUrl}}",
+    "",
+    "Please do not reply to this automated email. Continue the conversation in Procurement Platform so the audit trail remains complete.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -89,8 +96,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "request_created",
     subjectTemplate: prefixedSubject("Request {{ticketId}} created"),
     bodyTemplate: standardBody(
-      "A new procurement request has been created.",
-      "No action is required yet. The request remains in draft until it is submitted."
+      "A new procurement request has been created in draft status.",
+      "Review the request details in Procurement Platform and submit it when the request is ready for the approval workflow."
     ),
   },
   {
@@ -98,8 +105,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "request_submitted_to_l1",
     subjectTemplate: prefixedSubject("Approval required: {{ticketId}} submitted to L1 Approver"),
     bodyTemplate: standardBody(
-      "A procurement request has been submitted for L1 approval.",
-      "Please review and take action on the request."
+      "A procurement request has been submitted and is now waiting for L1 approval.",
+      "Please review the item, cost, need-by date, and supporting details in Procurement Platform, then approve or reject the request."
     ),
   },
   {
@@ -107,8 +114,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "l1_approved_moved_to_fh",
     subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to Department Head"),
     bodyTemplate: standardBody(
-      "The L1 approver has approved the procurement request.",
-      "The request is now awaiting Department Head approval."
+      "The L1 approver has approved this procurement request.",
+      "The request is now awaiting Department Head review for business need, team ownership, and priority."
     ),
   },
   {
@@ -116,8 +123,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "fh_approved_moved_to_cfo",
     subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to CFO"),
     bodyTemplate: standardBody(
-      "The Department Head has approved the procurement request.",
-      "The request is now awaiting CFO approval."
+      "The Department Head has approved this procurement request.",
+      "The request is now awaiting Finance Team review for budget, cost, and commercial approval."
     ),
   },
   {
@@ -125,26 +132,35 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "cfo_approved_moved_to_cdo",
     subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to CDO"),
     bodyTemplate: standardBody(
-      "The CFO has approved the procurement request.",
-      "The request is now awaiting CDO approval."
+      "The Finance Team has approved this procurement request.",
+      "The request is now awaiting CDO approval before it can move to the Procurement Team for fulfillment."
     ),
   },
   {
-    name: "CDO approved and moved to Production",
+    name: "CDO approved and moved to Procurement Team",
     trigger: "cdo_approved_moved_to_production",
     subjectTemplate: prefixedSubject("Action required: {{ticketId}} assigned to Procurement Team"),
     bodyTemplate: standardBody(
-      "The CDO has approved the procurement request.",
-      "The request is now assigned to the Procurement Team for fulfillment."
+      "The CDO has given final approval for this procurement request.",
+      "The request is now assigned to the Procurement Team. Please begin sourcing or purchase processing and mark the order as placed once the order is confirmed."
     ),
   },
   {
-    name: "Production marked delivered",
+    name: "Procurement Team marked order placed",
+    trigger: "production_marked_order_placed",
+    subjectTemplate: prefixedSubject("Order placed: {{ticketId}}"),
+    bodyTemplate: standardBody(
+      "The Procurement Team has placed the order for this request.",
+      "You can track the ticket in Procurement Platform while the order is being fulfilled. No requester action is required until the request is marked as delivered."
+    ),
+  },
+  {
+    name: "Procurement Team marked delivered",
     trigger: "production_marked_delivered",
     subjectTemplate: prefixedSubject("Delivered: {{ticketId}} has been marked as delivered"),
     bodyTemplate: standardBody(
-      "The Procurement Team has marked the request as delivered.",
-      "Please verify the delivery and confirm receipt."
+      "The Procurement Team has marked this procurement request as delivered to the requester.",
+      "Please verify the delivered item or service. If everything is correct, confirm receipt in Procurement Platform so the ticket can be closed."
     ),
   },
   {
@@ -153,7 +169,7 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     subjectTemplate: prefixedSubject("Receipt confirmed: {{ticketId}}"),
     bodyTemplate: standardBody(
       "The requester has confirmed receipt of the requested item or service.",
-      "No further action is required unless follow-up is needed."
+      "The procurement ticket is now closed. No further action is required unless follow-up is needed in Procurement Platform."
     ),
   },
   {
@@ -161,8 +177,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "request_rejected",
     subjectTemplate: prefixedSubject("Request {{ticketId}} was rejected"),
     bodyTemplate: standardBody(
-      "The procurement request has been rejected.",
-      "Please review the remarks and make any required changes before resubmitting.",
+      "This procurement request has been rejected during the approval workflow.",
+      "Please review the rejection remarks in Procurement Platform, make any required changes, and create or resubmit the request as appropriate.",
       true
     ),
   },
@@ -171,8 +187,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "pending_fh_reminder",
     subjectTemplate: prefixedSubject("Reminder: {{ticketId}} is pending Department Head approval"),
     bodyTemplate: standardBody(
-      "This is a reminder that the procurement request is still pending Department Head approval.",
-      "Please review and take action as soon as possible."
+      "This procurement request is still pending Department Head approval.",
+      "Please open the request in Procurement Platform and take action so the procurement workflow can continue."
     ),
   },
   {
@@ -180,8 +196,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "pending_l1_reminder",
     subjectTemplate: prefixedSubject("Reminder: {{ticketId}} is pending L1 approval"),
     bodyTemplate: standardBody(
-      "This is a reminder that the procurement request is still pending L1 approval.",
-      "Please review and take action as soon as possible."
+      "This procurement request is still pending L1 approval.",
+      "Please open the request in Procurement Platform and take action so the procurement workflow can continue."
     ),
   },
   {
@@ -189,8 +205,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "pending_cfo_reminder",
     subjectTemplate: prefixedSubject("Reminder: {{ticketId}} is pending CFO approval"),
     bodyTemplate: standardBody(
-      "This is a reminder that the procurement request is still pending CFO approval.",
-      "Please review and take action as soon as possible."
+      "This procurement request is still pending Finance Team approval.",
+      "Please open the request in Procurement Platform and review the commercial details so the workflow can continue."
     ),
   },
   {
@@ -198,8 +214,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "pending_cdo_reminder",
     subjectTemplate: prefixedSubject("Reminder: {{ticketId}} is pending CDO approval"),
     bodyTemplate: standardBody(
-      "This is a reminder that the procurement request is still pending CDO approval.",
-      "Please review and take action as soon as possible."
+      "This procurement request is still pending CDO approval.",
+      "Please open the request in Procurement Platform and take final approval action so the Procurement Team can begin fulfillment."
     ),
   },
   {
@@ -207,8 +223,8 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     trigger: "request_auto_closed",
     subjectTemplate: prefixedSubject("Request {{ticketId}} was auto closed"),
     bodyTemplate: standardBody(
-      "The request was auto closed after delivery because no receipt confirmation was received within the configured window.",
-      "Please contact the Procurement Team if this closure needs attention."
+      "This procurement request was automatically closed after delivery because receipt confirmation was not recorded within the configured window.",
+      "If the closure needs attention, open the ticket in Procurement Platform and contact the Procurement Team."
     ),
   },
   {
@@ -217,7 +233,7 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     subjectTemplate: prefixedSubject("You were mentioned on request {{ticketId}}"),
     bodyTemplate: standardBody(
       "You were mentioned in a comment on this procurement request.",
-      "Please open the request to review the latest comment."
+      "Please open the request in Procurement Platform to review the latest comment and respond in the ticket if needed."
     ),
   },
 ];

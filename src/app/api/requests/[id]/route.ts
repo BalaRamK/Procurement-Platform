@@ -17,6 +17,7 @@ const STAGE_LABELS: Record<string, string> = {
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",
   ASSIGNED_TO_PRODUCTION: "Assigned to Production",
+  ORDER_PLACED: "Order Placed",
   DELIVERED_TO_REQUESTER: "Delivered to Requester",
   CONFIRMED_BY_REQUESTER: "Confirmed by Requester",
   CLOSED: "Closed",
@@ -104,7 +105,7 @@ export async function GET(
   return NextResponse.json(ticket);
 }
 
-type ApprovalBody = { action: "approved" | "rejected" | "submit" | "mark_delivered" | "confirm_receipt"; remarks?: string };
+type ApprovalBody = { action: "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt"; remarks?: string };
 
 const nextStatusOnApproval: Partial<Record<TicketStatus, TicketStatus>> = {
   PENDING_L1_APPROVAL: "PENDING_FH_APPROVAL",
@@ -120,6 +121,7 @@ const roleAndTeamForStatus: Record<TicketStatus, { role: string; teamRequired: b
   PENDING_CDO_APPROVAL: { role: "CDO", teamRequired: false },
   DRAFT: null,
   ASSIGNED_TO_PRODUCTION: null,
+  ORDER_PLACED: null,
   DELIVERED_TO_REQUESTER: null,
   CONFIRMED_BY_REQUESTER: null,
   CLOSED: null,
@@ -188,9 +190,46 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: initialStatus });
   }
 
-  if (body.action === "mark_delivered") {
+  if (body.action === "order_placed") {
     if (ticket.status !== "ASSIGNED_TO_PRODUCTION" || !isProduction) {
-      return NextResponse.json({ error: "Only Production can mark as delivered" }, { status: 403 });
+      return NextResponse.json({ error: "Only Procurement Team can mark an order as placed" }, { status: 403 });
+    }
+    await query(
+      "UPDATE tickets SET status = 'ORDER_PLACED', updated_at = now() WHERE id = $1",
+      [id]
+    );
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "order_placed",
+    });
+    const t = await queryOne<{ email: string | null }>(
+      "SELECT u.email FROM tickets tk JOIN users u ON tk.requester_id = u.id WHERE tk.id = $1",
+      [id]
+    );
+    if (t?.email) {
+      await logNotification({
+        ticketId: id,
+        type: "order_placed",
+        recipient: t.email,
+        payload: {
+          title: ticket.title,
+          currentStage: "Assigned to Production",
+          nextStage: "Order Placed",
+          actionBy: actorName(session.user),
+          approverPosition: "Requester",
+          approverName: assigneeLabel("Requester", { name: null, email: t.email }),
+        },
+        emailTrigger: "production_marked_order_placed",
+      });
+    }
+    return NextResponse.json({ ok: true, status: "ORDER_PLACED" });
+  }
+
+  if (body.action === "mark_delivered") {
+    if (ticket.status !== "ORDER_PLACED" || !isProduction) {
+      return NextResponse.json({ error: "Only Procurement Team can mark as delivered after the order is placed" }, { status: 403 });
     }
     await query(
       "UPDATE tickets SET status = 'DELIVERED_TO_REQUESTER', delivered_at = now(), updated_at = now() WHERE id = $1",
@@ -213,7 +252,7 @@ export async function PATCH(
         recipient: t.email,
         payload: {
           title: ticket.title,
-          currentStage: "Assigned to Production",
+          currentStage: "Order Placed",
           nextStage: "Delivered to Requester",
           actionBy: actorName(session.user),
           approverPosition: "Requester",

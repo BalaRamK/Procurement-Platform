@@ -49,7 +49,6 @@ type EmailTemplateForm = {
   bodyTemplate: string;
   timeline: "immediate" | "after_24h" | "after_48h" | "custom";
   delayMinutes: string | number;
-  extraRecipients: string[];
   enabled: boolean;
 };
 
@@ -90,10 +89,6 @@ function getTemplateGroupLabel(group: TemplateGroup) {
 function compactText(value: string, limit: number) {
   const normalized = value.replace(/\s+/g, " ").trim();
   return normalized.length > limit ? `${normalized.slice(0, limit - 1)}...` : normalized;
-}
-
-function splitRecipients(value: string | null) {
-  return value ? value.split(",").map((email) => email.trim()).filter(Boolean) : [];
 }
 
 function formatTimeline(template: EmailTemplate) {
@@ -146,10 +141,8 @@ export function EmailTemplateManagerView() {
     bodyTemplate: "",
     timeline: "immediate",
     delayMinutes: "",
-    extraRecipients: [],
     enabled: true,
   });
-  const [recipientInput, setRecipientInput] = useState("");
   const subjectInputRef = useRef<HTMLInputElement>(null);
   const bodyInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -309,10 +302,8 @@ export function EmailTemplateManagerView() {
       bodyTemplate: "",
       timeline: "immediate",
       delayMinutes: "",
-      extraRecipients: [],
       enabled: true,
     });
-    setRecipientInput("");
     setEditingId(null);
     setFormOpen("add");
     setActiveTab("templates");
@@ -327,10 +318,8 @@ export function EmailTemplateManagerView() {
       bodyTemplate: t.bodyTemplate,
       timeline: t.timeline as EmailTemplateForm["timeline"],
       delayMinutes: t.delayMinutes ?? "",
-      extraRecipients: t.extraRecipients ? t.extraRecipients.split(",").map((email) => email.trim()).filter(Boolean) : [],
       enabled: t.enabled,
     });
-    setRecipientInput("");
     setEditingId(t.id);
     setFormOpen("add");
     setActiveTab("templates");
@@ -341,15 +330,6 @@ export function EmailTemplateManagerView() {
     setFormOpen(null);
     setEditingId(null);
     setError("");
-  }
-
-  function addRecipientFromInput() {
-    const value = recipientInput.trim().replace(/,$/, "");
-    if (!value || !value.includes("@")) return;
-    if (!form.extraRecipients.includes(value)) {
-      setForm((current) => ({ ...current, extraRecipients: [...current.extraRecipients, value] }));
-    }
-    setRecipientInput("");
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -364,7 +344,7 @@ export function EmailTemplateManagerView() {
         bodyTemplate: form.bodyTemplate.trim(),
         timeline: form.timeline,
         delayMinutes: form.timeline === "custom" && form.delayMinutes !== "" ? Number(form.delayMinutes) : null,
-        extraRecipients: form.extraRecipients.length > 0 ? form.extraRecipients.join(",") : null,
+        extraRecipients: null,
         enabled: form.enabled,
       };
       const url = editingId ? `/api/admin/email-templates/${editingId}` : "/api/admin/email-templates";
@@ -427,7 +407,7 @@ export function EmailTemplateManagerView() {
           {formOpen ? (
             <SectionCard
               title={editingId ? "Edit template" : "Add template"}
-              description="Define the trigger, write the subject and body, then control any additional CC recipients."
+              description="Define the trigger, then write the subject and body used for the primary workflow recipient."
               actions={
                 <button type="button" onClick={closeForm} className="btn-secondary">
                   Close editor
@@ -553,56 +533,6 @@ export function EmailTemplateManagerView() {
                     </div>
 
                     <div className="rounded-2xl border border-white/25 bg-white/55 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/20">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">Recipients</h3>
-                          <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">Extra recipients are added as CC on top of the primary workflow recipient.</p>
-                        </div>
-                        <Pill tone="neutral">CC only</Pill>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {form.extraRecipients.length > 0 ? (
-                          form.extraRecipients.map((email) => (
-                            <span
-                              key={email}
-                              className="inline-flex items-center gap-1 rounded-full border border-primary-300/40 bg-primary-100/30 px-3 py-1 text-xs font-medium text-primary-800 dark:border-primary-500/30 dark:bg-primary-900/20 dark:text-primary-300"
-                            >
-                              {email}
-                              <button
-                                type="button"
-                                onClick={() => setForm((current) => ({ ...current, extraRecipients: current.extraRecipients.filter((item) => item !== email) }))}
-                                className="rounded-full text-primary-500 hover:text-primary-700 dark:text-primary-300"
-                                aria-label={`Remove ${email}`}
-                              >
-                                x
-                              </button>
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-sm text-slate-400">No extra recipients added.</span>
-                        )}
-                      </div>
-                      <div className="mt-4 flex gap-2">
-                        <input
-                          type="email"
-                          value={recipientInput}
-                          onChange={(e) => setRecipientInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === ",") {
-                              e.preventDefault();
-                              addRecipientFromInput();
-                            }
-                          }}
-                          className="input-base flex-1"
-                          placeholder="email@example.com - press Enter or comma to add"
-                        />
-                        <button type="button" onClick={addRecipientFromInput} className="btn-secondary shrink-0">
-                          Add
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/25 bg-white/55 p-4 shadow-sm dark:border-white/10 dark:bg-slate-950/20">
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
@@ -643,8 +573,8 @@ export function EmailTemplateManagerView() {
                       <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
                         <li>Keep the subject short and action led.</li>
                         <li>Use the body for context, next steps, and any remarks.</li>
-                        <li>Requester and CDO are always CC&apos;d by the delivery layer.</li>
-                        <li>Extra recipients are appended as CC, not To.</li>
+                        <li>Workflow emails are sent only to the primary recipient for that stage.</li>
+                        <li>No CC recipients are added by the delivery layer.</li>
                       </ul>
                     </SectionCard>
                   </div>
@@ -753,7 +683,6 @@ export function EmailTemplateManagerView() {
               <div className="mt-5 grid gap-4 xl:grid-cols-2">
                 {filteredTemplates.map((template) => {
                   const triggerGroup = getTemplateGroup(template.trigger);
-                  const recipients = splitRecipients(template.extraRecipients);
                   return (
                     <article
                       key={template.id}
@@ -791,18 +720,8 @@ export function EmailTemplateManagerView() {
                           <p className="mt-2 break-words text-sm text-slate-700 dark:text-slate-200">{compactText(template.subjectTemplate, 140)}</p>
                         </div>
                         <div className="rounded-2xl border border-white/20 bg-white/45 p-4 dark:border-white/10 dark:bg-slate-950/20">
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">Recipients</p>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {recipients.length > 0 ? (
-                              recipients.map((email) => (
-                                <Pill key={email} tone="neutral">
-                                  {email}
-                                </Pill>
-                              ))
-                            ) : (
-                              <span className="text-sm text-slate-400">None</span>
-                            )}
-                          </div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">Delivery</p>
+                          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Primary recipient only. No CC recipients.</p>
                         </div>
                       </div>
 
@@ -848,7 +767,7 @@ export function EmailTemplateManagerView() {
               valueClassName="text-lg sm:text-xl"
               hintClassName="text-xs sm:text-sm"
             />
-            <MetricCard label="Always CC" value="Requester + CDO" hint="Applied to every email" tone="info" />
+            <MetricCard label="CC policy" value="None" hint="Workflow emails are To-only" tone="info" />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
@@ -939,12 +858,8 @@ export function EmailTemplateManagerView() {
                     <p className="mt-2">All subjects are sent with the {SUBJECT_PREFIX} prefix so recipients know the message came from the platform.</p>
                   </div>
                   <div className="rounded-2xl border border-white/20 bg-white/45 p-4 dark:border-white/10 dark:bg-slate-950/20">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">Always CC</p>
-                    <p className="mt-2">Requester and CDO are always copied on every workflow email.</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/20 bg-white/45 p-4 dark:border-white/10 dark:bg-slate-950/20">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">Extra recipients</p>
-                    <p className="mt-2">Any extra recipients added in the template editor are also treated as CC recipients, not primary recipients.</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-300">Recipients</p>
+                    <p className="mt-2">Workflow emails are sent only to the primary recipient for the active stage. No CC recipients are added.</p>
                   </div>
                 </div>
               </SectionCard>

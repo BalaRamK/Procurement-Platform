@@ -38,7 +38,7 @@ This document tracks what has been built, changed, and deployed for the Procurem
   - **Comment** and **Notification** models for internal comments and notification audit.
   - **UserRole enum**: SUPER_ADMIN, REQUESTER, FUNCTIONAL_HEAD, L1_APPROVER, CFO, CDO, PRODUCTION.
   - **TeamName enum**: INNOVATION, ENGINEERING, SALES.
-  - **TicketStatus enum** (FR 3.5): DRAFT, PENDING_FH_APPROVAL, PENDING_L1_APPROVAL, PENDING_CFO_APPROVAL, PENDING_CDO_APPROVAL, ASSIGNED_TO_PRODUCTION, DELIVERED_TO_REQUESTER, CONFIRMED_BY_REQUESTER, CLOSED, REJECTED.
+  - **TicketStatus enum** (FR 3.5): DRAFT, PENDING_FH_APPROVAL, PENDING_L1_APPROVAL, PENDING_CFO_APPROVAL, PENDING_CDO_APPROVAL, ASSIGNED_TO_PRODUCTION, ORDER_PLACED, DELIVERED_TO_REQUESTER, CONFIRMED_BY_REQUESTER, CLOSED, REJECTED.
 - **Super Admin Dashboard**: User management with **Team** dropdown for FH and L1 users.
 - **API**: `PATCH /api/admin/users` — body: `{ userId, role? }` or `{ userId, team? }` or `{ userId, status? }` — Super Admin only.
 
@@ -46,7 +46,7 @@ This document tracks what has been built, changed, and deployed for the Procurem
 - **Dashboard page**: Team-aware filtering (FR 3.3):
   - **FH**: only tickets with status PENDING_FH_APPROVAL and **ticket.teamName === user.team** (Innovation/Engineering).
   - **L1**: only tickets with status PENDING_L1_APPROVAL and **ticket.teamName === user.team** (Innovation/Engineering/Sales).
-  - **Production**: tickets with status ASSIGNED_TO_PRODUCTION or DELIVERED_TO_REQUESTER.
+  - **Production**: tickets with status ASSIGNED_TO_PRODUCTION, ORDER_PLACED, or DELIVERED_TO_REQUESTER.
 - **Ticket visibility**: Request detail and APIs filter by role, **team** (for FH/L1), and ticket status/ownership.
 
 ### Phase 4: Zoho Books Integration for Parts and Costs — Implemented
@@ -60,7 +60,7 @@ This document tracks what has been built, changed, and deployed for the Procurem
 ### Phase 5: Secure Middleware and Audit Logging — Implemented
 - **Middleware**: Protects routes; `/admin/*` restricted to Super Admin.
 - **Audit**: `logApproval({ ticketId, userEmail, userId?, action, remarks? })`; **rejection requires mandatory remarks** (FR 3.5).
-- **Approval flow** (FR 3.4): FH → L1 → CFO → CDO → Assigned to Production. Sales skips FH (goes to L1 Sales). On CDO approval, ticket → ASSIGNED_TO_PRODUCTION; Production can **Mark as delivered** → DELIVERED_TO_REQUESTER; Requester **Confirm receipt** → CLOSED. Rejection at any stage → REJECTED with remarks.
+- **Approval flow** (FR 3.4): FH → L1 → CFO → CDO → Assigned to Production. Sales skips FH (goes to L1 Sales). On CDO approval, ticket → ASSIGNED_TO_PRODUCTION; Procurement can mark **Order placed** → ORDER_PLACED; Procurement can **Mark as delivered** → DELIVERED_TO_REQUESTER; Requester **Confirm receipt** → CLOSED. Rejection at any stage → REJECTED with remarks.
 - **Notifications** (FR 7): `src/lib/notifications.ts` — `logNotification({ ticketId, type, recipient, payload? })`. Types: **on_creation** (to Requester), **assignment** (to Agent), **delivered** (to Requester), **closure** (to Requester), **team_assignment** (to team). Logged to `notifications` table; hook for email/SMS later.
 - **Auto-close** (FR 3.4): `GET /api/cron/auto-close` — closes tickets in DELIVERED_TO_REQUESTER for &gt; 48 hours without confirmation. Secure with `Authorization: Bearer CRON_SECRET`. Run via cron (e.g. hourly).
 
@@ -70,7 +70,7 @@ This document tracks what has been built, changed, and deployed for the Procurem
 - **APIs**: `GET/POST /api/requests`, `GET/PATCH /api/requests/[id]` — role- and team-based filtering; submit sets status to PENDING_FH_APPROVAL (Engineering/Innovation) or PENDING_L1_APPROVAL (Sales).
 
 ### Ticket lifecycle and role labels
-- **Lifecycle** (per requirements): Open → Pending FH Approval → Pending L1 Approval → Pending CFO Approval → Pending CDO Approval → Assigned to Production → Delivered to Requester → Confirmed by Requester → Closed. On rejection: Rejected with mandatory remarks. DRAFT is shown as **Open** in the UI.
+- **Lifecycle** (per requirements): Open → Pending FH Approval → Pending L1 Approval → Pending CFO Approval → Pending CDO Approval → Assigned to Production → Order Placed → Delivered to Requester → Confirmed by Requester → Closed. On rejection: Rejected with mandatory remarks. DRAFT is shown as **Open** in the UI.
 - **Role labels** (user-facing): Requester, **Department Head** (first-level approval), **L1 Approver** (second-level), **Finance Team** (CFO), CDO, **Procurement Team** (Production), **Admin** (Super Admin). Centralized in `src/lib/constants.ts` (ROLE_LABELS, STATUS_LABELS).
 - **Admin user CRUD** (Admin only): `/admin` — list users with email, name, role, team, status. **Add user**: `/admin/users/new` or "Add user" button; POST `/api/admin/users` (email, name, role, team). **Edit user**: "Edit" link → `/admin/users/[id]/edit`; PATCH `/api/admin/users` (userId, email?, name?, role?, team?, status?). **Delete**: "Delete" button calls DELETE `/api/admin/users?userId=xxx` (soft-delete: sets status=false; cannot delete self).
 - **Email templates** (Admin only): `/admin/email-templates` — add/edit/delete auto email templates. Each template has: name, trigger (e.g. request_created, request_rejected, pending_fh_reminder), subject/body templates (placeholders: `{{requesterName}}`, `{{ticketId}}`, `{{ticketTitle}}`, `{{status}}`, `{{rejectionRemarks}}`), timeline (immediate, after_24h, after_48h, custom with delay minutes), and enabled. API: GET/POST `/api/admin/email-templates`, GET/PATCH/DELETE `/api/admin/email-templates/[id]`. Table `email_templates` in Prisma schema. **Wiring**: When a notification is logged (request created, delivered, closed, etc.) or on rejection, `src/lib/email.ts` looks up an enabled template for that trigger with timeline "immediate", replaces placeholders with ticket/requester data, and sends (stub logs to console; set `RESEND_API_KEY` to send real emails when implemented).

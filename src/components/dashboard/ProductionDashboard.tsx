@@ -20,6 +20,7 @@ export function ProductionDashboard({
   subtitle?: string;
 }) {
   const assignedCount = tickets.filter((t) => t.status === "ASSIGNED_TO_PRODUCTION").length;
+  const orderPlacedCount = tickets.filter((t) => t.status === "ORDER_PLACED").length;
   const deliveredCount = tickets.filter((t) => t.status === "DELIVERED_TO_REQUESTER").length;
   const oldest = tickets.length > 0
     ? Math.max(...tickets.map((t) => daysSince(t.createdAt as string | Date)))
@@ -30,12 +31,12 @@ export function ProductionDashboard({
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{title ?? "Assigned to production"}</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">
-          {subtitle ?? "Tickets assigned to your team for fulfillment. Mark as delivered when material is sent."}
+          {subtitle ?? "Tickets assigned to your team for fulfillment. Mark orders placed before marking delivery."}
         </p>
       </div>
 
       {/* KPI cards */}
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
         <div className="card flex items-center gap-4 px-5 py-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-100 dark:bg-primary-900/40">
             <svg className="h-5 w-5 text-primary-600 dark:text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -44,7 +45,18 @@ export function ProductionDashboard({
           </div>
           <div>
             <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{assignedCount}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Awaiting delivery</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Awaiting order</p>
+          </div>
+        </div>
+        <div className="card flex items-center gap-4 px-5 py-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/40">
+            <svg className="h-5 w-5 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v12a2 2 0 01-2 2H7a2 2 0 01-2-2V6a2 2 0 012-2z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{orderPlacedCount}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Order placed</p>
           </div>
         </div>
         <div className="card flex items-center gap-4 px-5 py-4">

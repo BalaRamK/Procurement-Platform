@@ -159,8 +159,13 @@ export async function GET() {
   const statusMap: Record<string, TicketStatus> = {
     CFO: "PENDING_CFO_APPROVAL",
     CDO: "PENDING_CDO_APPROVAL",
-    PRODUCTION: "ASSIGNED_TO_PRODUCTION",
   };
+  if (role === "PRODUCTION") {
+    const rows = await query<Record<string, unknown>>(
+      `${TICKET_JOIN_REQ} WHERE t.status IN ('ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER') ORDER BY t.updated_at DESC`
+    );
+    return NextResponse.json(rows.map(mapRowWithRequester));
+  }
   const status = statusMap[role];
   if (status) {
     const rows = await query<Record<string, unknown>>(

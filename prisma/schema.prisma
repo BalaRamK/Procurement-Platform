@@ -31,6 +31,7 @@ enum TicketStatus {
   PENDING_CFO_APPROVAL
   PENDING_CDO_APPROVAL
   ASSIGNED_TO_PRODUCTION
+  ORDER_PLACED
   DELIVERED_TO_REQUESTER
   CONFIRMED_BY_REQUESTER
   CLOSED
@@ -162,6 +163,7 @@ model EmailTemplate {
   bodyTemplate    String   @map("body_template")  @db.Text
   timeline        String   @default("immediate") @map("timeline") // immediate, after_24h, after_48h, custom
   delayMinutes    Int?     @map("delay_minutes") // for custom timeline
+  extraRecipients String?  @map("extra_recipients")
   enabled         Boolean  @default(true) @map("enabled")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")

@@ -38,6 +38,7 @@ async function getSmtpConfig(): Promise<SmtpConfig | null> {
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
   assignment: "request_submitted_to_l1",
+  order_placed: "production_marked_order_placed",
   delivered: "production_marked_delivered",
   closure: "requester_confirmed_receipt",
   team_assignment: "cdo_approved_moved_to_production",
@@ -73,6 +74,7 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",
   ASSIGNED_TO_PRODUCTION: "Assigned to Production",
+  ORDER_PLACED: "Order Placed",
   DELIVERED_TO_REQUESTER: "Delivered to Requester",
   CONFIRMED_BY_REQUESTER: "Confirmed by Requester",
   CLOSED: "Closed",
@@ -171,9 +173,8 @@ function prefixSubject(subject: string) {
   return subject.startsWith(SUBJECT_PREFIX) ? subject : `${SUBJECT_PREFIX}${subject}`;
 }
 
-async function sendEmailWithCc(to: string[], cc: string[], subject: string, body: string): Promise<void> {
+async function sendWorkflowEmail(to: string[], subject: string, body: string): Promise<void> {
   const finalTo = dedupeEmails(to);
-  const finalCc = dedupeEmails(cc).filter((email) => !finalTo.includes(email));
   if (finalTo.length === 0) return;
 
   const cfg = await getSmtpConfig();
@@ -195,20 +196,18 @@ async function sendEmailWithCc(to: string[], cc: string[], subject: string, body
       await transporter.sendMail({
         from: cfg.from,
         to: finalTo.join(", "),
-        cc: finalCc.length > 0 ? finalCc.join(", ") : undefined,
         subject: prefixSubject(subject),
         text: body,
         html: body.replace(/\n/g, "<br>"),
       });
       return;
     } catch (e) {
-      console.error("[sendEmailWithCc] SMTP failed", e);
+      console.error("[sendWorkflowEmail] SMTP failed", e);
     }
   }
 
   console.log("[Email stub]", {
     to: finalTo,
-    cc: finalCc,
     subject: prefixSubject(subject),
     bodyLength: body.length,
   });
@@ -289,18 +288,7 @@ export async function sendNotificationEmail(
     const subject = replacePlaceholders(template.subjectTemplate, context);
     const body = replacePlaceholders(template.bodyTemplate, context);
 
-    const cdoRows = await query<{ email: string }>(
-      `SELECT email FROM users WHERE roles @> ARRAY['CDO']::"UserRole"[] AND status = true`
-    );
-    const alwaysCc = [
-      ticket?.requesterEmail ?? recipient,
-      ...cdoRows.map((row) => row.email),
-    ];
-    const extras = (template.extraRecipients ?? "")
-      .split(",")
-      .map((e) => e.trim())
-      .filter((e) => e.includes("@"));
-    await sendEmailWithCc([recipient], [...alwaysCc, ...extras], subject, body);
+    await sendWorkflowEmail([recipient], subject, body);
   } catch (e) {
     console.error("[sendNotificationEmail]", trigger, recipient, e);
   }

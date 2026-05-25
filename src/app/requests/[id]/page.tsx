@@ -19,7 +19,7 @@ function canView(
 ) {
   if (hasRole(roles, "SUPER_ADMIN")) return true;
   if (currentUserId && ticket.requesterId === currentUserId && hasRole(roles, "REQUESTER")) return true;
-  if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
+  if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
   if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") return true;
   if (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") return true;
   if (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") return true;
@@ -168,7 +168,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const isProduction = activeRole === "PRODUCTION" || hasRole(session.user.roles, "PRODUCTION");
   const canShowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
-    (isProduction && ticket.status === "ASSIGNED_TO_PRODUCTION") ||
+    (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
     (activeRole === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
     (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
