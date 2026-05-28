@@ -7,7 +7,7 @@ import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { sendNotificationEmail } from "@/lib/email";
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
-import { canViewTicket } from "@/lib/tickets";
+import { canViewTicket, isRequesterForActiveRole } from "@/lib/tickets";
 import { getPrimaryRole } from "@/types/db";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -156,7 +156,7 @@ export async function PATCH(
   const ticket = ticketRow;
   const requesterEmail = ticket.requesterEmail?.trim().toLowerCase() ?? "";
   const sessionEmail = session.user.email.trim().toLowerCase();
-  const isRequester = ticket.requesterId === session.user.id || (!!requesterEmail && requesterEmail === sessionEmail);
+  const isRequester = isRequesterForActiveRole(activeRole, ticket.requesterId, session.user.id, requesterEmail, sessionEmail);
   const isProduction = activeRole === "PRODUCTION" || session.user.roles?.includes("PRODUCTION");
 
   if (body.action === "submit") {

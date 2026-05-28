@@ -71,7 +71,7 @@ export function TicketActions({
     return (
       <div className="space-y-3">
         <button type="button" onClick={() => act("confirm_receipt")} disabled={!!loading} className="btn-success">
-          {loading === "confirm_receipt" ? "Processing..." : "Confirm receipt & close"}
+          {loading === "confirm_receipt" ? "Processing..." : "Confirm received and close"}
         </button>
         {errorMessage}
       </div>

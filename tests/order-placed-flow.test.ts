@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { EMAIL_TEMPLATE_TRIGGER_OPTIONS, DEFAULT_EMAIL_TEMPLATES } from "../src/lib/email-template-catalog";
 import { STATUS_LABELS } from "../src/lib/constants";
 import { TICKET_STATUSES } from "../src/types/db";
+import { isRequesterForActiveRole } from "../src/lib/tickets";
 
 test("order placed is a supported lifecycle status and email trigger", () => {
   assert.ok(TICKET_STATUSES.includes("ORDER_PLACED" as never));
@@ -20,4 +21,15 @@ test("workflow emails use expanded procurement platform content and no cc delive
   const emailSource = readFileSync("src/lib/email.ts", "utf-8");
   assert.ok(!emailSource.includes("cc:"));
   assert.ok(!emailSource.includes("alwaysCc"));
+});
+
+test("requester close action requires active requester role", () => {
+  assert.equal(
+    isRequesterForActiveRole("REQUESTER", "user-1", "user-1", "requester@example.com", "requester@example.com"),
+    true
+  );
+  assert.equal(
+    isRequesterForActiveRole("PRODUCTION", "user-1", "user-1", "requester@example.com", "requester@example.com"),
+    false
+  );
 });

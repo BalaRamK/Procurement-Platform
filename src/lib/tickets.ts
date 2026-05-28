@@ -1,6 +1,22 @@
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 import { hasRole } from "@/types/db";
 
+export function isRequesterForActiveRole(
+  activeRole: UserRole | null | undefined,
+  ticketRequesterId: string,
+  currentUserId: string | null | undefined,
+  requesterEmail?: string | null,
+  sessionEmail?: string | null
+) {
+  if (activeRole !== "REQUESTER") return false;
+  const normalizedRequesterEmail = requesterEmail?.trim().toLowerCase() ?? "";
+  const normalizedSessionEmail = sessionEmail?.trim().toLowerCase() ?? "";
+  return (
+    (!!currentUserId && ticketRequesterId === currentUserId) ||
+    (!!normalizedRequesterEmail && normalizedRequesterEmail === normalizedSessionEmail)
+  );
+}
+
 export function canViewTicket(
   roles: UserRole[] | null | undefined,
   userTeam: TeamName | null,

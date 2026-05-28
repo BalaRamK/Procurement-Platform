@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WorkflowStepper } from "@/components/ui/WorkflowStepper";
+import { isRequesterForActiveRole } from "@/lib/tickets";
 import type { TeamName, UserRole } from "@/types/db";
 import { getPrimaryRole, hasRole } from "@/types/db";
 
@@ -164,7 +165,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const userTeam = session.user.team ?? null;
   const sessionEmail = session.user.email?.trim().toLowerCase() ?? "";
   const requesterEmail = ticket.requester?.email?.trim().toLowerCase() ?? "";
-  const isRequester = ticket.requesterId === session.user.id || (!!sessionEmail && requesterEmail === sessionEmail);
+  const isRequester = isRequesterForActiveRole(activeRole, ticket.requesterId, session.user.id, requesterEmail, sessionEmail);
   const isProduction = activeRole === "PRODUCTION" || hasRole(session.user.roles, "PRODUCTION");
   const canShowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
