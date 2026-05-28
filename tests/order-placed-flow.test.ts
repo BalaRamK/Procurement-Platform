@@ -21,6 +21,9 @@ test("workflow emails use expanded procurement platform content and no cc delive
   const emailSource = readFileSync("src/lib/email.ts", "utf-8");
   assert.ok(!emailSource.includes("cc:"));
   assert.ok(!emailSource.includes("alwaysCc"));
+  assert.ok(emailSource.includes("renderWorkflowEmailHtml"));
+  assert.ok(emailSource.includes("<table"));
+  assert.ok(emailSource.includes("Open request"));
 });
 
 test("requester close action requires active requester role", () => {

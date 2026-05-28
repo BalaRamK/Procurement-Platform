@@ -173,6 +173,96 @@ function prefixSubject(subject: string) {
   return subject.startsWith(SUBJECT_PREFIX) ? subject : `${SUBJECT_PREFIX}${subject}`;
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderWorkflowEmailHtml(subject: string, body: string) {
+  const lines = body.split(/\r?\n/).map((line) => line.trim());
+  const detailStart = lines.findIndex((line) => line.toLowerCase() === "request details:");
+  const openRequestLine = lines.find((line) => line.startsWith("Open request:"));
+  const requestUrl = openRequestLine?.replace("Open request:", "").trim() ?? "";
+  const introLines = (detailStart >= 0 ? lines.slice(0, detailStart) : lines)
+    .filter((line) => line && !line.startsWith("Open request:"));
+  const detailLines = detailStart >= 0 ? lines.slice(detailStart + 1) : [];
+  const details = detailLines
+    .filter((line) => line.includes(":") && !line.startsWith("Open request:"))
+    .map((line) => {
+      const separator = line.indexOf(":");
+      return {
+        label: line.slice(0, separator).trim(),
+        value: line.slice(separator + 1).trim() || "Not applicable",
+      };
+    });
+  const status = details.find((detail) => detail.label === "Next stage")?.value
+    ?? details.find((detail) => detail.label === "Current stage")?.value
+    ?? "Procurement update";
+  const visibleDetails = details.filter((detail) => detail.label !== "Open request");
+
+  const detailRows = visibleDetails.map((detail) => `
+    <tr>
+      <td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;width:36%;">${escapeHtml(detail.label)}</td>
+      <td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">${escapeHtml(detail.value)}</td>
+    </tr>`).join("");
+
+  const paragraphs = introLines.map((line, index) => {
+    const color = index === 0 ? "#334155" : "#475569";
+    return `<p style="margin:0 0 14px;color:${color};font-size:15px;line-height:1.6;">${escapeHtml(line)}</p>`;
+  }).join("");
+
+  const cta = requestUrl
+    ? `<a href="${escapeHtml(requestUrl)}" style="display:inline-block;margin-top:18px;padding:12px 18px;border-radius:8px;background:#2563eb;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Open request</a>`
+    : "";
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f3f6fb;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f6fb;padding:28px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 28px;background:#0f172a;">
+                <div style="color:#93c5fd;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;">Procurement Platform</div>
+                <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;line-height:1.3;">${escapeHtml(subject.replace(SUBJECT_PREFIX, ""))}</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:22px 28px 8px;">
+                <span style="display:inline-block;padding:7px 10px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:700;">${escapeHtml(status)}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 28px 18px;">
+                ${paragraphs}
+                ${cta}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 28px 24px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;border-collapse:separate;border-spacing:0;">
+                  ${detailRows}
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 28px;background:#f8fafc;color:#64748b;font-size:12px;line-height:1.5;">
+                This is an automated email from Procurement Platform. Please use the request page for comments and audit history.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
 async function sendWorkflowEmail(to: string[], subject: string, body: string): Promise<void> {
   const finalTo = dedupeEmails(to);
   if (finalTo.length === 0) return;
@@ -198,7 +288,7 @@ async function sendWorkflowEmail(to: string[], subject: string, body: string): P
         to: finalTo.join(", "),
         subject: prefixSubject(subject),
         text: body,
-        html: body.replace(/\n/g, "<br>"),
+        html: renderWorkflowEmailHtml(prefixSubject(subject), body),
       });
       return;
     } catch (e) {
