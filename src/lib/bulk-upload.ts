@@ -53,6 +53,47 @@ function findColumn(headers: string[], match: HeaderMatch) {
   return headers.findIndex((header) => match.patterns.some((pattern) => pattern.test(header)));
 }
 
+function getColumnIndexes(headers: string[]) {
+  return {
+    slNo: findColumn(headers, HEADER_MATCHES.slNo),
+    componentName: findColumn(headers, HEADER_MATCHES.componentName),
+    bomId: findColumn(headers, HEADER_MATCHES.bomId),
+    costPerItem: findColumn(headers, HEADER_MATCHES.costPerItem),
+    quantity: findColumn(headers, HEADER_MATCHES.quantity),
+    itemDescription: findColumn(headers, HEADER_MATCHES.itemDescription),
+  };
+}
+
+function getMissingRequiredColumns(indexes: ReturnType<typeof getColumnIndexes>) {
+  return Object.entries(HEADER_MATCHES)
+    .filter(([key, match]) => match.required && indexes[key as keyof typeof indexes] < 0)
+    .map(([, match]) => match.label);
+}
+
+function findHeaderRow(rows: unknown[][]) {
+  const candidates = rows.slice(0, 10);
+  let best:
+    | {
+        rowIndex: number;
+        headers: string[];
+        indexes: ReturnType<typeof getColumnIndexes>;
+        missing: string[];
+      }
+    | null = null;
+
+  for (let rowIndex = 0; rowIndex < candidates.length; rowIndex++) {
+    const headers = (candidates[rowIndex] ?? []).map(normalizeHeader);
+    const indexes = getColumnIndexes(headers);
+    const missing = getMissingRequiredColumns(indexes);
+    if (missing.length === 0) return { rowIndex, headers, indexes, missing };
+    if (!best || missing.length < best.missing.length) {
+      best = { rowIndex, headers, indexes, missing };
+    }
+  }
+
+  return best;
+}
+
 function parseNumber(value: unknown) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   const normalized = String(value ?? "")
@@ -69,26 +110,16 @@ export function parseBulkUploadRows(rows: unknown[][]): BulkUploadLineItem[] {
     throw new Error("No line items found. Add a header row and at least one item row.");
   }
 
-  const headers = (rows[0] ?? []).map(normalizeHeader);
-  const indexes = {
-    slNo: findColumn(headers, HEADER_MATCHES.slNo),
-    componentName: findColumn(headers, HEADER_MATCHES.componentName),
-    bomId: findColumn(headers, HEADER_MATCHES.bomId),
-    costPerItem: findColumn(headers, HEADER_MATCHES.costPerItem),
-    quantity: findColumn(headers, HEADER_MATCHES.quantity),
-    itemDescription: findColumn(headers, HEADER_MATCHES.itemDescription),
-  };
+  const header = findHeaderRow(rows);
+  const missing = header?.missing ?? ["Component Name", "Cost per item", "Quantity"];
 
-  const missing = Object.entries(HEADER_MATCHES)
-    .filter(([key, match]) => match.required && indexes[key as keyof typeof indexes] < 0)
-    .map(([, match]) => match.label);
-
-  if (missing.length > 0) {
+  if (!header || missing.length > 0) {
     throw new Error(`Missing required columns: ${missing.join(", ")}.`);
   }
 
+  const indexes = header.indexes;
   const parsed: BulkUploadLineItem[] = [];
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = header.rowIndex + 1; i < rows.length; i++) {
     const row = rows[i] ?? [];
     const componentName = String(row[indexes.componentName] ?? "").trim();
     const costPerItem = parseNumber(row[indexes.costPerItem]);

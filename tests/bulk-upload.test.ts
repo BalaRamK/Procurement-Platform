@@ -33,3 +33,19 @@ test("bulk upload reports missing required columns clearly", () => {
     /Missing required columns: Cost per item, Quantity/
   );
 });
+
+test("bulk upload finds the header row below template instruction rows", () => {
+  const rows = [
+    ["Procurement bulk upload template"],
+    ["Fill the item details below"],
+    ["Sl. No.", "Component Name", "BOM ID", "Cost per item", "Quantity", "Item Description"],
+    [1, "Detector module", "BOM-2001", "2,500", 3, "For lab setup"],
+  ];
+
+  const parsed = parseBulkUploadRows(rows);
+
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].componentName, "Detector module");
+  assert.equal(parsed[0].costPerItem, 2500);
+  assert.equal(parsed[0].quantity, 3);
+});

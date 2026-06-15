@@ -201,6 +201,7 @@ export function PurchaseRequestForm({
   const [bulkModalRows, setBulkModalRows] = useState<typeof bulkLineItems>([]);
   const [bulkZohoChecking, setBulkZohoChecking] = useState(false);
   const [bulkUploadFileName, setBulkUploadFileName] = useState("");
+  const [bulkUploadStatus, setBulkUploadStatus] = useState("");
   const [componentSuggestions, setComponentSuggestions] = useState<Array<{ id: string; name: string | null; sku: string | null; rate: number | null; unit: string | null }>>([]);
   const [componentSuggestionsOpen, setComponentSuggestionsOpen] = useState(false);
   const [componentSuggestionsLoading, setComponentSuggestionsLoading] = useState(false);
@@ -609,6 +610,7 @@ export function PurchaseRequestForm({
                         const file = e.target.files?.[0];
                         if (!file) return;
                         setBulkUploadFileName(file.name);
+                        setBulkUploadStatus(`Reading ${file.name}...`);
                         setLookupError("");
                         try {
                           const XLSX = await import("xlsx");
@@ -618,10 +620,10 @@ export function PurchaseRequestForm({
                           const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
                           const parsed: typeof bulkModalRows = parseBulkUploadRows(rows);
                           setBulkModalRows(parsed);
+                          setBulkUploadStatus(`Loaded ${parsed.length} item(s) from ${file.name}. Review them before adding to the request.`);
                           setBulkModalOpen(true);
                         } catch (err) {
-                          e.target.value = "";
-                          setBulkUploadFileName("");
+                          setBulkUploadStatus(`Could not load ${file.name}.`);
                           setLookupError(
                             err instanceof Error
                               ? err.message
@@ -636,6 +638,9 @@ export function PurchaseRequestForm({
                         Selected file: <span className="font-medium text-slate-800 dark:text-slate-100">{bulkUploadFileName}</span>
                       </p>
                     )}
+                    {bulkUploadStatus && (
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{bulkUploadStatus}</p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -646,6 +651,7 @@ export function PurchaseRequestForm({
                         onClick={() => {
                           setBulkLineItems([]);
                           setBulkUploadFileName("");
+                          setBulkUploadStatus("");
                         }}
                         className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
                       >
