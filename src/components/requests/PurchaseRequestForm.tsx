@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type { TeamName, CostCurrency, Priority } from "@/types/db";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { parseBulkUploadRows } from "@/lib/bulk-upload";
 
 const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },
@@ -609,34 +610,8 @@ export function PurchaseRequestForm({
                           const data = await file.arrayBuffer();
                           const wb = XLSX.read(data, { type: "array" });
                           const ws = wb.Sheets[wb.SheetNames[0]];
-                          const rows = XLSX.utils.sheet_to_json(ws, { header: 1 }) as unknown[][];
-                          if (rows.length < 2) return;
-                          const headers = (rows[0] as string[]).map((h) => String(h ?? "").trim());
-                          const slNoIdx = headers.findIndex((h) => /sl\.?\s*no|serial/i.test(h));
-                          const compIdx = headers.findIndex((h) => /component\s*name/i.test(h));
-                          const bomIdx = headers.findIndex((h) => /bom\s*id/i.test(h));
-                          const costIdx = headers.findIndex((h) => /cost\s*per\s*item/i.test(h));
-                          const qtyIdx = headers.findIndex((h) => /quantity/i.test(h));
-                          const descIdx = headers.findIndex((h) => /item\s*description|description/i.test(h));
-                          const parsed: typeof bulkModalRows = [];
-                          for (let i = 1; i < rows.length; i++) {
-                            const row = rows[i] as unknown[];
-                            const componentName = compIdx >= 0 ? String(row[compIdx] ?? "").trim() : "";
-                            const costPerItem = costIdx >= 0 ? Number(row[costIdx]) || 0 : 0;
-                            const quantity = qtyIdx >= 0 ? Math.max(1, Math.floor(Number(row[qtyIdx]) || 1)) : 1;
-                            if (!componentName && costPerItem === 0) continue;
-                            if (costPerItem <= 0) {
-                              throw new Error("Each bulk line item must have a cost per item greater than 0.");
-                            }
-                            parsed.push({
-                              slNo: slNoIdx >= 0 ? Math.floor(Number(row[slNoIdx]) || i) : i,
-                              componentName,
-                              bomId: bomIdx >= 0 ? String(row[bomIdx] ?? "").trim() : "",
-                              costPerItem,
-                              quantity,
-                              itemDescription: descIdx >= 0 ? String(row[descIdx] ?? "").trim() : "",
-                            });
-                          }
+                          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+                          const parsed: typeof bulkModalRows = parseBulkUploadRows(rows);
                           setBulkModalRows(parsed);
                           setBulkModalOpen(true);
                         } catch (err) {
