@@ -161,10 +161,6 @@ export function parseBulkUploadRows(rows: unknown[][]): BulkUploadLineItem[] {
     if (!componentName) {
       throw new Error(`Bulk row ${i + 1} is missing component name.`);
     }
-    if (costPerItem <= 0) {
-      throw new Error(`Bulk row ${i + 1} must have a cost per item greater than 0.`);
-    }
-
     parsed.push({
       slNo: indexes.slNo >= 0 ? Math.floor(parseNumber(row[indexes.slNo]) || i) : i,
       componentName,

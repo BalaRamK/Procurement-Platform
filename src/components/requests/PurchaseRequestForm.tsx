@@ -337,9 +337,9 @@ export function PurchaseRequestForm({
       if (missingComponentRow) {
         errors.bulkLineItems = `Bulk row ${missingComponentRow.slNo || bulkLineItems.indexOf(missingComponentRow) + 1} is missing component name.`;
       }
-      const invalidRow = bulkLineItems.find((row) => row.costPerItem <= 0 || row.quantity < 1);
+      const invalidRow = bulkLineItems.find((row) => row.costPerItem < 0 || row.quantity < 1);
       if (invalidRow) {
-        errors.bulkLineItems = `Bulk row ${invalidRow.slNo || bulkLineItems.indexOf(invalidRow) + 1} has an invalid cost or quantity.`;
+        errors.bulkLineItems = `Bulk row ${invalidRow.slNo || bulkLineItems.indexOf(invalidRow) + 1} has an invalid quantity or negative cost.`;
       }
     } else {
       if (!componentDescription.trim()) errors.componentDescription = "Component name is required.";

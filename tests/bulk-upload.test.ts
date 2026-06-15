@@ -70,6 +70,26 @@ test("bulk upload accepts common supplier and procurement header variants", () =
   ]);
 });
 
+test("bulk upload accepts BOM rows with blank cost for procurement pricing later", () => {
+  const rows = [
+    ["Sl. No. ", "Component Name", "BOM ID", "Cost per item", "Quantity", "Item Description"],
+    ["1", "GRM155R71H103KA88D", "", "", "31", "CAP CER 4.7UF 10V X5R 0402"],
+  ];
+
+  const parsed = parseBulkUploadRows(rows);
+
+  assert.deepEqual(parsed, [
+    {
+      slNo: 1,
+      componentName: "GRM155R71H103KA88D",
+      bomId: "",
+      costPerItem: 0,
+      quantity: 31,
+      itemDescription: "CAP CER 4.7UF 10V X5R 0402",
+    },
+  ]);
+});
+
 test("bulk upload missing column error includes detected headers", () => {
   const rows = [
     ["Product Name", "Remarks"],
