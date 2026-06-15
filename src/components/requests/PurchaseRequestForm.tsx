@@ -200,6 +200,7 @@ export function PurchaseRequestForm({
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkModalRows, setBulkModalRows] = useState<typeof bulkLineItems>([]);
   const [bulkZohoChecking, setBulkZohoChecking] = useState(false);
+  const [bulkUploadFileName, setBulkUploadFileName] = useState("");
   const [componentSuggestions, setComponentSuggestions] = useState<Array<{ id: string; name: string | null; sku: string | null; rate: number | null; unit: string | null }>>([]);
   const [componentSuggestionsOpen, setComponentSuggestionsOpen] = useState(false);
   const [componentSuggestionsLoading, setComponentSuggestionsLoading] = useState(false);
@@ -596,15 +597,19 @@ export function PurchaseRequestForm({
               <>
                 {bulkLineItems.length === 0 ? (
                   <div>
-                    <p className="mb-2 text-sm text-slate-600 dark:text-slate-300">
+                    <label htmlFor="bulkExcelUpload" className="mb-2 block text-sm text-slate-600 dark:text-slate-300">
                       Upload an Excel file with columns: <strong>Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description</strong>
-                    </p>
+                    </label>
                     <input
+                      id="bulkExcelUpload"
+                      name="bulkExcelUpload"
                       type="file"
                       accept=".xlsx,.xls"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (!file) return;
+                        setBulkUploadFileName(file.name);
+                        setLookupError("");
                         try {
                           const XLSX = await import("xlsx");
                           const data = await file.arrayBuffer();
@@ -615,16 +620,22 @@ export function PurchaseRequestForm({
                           setBulkModalRows(parsed);
                           setBulkModalOpen(true);
                         } catch (err) {
+                          e.target.value = "";
+                          setBulkUploadFileName("");
                           setLookupError(
                             err instanceof Error
                               ? err.message
                               : "Failed to parse Excel. Check columns: Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description."
                           );
                         }
-                        e.target.value = "";
                       }}
                       className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/30 dark:file:text-primary-300"
                     />
+                    {bulkUploadFileName && (
+                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                        Selected file: <span className="font-medium text-slate-800 dark:text-slate-100">{bulkUploadFileName}</span>
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -632,7 +643,10 @@ export function PurchaseRequestForm({
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{bulkLineItems.length} item(s) added</p>
                       <button
                         type="button"
-                        onClick={() => setBulkLineItems([])}
+                        onClick={() => {
+                          setBulkLineItems([]);
+                          setBulkUploadFileName("");
+                        }}
                         className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
                       >
                         Clear and upload again
