@@ -49,3 +49,35 @@ test("bulk upload finds the header row below template instruction rows", () => {
   assert.equal(parsed[0].costPerItem, 2500);
   assert.equal(parsed[0].quantity, 3);
 });
+
+test("bulk upload accepts common supplier and procurement header variants", () => {
+  const rows = [
+    ["Sr. No.", "Product Name *", "Item Code", "Unit Rate (INR)", "Nos.", "Specifications"],
+    [1, "Optical table", "OT-44", "₹45,000", 1, "Vibration isolated"],
+  ];
+
+  const parsed = parseBulkUploadRows(rows);
+
+  assert.deepEqual(parsed, [
+    {
+      slNo: 1,
+      componentName: "Optical table",
+      bomId: "OT-44",
+      costPerItem: 45000,
+      quantity: 1,
+      itemDescription: "Vibration isolated",
+    },
+  ]);
+});
+
+test("bulk upload missing column error includes detected headers", () => {
+  const rows = [
+    ["Product Name", "Remarks"],
+    ["Optical table", "Missing price and quantity"],
+  ];
+
+  assert.throws(
+    () => parseBulkUploadRows(rows),
+    /Detected columns: Product Name, Remarks/
+  );
+});

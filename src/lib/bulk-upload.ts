@@ -16,37 +16,66 @@ type HeaderMatch = {
 const HEADER_MATCHES: Record<string, HeaderMatch> = {
   slNo: {
     label: "Sl. No.",
-    patterns: [/^sl\.?\s*no\.?$/i, /^s\.?\s*no\.?$/i, /^serial(\s*no\.?)?$/i, /^#$/],
+    patterns: [/^sl\s*no$/i, /^s\s*no$/i, /^serial(\s*no)?$/i, /^sr\s*no$/i, /^no$/i, /^#$/],
   },
   componentName: {
     label: "Component Name",
     required: true,
-    patterns: [/^component\s*name$/i, /^component$/i, /^item\s*name$/i, /^item$/i, /^part\s*name$/i, /^material$/i],
+    patterns: [
+      /^component\s*name$/i,
+      /^component$/i,
+      /^item\s*name$/i,
+      /^item$/i,
+      /^part\s*name$/i,
+      /^part$/i,
+      /^material\s*name$/i,
+      /^material$/i,
+      /^product\s*name$/i,
+      /^product$/i,
+      /^description\s*of\s*goods$/i,
+      /^goods\s*description$/i,
+    ],
   },
   bomId: {
     label: "BOM ID",
-    patterns: [/^bom\s*id$/i, /^bom$/i, /^bom\s*no\.?$/i],
+    patterns: [/^bom\s*id$/i, /^bom$/i, /^bom\s*no$/i, /^bom\s*number$/i, /^sku$/i, /^item\s*code$/i, /^part\s*no$/i],
   },
   costPerItem: {
     label: "Cost per item",
     required: true,
-    patterns: [/^cost\s*per\s*item$/i, /^unit\s*price$/i, /^unit\s*cost$/i, /^cost$/i, /^rate$/i, /^price$/i, /^amount$/i],
+    patterns: [
+      /^cost\s*per\s*item$/i,
+      /^cost\s*\/\s*item$/i,
+      /^unit\s*price$/i,
+      /^unit\s*cost$/i,
+      /^unit\s*rate$/i,
+      /^cost$/i,
+      /^rate$/i,
+      /^price$/i,
+      /^amount$/i,
+      /^estimated\s*cost$/i,
+      /^approx\.?\s*cost$/i,
+      /^approximate\s*cost$/i,
+    ],
   },
   quantity: {
     label: "Quantity",
     required: true,
-    patterns: [/^quantity$/i, /^qty$/i, /^qnty$/i],
+    patterns: [/^quantity$/i, /^qty$/i, /^qnty$/i, /^nos$/i, /^no\s*of\s*items$/i, /^number\s*of\s*items$/i],
   },
   itemDescription: {
     label: "Item Description",
-    patterns: [/^item\s*description$/i, /^description$/i, /^details$/i, /^remarks$/i],
+    patterns: [/^item\s*description$/i, /^description$/i, /^details$/i, /^specification$/i, /^specifications$/i, /^remarks$/i, /^notes$/i],
   },
 };
 
 function normalizeHeader(value: unknown) {
   return String(value ?? "")
     .trim()
-    .replace(/\s+/g, " ");
+    .replace(/\([^)]*\)/g, "")
+    .replace(/[*:._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function findColumn(headers: string[], match: HeaderMatch) {
@@ -114,7 +143,10 @@ export function parseBulkUploadRows(rows: unknown[][]): BulkUploadLineItem[] {
   const missing = header?.missing ?? ["Component Name", "Cost per item", "Quantity"];
 
   if (!header || missing.length > 0) {
-    throw new Error(`Missing required columns: ${missing.join(", ")}.`);
+    const detected = header?.headers.filter(Boolean).join(", ") || "none";
+    throw new Error(
+      `Missing required columns: ${missing.join(", ")}. Detected columns: ${detected}. Accepted required columns include Component Name/Item Name/Product Name, Cost per item/Unit Price/Rate, and Quantity/Qty.`
+    );
   }
 
   const indexes = header.indexes;

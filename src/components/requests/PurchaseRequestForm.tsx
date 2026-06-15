@@ -616,18 +616,31 @@ export function PurchaseRequestForm({
                           const XLSX = await import("xlsx");
                           const data = await file.arrayBuffer();
                           const wb = XLSX.read(data, { type: "array" });
-                          const ws = wb.Sheets[wb.SheetNames[0]];
-                          const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
-                          const parsed: typeof bulkModalRows = parseBulkUploadRows(rows);
+                          const sheetErrors: string[] = [];
+                          let parsed: typeof bulkModalRows | null = null;
+                          for (const sheetName of wb.SheetNames) {
+                            try {
+                              const ws = wb.Sheets[sheetName];
+                              const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" }) as unknown[][];
+                              parsed = parseBulkUploadRows(rows);
+                              break;
+                            } catch (sheetErr) {
+                              sheetErrors.push(
+                                `${sheetName}: ${sheetErr instanceof Error ? sheetErr.message : "Could not parse sheet"}`
+                              );
+                            }
+                          }
+                          if (!parsed) {
+                            throw new Error(sheetErrors[0] ?? "No readable sheets found in this Excel file.");
+                          }
                           setBulkModalRows(parsed);
                           setBulkUploadStatus(`Loaded ${parsed.length} item(s) from ${file.name}. Review them before adding to the request.`);
                           setBulkModalOpen(true);
                         } catch (err) {
-                          setBulkUploadStatus(`Could not load ${file.name}.`);
+                          const message = err instanceof Error ? err.message : "Failed to parse Excel.";
+                          setBulkUploadStatus(`Could not load ${file.name}: ${message}`);
                           setLookupError(
-                            err instanceof Error
-                              ? err.message
-                              : "Failed to parse Excel. Check columns: Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description."
+                            message || "Failed to parse Excel. Check columns: Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description."
                           );
                         }
                       }}
