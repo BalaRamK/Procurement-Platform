@@ -5,6 +5,8 @@ import { query } from "@/lib/db";
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS } from "@/lib/constants";
+import { OpenTicketsReportDownload } from "@/components/admin/OpenTicketsReportDownload";
+import { OPEN_TICKET_REPORT_HEADERS, OPEN_TICKET_REPORT_SQL, toOpenTicketReportRows, type OpenTicketReportSource } from "@/lib/open-ticket-report";
 
 const LIFECYCLE_ORDER = [
   "DRAFT",
@@ -31,6 +33,9 @@ export default async function AdminReportsPage() {
     `SELECT t.id, t.title, t.status, t.updated_at AS "updatedAt", t.request_id AS "requestId", u.email AS "requesterEmail"
      FROM tickets t LEFT JOIN users u ON t.requester_id = u.id ORDER BY t.updated_at DESC`
   );
+
+  const openTicketReportSource = await query<OpenTicketReportSource>(OPEN_TICKET_REPORT_SQL);
+  const openTicketReportRows = toOpenTicketReportRows(openTicketReportSource);
 
   const byStatus = LIFECYCLE_ORDER.reduce(
     (acc, status) => {
@@ -113,6 +118,52 @@ export default async function AdminReportsPage() {
             </div>
           ))}
         </dl>
+      </div>
+
+      <div className="card mb-8 overflow-hidden dark:bg-[#171717] dark:border-white/10">
+        <div className="card-header flex flex-col gap-3 border-b px-6 py-4 dark:bg-[#1f1f1f] dark:border-white/10 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Open tickets report</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Open requests with owner, item, and pending-with details.</p>
+          </div>
+          <OpenTicketsReportDownload rows={openTicketReportRows} />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse text-sm">
+            <caption className="sr-only">Open tickets report</caption>
+            <thead>
+              <tr className="bg-orange-50 dark:bg-[#1f1f1f]">
+                {OPEN_TICKET_REPORT_HEADERS.map((header) => (
+                  <th key={header} scope="col" className="whitespace-nowrap border border-slate-300 px-3 py-2 text-left font-semibold text-slate-950 dark:border-slate-600 dark:text-slate-100">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {openTicketReportRows.length === 0 ? (
+                <tr>
+                  <td colSpan={OPEN_TICKET_REPORT_HEADERS.length} className="border border-slate-300 px-3 py-8 text-center text-slate-500 dark:border-slate-600 dark:text-slate-300">
+                    No open tickets.
+                  </td>
+                </tr>
+              ) : (
+                openTicketReportRows.map((row) => (
+                  <tr key={`${row.requestId}-${row.slNo}`} className="bg-white/40 dark:bg-white/5">
+                    <td className="border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.slNo}</td>
+                    <td className="border border-slate-300 px-3 py-2 align-top font-medium text-primary-700 dark:border-slate-600 dark:text-sky-200">{row.requestId}</td>
+                    <td className="border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.requesterName}</td>
+                    <td className="border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.team}</td>
+                    <td className="border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.createdOn}</td>
+                    <td className="min-w-[16rem] border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.ticketTitle}</td>
+                    <td className="min-w-[22rem] border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.item}</td>
+                    <td className="min-w-[14rem] border border-slate-300 px-3 py-2 align-top dark:border-slate-600">{row.pendingWith}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="card overflow-hidden dark:bg-[#171717] dark:border-white/10">

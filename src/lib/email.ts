@@ -3,8 +3,13 @@ import { SUBJECT_PREFIX } from "@/lib/email-template-catalog";
 import { ensureDefaultEmailTemplates } from "@/lib/email-template-defaults";
 
 type SmtpConfig = { host: string; port: string; from: string; user: string; pass: string; proxy: string };
+export type EmailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+};
 
-async function getSmtpConfig(): Promise<SmtpConfig | null> {
+export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   try {
     const rows = await query<{ key: string; value: string | null }>(
       `SELECT key, value FROM app_settings WHERE key = ANY($1)`,
@@ -96,6 +101,57 @@ function replacePlaceholders(text: string, context: EmailContext): string {
     }
   }
   return out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, "Not applicable");
+}
+
+export async function sendPlatformEmail({
+  to,
+  subject,
+  text,
+  html,
+  attachments,
+}: {
+  to: string[];
+  subject: string;
+  text: string;
+  html?: string;
+  attachments?: EmailAttachment[];
+}) {
+  const finalTo = dedupeEmails(to);
+  if (finalTo.length === 0) return { sent: false, reason: "No recipients" };
+
+  const cfg = await getSmtpConfig();
+  if (cfg) {
+    const numPort = parseInt(cfg.port, 10) || 587;
+    const nodemailer = await import("nodemailer");
+    const transportOptions: Record<string, unknown> = {
+      host: cfg.host,
+      port: numPort,
+      secure: numPort === 465,
+      auth: { user: cfg.user, pass: cfg.pass },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
+    };
+    if (cfg.proxy) transportOptions.proxy = cfg.proxy;
+    const transporter = nodemailer.default.createTransport(transportOptions);
+    await transporter.sendMail({
+      from: cfg.from,
+      to: finalTo.join(", "),
+      subject,
+      text,
+      html: html ?? text.replace(/\n/g, "<br>"),
+      attachments,
+    });
+    return { sent: true, recipients: finalTo };
+  }
+
+  console.log("[Email stub]", {
+    to: finalTo,
+    subject,
+    bodyLength: text.length,
+    attachments: attachments?.map((attachment) => attachment.filename) ?? [],
+  });
+  return { sent: false, reason: "SMTP not configured", recipients: finalTo };
 }
 
 export async function getTemplateForTrigger(
@@ -267,33 +323,16 @@ async function sendWorkflowEmail(to: string[], subject: string, body: string): P
   const finalTo = dedupeEmails(to);
   if (finalTo.length === 0) return;
 
-  const cfg = await getSmtpConfig();
-  if (cfg) {
-    try {
-      const numPort = parseInt(cfg.port, 10) || 587;
-      const nodemailer = await import("nodemailer");
-      const transportOptions: Record<string, unknown> = {
-        host: cfg.host,
-        port: numPort,
-        secure: numPort === 465,
-        auth: { user: cfg.user, pass: cfg.pass },
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 15_000,
-      };
-      if (cfg.proxy) transportOptions.proxy = cfg.proxy;
-      const transporter = nodemailer.default.createTransport(transportOptions);
-      await transporter.sendMail({
-        from: cfg.from,
-        to: finalTo.join(", "),
-        subject: prefixSubject(subject),
-        text: body,
-        html: renderWorkflowEmailHtml(prefixSubject(subject), body),
-      });
-      return;
-    } catch (e) {
-      console.error("[sendWorkflowEmail] SMTP failed", e);
-    }
+  try {
+    await sendPlatformEmail({
+      to: finalTo,
+      subject: prefixSubject(subject),
+      text: body,
+      html: renderWorkflowEmailHtml(prefixSubject(subject), body),
+    });
+    return;
+  } catch (e) {
+    console.error("[sendWorkflowEmail] SMTP failed", e);
   }
 
   console.log("[Email stub]", {
