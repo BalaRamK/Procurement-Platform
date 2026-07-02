@@ -17,7 +17,12 @@ test("bulk upload accepts common procurement spreadsheet headers and formatted p
       bomId: "BOM-1001",
       costPerItem: 1200.5,
       quantity: 2,
-      itemDescription: "For optical bench",
+      itemDescription: "",
+      manufacturer: "",
+      preferredSupplier: "",
+      countryOfOrigin: "",
+      extraSpares: "",
+      remarks: "For optical bench",
     },
   ]);
 });
@@ -66,6 +71,11 @@ test("bulk upload accepts common supplier and procurement header variants", () =
       costPerItem: 45000,
       quantity: 1,
       itemDescription: "Vibration isolated",
+      manufacturer: "",
+      preferredSupplier: "",
+      countryOfOrigin: "",
+      extraSpares: "",
+      remarks: "",
     },
   ]);
 });
@@ -86,6 +96,48 @@ test("bulk upload accepts BOM rows with blank cost for procurement pricing later
       costPerItem: 0,
       quantity: 31,
       itemDescription: "CAP CER 4.7UF 10V X5R 0402",
+      manufacturer: "",
+      preferredSupplier: "",
+      countryOfOrigin: "",
+      extraSpares: "",
+      remarks: "",
+    },
+  ]);
+});
+
+test("bulk upload maps extended procurement metadata columns", () => {
+  const rows = [
+    [
+      "Sl. No.",
+      "Component Name",
+      "BOM ID",
+      "Cost per item",
+      "Quantity",
+      "Item Description",
+      "Manufacturer",
+      "Preferred Supplier",
+      "Country of Origin",
+      "Extra spares",
+      "Remarks",
+    ],
+    [1, "Photon counter", "PC-9", "12500", 2, "Low noise module", "QNu", "Acme Supplies", "India", "1", "Need quote"],
+  ];
+
+  const parsed = parseBulkUploadRows(rows);
+
+  assert.deepEqual(parsed, [
+    {
+      slNo: 1,
+      componentName: "Photon counter",
+      bomId: "PC-9",
+      costPerItem: 12500,
+      quantity: 2,
+      itemDescription: "Low noise module",
+      manufacturer: "QNu",
+      preferredSupplier: "Acme Supplies",
+      countryOfOrigin: "India",
+      extraSpares: "1",
+      remarks: "Need quote",
     },
   ]);
 });

@@ -25,6 +25,8 @@ export const EMAIL_TEMPLATE_TRIGGER_OPTIONS = [
   { value: "request_created", label: "Request created" },
   { value: "request_submitted_to_l1", label: "Request submitted to L1" },
   { value: "l1_approved_moved_to_fh", label: "L1 approved and moved to Department Head" },
+  { value: "fh_approved_moved_to_finance", label: "Department Head approved and moved to Finance Approval" },
+  { value: "finance_approved_moved_to_cfo", label: "Finance approved and moved to CFO" },
   { value: "fh_approved_moved_to_cfo", label: "Department Head approved and moved to CFO" },
   { value: "cfo_approved_moved_to_cdo", label: "CFO approved and moved to CDO" },
   { value: "cdo_approved_moved_to_production", label: "CDO approved and moved to Production" },
@@ -116,6 +118,24 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     bodyTemplate: standardBody(
       "The L1 approver has approved this procurement request.",
       "The request is now awaiting Department Head review for business need, team ownership, and priority."
+    ),
+  },
+  {
+    name: "Department Head approved and moved to Finance Approval",
+    trigger: "fh_approved_moved_to_finance",
+    subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to Finance Approval"),
+    bodyTemplate: standardBody(
+      "The Department Head has approved this procurement request, and at least one item is missing or unknown in Zoho inventory.",
+      "The request is now awaiting Finance Approval to review budget, commercial impact, and purchase feasibility before it moves to CFO."
+    ),
+  },
+  {
+    name: "Finance approved and moved to CFO",
+    trigger: "finance_approved_moved_to_cfo",
+    subjectTemplate: prefixedSubject("Approval required: {{ticketId}} moved to CFO"),
+    bodyTemplate: standardBody(
+      "Finance Approval has reviewed and approved this procurement request.",
+      "The request is now awaiting CFO approval for final finance review before it moves to CDO."
     ),
   },
   {

@@ -21,6 +21,7 @@ export type OpenTicketReportSource = {
   status: string | null;
   functionalHeadNames?: string | null;
   l1ApproverNames?: string | null;
+  financeApproverNames?: string | null;
   cfoNames?: string | null;
   cdoNames?: string | null;
   procurementNames?: string | null;
@@ -56,6 +57,7 @@ export const OPEN_TICKET_REPORT_SQL = `WITH line_items AS (
        t.status::text AS status,
        fh.names AS "functionalHeadNames",
        l1.names AS "l1ApproverNames",
+       fin.names AS "financeApproverNames",
        cfo.names AS "cfoNames",
        cdo.names AS "cdoNames",
        prod.names AS "procurementNames"
@@ -71,6 +73,11 @@ export const OPEN_TICKET_REPORT_SQL = `WITH line_items AS (
        FROM users
        WHERE roles @> ARRAY['L1_APPROVER']::"UserRole"[] AND team = t.team_name AND status = true
      ) l1 ON true
+     LEFT JOIN LATERAL (
+       SELECT string_agg(COALESCE(NULLIF(name, ''), email), ', ' ORDER BY name NULLS LAST, email) AS names
+       FROM users
+       WHERE roles @> ARRAY['FINANCE_APPROVER']::"UserRole"[] AND status = true
+     ) fin ON true
      LEFT JOIN LATERAL (
        SELECT string_agg(COALESCE(NULLIF(name, ''), email), ', ' ORDER BY name NULLS LAST, email) AS names
        FROM users
@@ -113,6 +120,8 @@ export function getOpenTicketPendingWith(row: OpenTicketReportSource) {
       return roleWithNames("Department Head", row.functionalHeadNames);
     case "PENDING_L1_APPROVAL":
       return roleWithNames("L1 Approver", row.l1ApproverNames);
+    case "PENDING_FINANCE_APPROVAL":
+      return roleWithNames("Finance Approval", row.financeApproverNames);
     case "PENDING_CFO_APPROVAL":
       return roleWithNames("Finance Team", row.cfoNames);
     case "PENDING_CDO_APPROVAL":

@@ -21,6 +21,11 @@ const lineItemSchema = z.object({
   costPerItem: z.number().min(0).max(10_000_000),
   quantity: z.number().int().min(1),
   itemDescription: z.string().optional(),
+  manufacturer: z.string().optional(),
+  preferredSupplier: z.string().optional(),
+  countryOfOrigin: z.string().optional(),
+  extraSpares: z.string().optional(),
+  remarks: z.string().optional(),
   zohoAvailable: z.boolean().optional(),
 });
 
@@ -157,6 +162,7 @@ export async function GET() {
   }
 
   const statusMap: Record<string, TicketStatus> = {
+    FINANCE_APPROVER: "PENDING_FINANCE_APPROVAL",
     CFO: "PENDING_CFO_APPROVAL",
     CDO: "PENDING_CDO_APPROVAL",
   };
@@ -277,8 +283,11 @@ export async function POST(req: NextRequest) {
           const li = lineItems[i];
           await queryClient(
             client,
-            `INSERT INTO ticket_line_items (ticket_id, sort_order, component_name, bom_id, cost_per_item, quantity, item_description, zoho_available)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            `INSERT INTO ticket_line_items (
+               ticket_id, sort_order, component_name, bom_id, cost_per_item, quantity, item_description,
+               manufacturer, preferred_supplier, country_of_origin, extra_spares, remarks, zoho_available
+             )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
             [
               inserted.id,
               i,
@@ -287,6 +296,11 @@ export async function POST(req: NextRequest) {
               li.costPerItem,
               li.quantity,
               li.itemDescription ?? null,
+              li.manufacturer ?? null,
+              li.preferredSupplier ?? null,
+              li.countryOfOrigin ?? null,
+              li.extraSpares ?? null,
+              li.remarks ?? null,
               li.zohoAvailable ?? null,
             ]
           );

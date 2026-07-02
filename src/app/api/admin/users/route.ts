@@ -7,7 +7,7 @@ import { USER_ROLES, TEAM_NAMES } from "@/types/db";
 import { z } from "zod";
 
 const ROLES_REQUIRING_TEAM: UserRole[] = ["REQUESTER", "FUNCTIONAL_HEAD", "L1_APPROVER"];
-const ROLES_WITHOUT_TEAM: UserRole[] = ["CFO", "CDO", "PRODUCTION", "SUPER_ADMIN"];
+const ROLES_WITHOUT_TEAM: UserRole[] = ["FINANCE_APPROVER", "CFO", "CDO", "PRODUCTION", "SUPER_ADMIN"];
 
 function validateRoleTeamCombination(roles: string[], team: string | null | undefined): string | null {
   const needsTeam = roles.some((r) => ROLES_REQUIRING_TEAM.includes(r as UserRole));
@@ -16,7 +16,7 @@ function validateRoleTeamCombination(roles: string[], team: string | null | unde
     return "Requester, L1 Approver, and Department Head roles require a department assignment";
   }
   if (noTeam && team) {
-    return "CFO, CDO, Production, and Super Admin roles should not have a team assignment";
+    return "Finance Approval, CFO, CDO, Production, and Super Admin roles should not have a team assignment";
   }
   return null;
 }

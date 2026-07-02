@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid or missing team" }, { status: 400 });
   }
 
-  const [functionalHead, l1Approver, cfo, cdo] = await Promise.all([
+  const [functionalHead, l1Approver, financeApprover, cfo, cdo] = await Promise.all([
     queryOne<{ name: string | null; email: string }>(
       "SELECT name, email FROM users WHERE roles @> ARRAY['FUNCTIONAL_HEAD']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
@@ -23,6 +23,9 @@ export async function GET(req: NextRequest) {
     queryOne<{ name: string | null; email: string }>(
       "SELECT name, email FROM users WHERE roles @> ARRAY['L1_APPROVER']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
+    ),
+    queryOne<{ name: string | null; email: string }>(
+      "SELECT name, email FROM users WHERE roles @> ARRAY['FINANCE_APPROVER']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
     queryOne<{ name: string | null; email: string }>(
       "SELECT name, email FROM users WHERE roles @> ARRAY['CFO']::\"UserRole\"[] AND status = true LIMIT 1"
@@ -38,6 +41,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     functionalHead: toAssignee(functionalHead),
     l1Approver: toAssignee(l1Approver),
+    financeApprover: toAssignee(financeApprover),
     cfo: toAssignee(cfo),
     cdo: toAssignee(cdo),
   });

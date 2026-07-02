@@ -76,6 +76,7 @@ const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
   PENDING_FH_APPROVAL: "Pending Department Head Approval",
   PENDING_L1_APPROVAL: "Pending L1 Approval",
+  PENDING_FINANCE_APPROVAL: "Pending Finance Approval",
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",
   ASSIGNED_TO_PRODUCTION: "Assigned to Production",

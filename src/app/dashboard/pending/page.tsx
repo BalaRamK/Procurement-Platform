@@ -72,6 +72,13 @@ export default async function PendingApprovalsPage() {
     return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
   }
 
+  if (role === "FINANCE_APPROVER") {
+    const rows = await query<Record<string, unknown>>(
+      `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_FINANCE_APPROVAL' ORDER BY t.updated_at DESC`
+    );
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} />;
+  }
+
   if (role === "CDO") {
     const rows = await query<Record<string, unknown>>(
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_CDO_APPROVAL' ORDER BY t.updated_at DESC`

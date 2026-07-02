@@ -14,6 +14,7 @@ const STAGE_LABELS: Record<string, string> = {
   DRAFT: "Draft",
   PENDING_L1_APPROVAL: "Pending L1 Approval",
   PENDING_FH_APPROVAL: "Pending Department Head Approval",
+  PENDING_FINANCE_APPROVAL: "Pending Finance Approval",
   PENDING_CFO_APPROVAL: "Pending CFO Approval",
   PENDING_CDO_APPROVAL: "Pending CDO Approval",
   ASSIGNED_TO_PRODUCTION: "Assigned to Production",
@@ -27,6 +28,7 @@ const STAGE_LABELS: Record<string, string> = {
 const ROLE_POSITION_LABELS: Partial<Record<UserRole, string>> = {
   L1_APPROVER: "L1 Approver",
   FUNCTIONAL_HEAD: "Department Head",
+  FINANCE_APPROVER: "Finance Approval",
   CFO: "Finance Team",
   CDO: "CDO Approval",
   PRODUCTION: "Procurement Team",
@@ -96,7 +98,9 @@ export async function GET(
 
   const lineRows = await query<Record<string, unknown>>(
     `SELECT id, sort_order AS "sortOrder", component_name AS "componentName", bom_id AS "bomId",
-     cost_per_item AS "costPerItem", quantity, item_description AS "itemDescription", zoho_available AS "zohoAvailable"
+     cost_per_item AS "costPerItem", quantity, item_description AS "itemDescription",
+     manufacturer, preferred_supplier AS "preferredSupplier", country_of_origin AS "countryOfOrigin",
+     extra_spares AS "extraSpares", remarks, zoho_available AS "zohoAvailable"
      FROM ticket_line_items WHERE ticket_id = $1 ORDER BY sort_order ASC`,
     [id]
   );
@@ -109,14 +113,28 @@ type ApprovalBody = { action: "approved" | "rejected" | "submit" | "order_placed
 
 const nextStatusOnApproval: Partial<Record<TicketStatus, TicketStatus>> = {
   PENDING_L1_APPROVAL: "PENDING_FH_APPROVAL",
-  PENDING_FH_APPROVAL: "PENDING_CFO_APPROVAL",
+  PENDING_FINANCE_APPROVAL: "PENDING_CFO_APPROVAL",
   PENDING_CFO_APPROVAL: "PENDING_CDO_APPROVAL",
   PENDING_CDO_APPROVAL: "ASSIGNED_TO_PRODUCTION",
 };
 
+async function shouldRouteThroughFinance(ticketId: string, ticketBomId?: string | null) {
+  const summary = await queryOne<{ total: number; available: number; unknown: number }>(
+    `SELECT COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE zoho_available IS TRUE)::int AS available,
+      COUNT(*) FILTER (WHERE zoho_available IS NULL)::int AS unknown
+     FROM ticket_line_items WHERE ticket_id = $1`,
+    [ticketId]
+  );
+  const total = summary?.total ?? 0;
+  if (total > 0) return summary?.available !== total || (summary?.unknown ?? 0) > 0;
+  return !ticketBomId?.trim();
+}
+
 const roleAndTeamForStatus: Record<TicketStatus, { role: string; teamRequired: boolean } | null> = {
   PENDING_FH_APPROVAL: { role: "FUNCTIONAL_HEAD", teamRequired: true },
   PENDING_L1_APPROVAL: { role: "L1_APPROVER", teamRequired: true },
+  PENDING_FINANCE_APPROVAL: { role: "FINANCE_APPROVER", teamRequired: false },
   PENDING_CFO_APPROVAL: { role: "CFO", teamRequired: false },
   PENDING_CDO_APPROVAL: { role: "CDO", teamRequired: false },
   DRAFT: null,
@@ -142,8 +160,9 @@ export async function PATCH(
     requesterEmail: string | null;
     teamName: string;
     title: string;
+    bomId: string | null;
   }>(
-    `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail", t.team_name AS "teamName", t.title
+    `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail", t.team_name AS "teamName", t.title, t.bom_id AS "bomId"
      FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
     [id]
   );
@@ -337,7 +356,10 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "REJECTED" });
   }
 
-  const nextStatus = nextStatusOnApproval[status];
+  const nextStatus =
+    status === "PENDING_FH_APPROVAL"
+      ? (await shouldRouteThroughFinance(id, ticket.bomId) ? "PENDING_FINANCE_APPROVAL" : "PENDING_CFO_APPROVAL")
+      : nextStatusOnApproval[status];
   if (!nextStatus) return NextResponse.json({ ok: true, status: ticket.status });
 
   await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [nextStatus, id]);
@@ -368,6 +390,8 @@ export async function PATCH(
         ? assignees.functionalHead
         : nextStatus === "PENDING_L1_APPROVAL"
           ? assignees.l1Approver
+          : nextStatus === "PENDING_FINANCE_APPROVAL"
+            ? assignees.financeApprover
           : nextStatus === "PENDING_CFO_APPROVAL"
             ? assignees.cfo
             : nextStatus === "PENDING_CDO_APPROVAL"
@@ -377,14 +401,20 @@ export async function PATCH(
       const emailTrigger =
         nextStatus === "PENDING_FH_APPROVAL"
           ? "l1_approved_moved_to_fh"
+          : nextStatus === "PENDING_FINANCE_APPROVAL"
+            ? "fh_approved_moved_to_finance"
           : nextStatus === "PENDING_CFO_APPROVAL"
-            ? "fh_approved_moved_to_cfo"
+            ? status === "PENDING_FINANCE_APPROVAL"
+              ? "finance_approved_moved_to_cfo"
+              : "fh_approved_moved_to_cfo"
             : nextStatus === "PENDING_CDO_APPROVAL"
               ? "cfo_approved_moved_to_cdo"
               : "request_submitted_to_l1";
       const nextRole =
         nextStatus === "PENDING_FH_APPROVAL"
           ? "FUNCTIONAL_HEAD"
+          : nextStatus === "PENDING_FINANCE_APPROVAL"
+            ? "FINANCE_APPROVER"
           : nextStatus === "PENDING_CFO_APPROVAL"
             ? "CFO"
             : nextStatus === "PENDING_CDO_APPROVAL"

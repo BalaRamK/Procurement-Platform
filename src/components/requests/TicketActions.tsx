@@ -103,6 +103,7 @@ export function TicketActions({
   const approvalStatuses = [
     "PENDING_FH_APPROVAL",
     "PENDING_L1_APPROVAL",
+    "PENDING_FINANCE_APPROVAL",
     "PENDING_CFO_APPROVAL",
     "PENDING_CDO_APPROVAL",
   ];

@@ -6,12 +6,13 @@ type Assignee = { name: string | null; email: string } | null;
 export type TeamAssignees = {
   functionalHead: Assignee;
   l1Approver: Assignee;
+  financeApprover: Assignee;
   cfo: Assignee;
   cdo: Assignee;
 };
 
 export async function getAssigneesForTeam(team: TeamName): Promise<TeamAssignees> {
-  const [functionalHead, l1Approver, cfo, cdo] = await Promise.all([
+  const [functionalHead, l1Approver, financeApprover, cfo, cdo] = await Promise.all([
     queryOne<{ name: string | null; email: string }>(
       "SELECT name, email FROM users WHERE roles @> ARRAY['FUNCTIONAL_HEAD']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
@@ -19,6 +20,9 @@ export async function getAssigneesForTeam(team: TeamName): Promise<TeamAssignees
     queryOne<{ name: string | null; email: string }>(
       "SELECT name, email FROM users WHERE roles @> ARRAY['L1_APPROVER']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
+    ),
+    queryOne<{ name: string | null; email: string }>(
+      "SELECT name, email FROM users WHERE roles @> ARRAY['FINANCE_APPROVER']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
     queryOne<{ name: string | null; email: string }>(
       "SELECT name, email FROM users WHERE roles @> ARRAY['CFO']::\"UserRole\"[] AND status = true LIMIT 1"
@@ -30,6 +34,7 @@ export async function getAssigneesForTeam(team: TeamName): Promise<TeamAssignees
   return {
     functionalHead: functionalHead ?? null,
     l1Approver: l1Approver ?? null,
+    financeApprover: financeApprover ?? null,
     cfo: cfo ?? null,
     cdo: cdo ?? null,
   };

@@ -133,6 +133,21 @@ export default async function DashboardPage({
     return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} historyTickets={history} role={role} />;
   }
 
+  if (role === "FINANCE_APPROVER") {
+    const where = ["t.status = 'PENDING_FINANCE_APPROVAL'"];
+    const args: (string | undefined)[] = [];
+    if (searchJoin) {
+      where.push("(t.title ILIKE $1 OR t.request_id ILIKE $1 OR t.requester_name ILIKE $1 OR u.email ILIKE $1 OR u.name ILIKE $1)");
+      args.push(searchJoin.param);
+    }
+    const rows = await query<Record<string, unknown>>(
+      `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.updated_at DESC`,
+      args
+    );
+    const history = await getApprovalHistory(session.user.id);
+    return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} historyTickets={history} role={role} />;
+  }
+
   if (role === "CDO") {
     const where = ["t.status = 'PENDING_CDO_APPROVAL'"];
     const args: (string | undefined)[] = [];

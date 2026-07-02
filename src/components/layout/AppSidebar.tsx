@@ -57,6 +57,12 @@ export function AppSidebar({ userRoles, userEmail, mobileOpen, onMobileClose }: 
             </svg>
             New request
           </Link>
+          <Link href="/inventory-search" className={navLink("/inventory-search")} onClick={onMobileClose}>
+            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M7 15h4m-4 4h7M5 7h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z" />
+            </svg>
+            Search Inventory
+          </Link>
         </div>
       {isSuperAdmin && (
         <div className="space-y-1.5">
@@ -120,4 +126,3 @@ export function AppSidebar({ userRoles, userEmail, mobileOpen, onMobileClose }: 
     </>
   );
 }
-

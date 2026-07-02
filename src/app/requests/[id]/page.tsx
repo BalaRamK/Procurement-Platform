@@ -23,6 +23,7 @@ function canView(
   if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
   if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") return true;
   if (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") return true;
+  if (hasRole(roles, "FINANCE_APPROVER") && ticket.status === "PENDING_FINANCE_APPROVAL") return true;
   if (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") return true;
   if (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL") return true;
   return false;
@@ -112,8 +113,16 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
   const lineRows = await query<Record<string, unknown>>(
     `SELECT sort_order AS "sortOrder", component_name AS "componentName", bom_id AS "bomId",
-     cost_per_item AS "costPerItem", quantity, item_description AS "itemDescription", zoho_available AS "zohoAvailable"
+     cost_per_item AS "costPerItem", quantity, item_description AS "itemDescription",
+     manufacturer, preferred_supplier AS "preferredSupplier", country_of_origin AS "countryOfOrigin",
+     extra_spares AS "extraSpares", remarks, zoho_available AS "zohoAvailable"
      FROM ticket_line_items WHERE ticket_id = $1 ORDER BY sort_order ASC`,
+    [id]
+  );
+
+  const attachmentRows = await query<Record<string, unknown>>(
+    `SELECT id, original_name AS "originalName", mime_type AS "mimeType", size_bytes AS "sizeBytes", created_at AS "createdAt"
+     FROM ticket_attachments WHERE ticket_id = $1 ORDER BY created_at ASC`,
     [id]
   );
 
@@ -172,6 +181,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
     (activeRole === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
+    (activeRole === "FINANCE_APPROVER" && ticket.status === "PENDING_FINANCE_APPROVAL") ||
     (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
     (activeRole === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
 
@@ -189,7 +199,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     { label: "Request ID", value: ticket.requestId ?? "—" },
     { label: "Requester", value: ticket.requesterName },
     { label: "Requester email", value: ticket.requester?.email ?? "—" },
-    { label: "Department", value: ticket.department },
+    { label: "Project", value: ticket.department },
     { label: "Team", value: ticket.teamName },
     { label: "Priority", value: ticket.priority },
     { label: "Created", value: formatDate(ticket.createdAt) },
@@ -239,7 +249,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           <DetailCard title="At a glance" description="Quick summary for the current request.">
             <div className="grid gap-3">
               <DetailItem label="Status" value={<StatusBadge status={ticket.status} />} />
-              <DetailItem label="Team flow" value="Requester -> L1 -> Department Head -> CFO -> CDO -> Production" />
+              <DetailItem label="Team flow" value="Requester -> L1 -> Department Head -> Finance if needed -> CFO -> CDO -> Production" />
               <DetailItem label="Created" value={formatDate(ticket.createdAt)} />
               <DetailItem label="Updated" value={formatDate(ticket.updatedAt)} />
             </div>
@@ -317,6 +327,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                       <DetailItem label="Cost per item" value={toText(li.costPerItem)} />
                       <DetailItem label="Quantity" value={toText(li.quantity)} />
                       <DetailItem label="Item description" value={toText(li.itemDescription)} />
+                      <DetailItem label="Manufacturer" value={toText(li.manufacturer)} />
+                      <DetailItem label="Preferred supplier" value={toText(li.preferredSupplier)} />
+                      <DetailItem label="Country of origin" value={toText(li.countryOfOrigin)} />
+                      <DetailItem label="Extra spares" value={toText(li.extraSpares)} />
+                      <DetailItem label="Remarks" value={toText(li.remarks)} />
                     </dl>
                   </div>
                 ))}
@@ -333,6 +348,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                       <th scope="col" className="px-3 py-2 text-right font-medium">Cost per item</th>
                       <th scope="col" className="px-3 py-2 text-right font-medium">Quantity</th>
                       <th scope="col" className="px-3 py-2 text-left font-medium">Item Description</th>
+                      <th scope="col" className="px-3 py-2 text-left font-medium">Manufacturer</th>
+                      <th scope="col" className="px-3 py-2 text-left font-medium">Supplier</th>
+                      <th scope="col" className="px-3 py-2 text-left font-medium">Origin</th>
+                      <th scope="col" className="px-3 py-2 text-left font-medium">Extra spares</th>
+                      <th scope="col" className="px-3 py-2 text-left font-medium">Remarks</th>
                       <th scope="col" className="px-3 py-2 text-left font-medium">Zoho check</th>
                     </tr>
                   </thead>
@@ -345,12 +365,41 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                         <td className="px-3 py-2 text-right">{li.costPerItem != null ? String(li.costPerItem) : ""}</td>
                         <td className="px-3 py-2 text-right">{li.quantity != null ? String(li.quantity) : ""}</td>
                         <td className="px-3 py-2">{String(li.itemDescription ?? "")}</td>
+                        <td className="px-3 py-2">{String(li.manufacturer ?? "")}</td>
+                        <td className="px-3 py-2">{String(li.preferredSupplier ?? "")}</td>
+                        <td className="px-3 py-2">{String(li.countryOfOrigin ?? "")}</td>
+                        <td className="px-3 py-2">{String(li.extraSpares ?? "")}</td>
+                        <td className="px-3 py-2">{String(li.remarks ?? "")}</td>
                         <td className="px-3 py-2">{li.zohoAvailable === true ? "Available" : li.zohoAvailable === false ? "Not available" : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            </DetailCard>
+          )}
+
+          {attachmentRows.length > 0 && (
+            <DetailCard title="Attachments" description="Quotes, specifications, and supporting documents uploaded with this request.">
+              <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                {attachmentRows.map((attachment) => {
+                  const size = Number(attachment.sizeBytes ?? 0);
+                  const sizeLabel = size >= 1024 * 1024
+                    ? `${(size / 1024 / 1024).toFixed(2)} MB`
+                    : `${(size / 1024).toFixed(1)} KB`;
+                  return (
+                    <li key={String(attachment.id)} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-slate-100">{String(attachment.originalName ?? "")}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{sizeLabel}</p>
+                      </div>
+                      <a href={`/api/requests/${ticket.id}/attachments/${attachment.id}`} className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-sky-200 dark:hover:text-white">
+                        Download
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
             </DetailCard>
           )}
         </main>

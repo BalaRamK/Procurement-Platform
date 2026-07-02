@@ -7,11 +7,13 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { STATUS_LABELS } from "@/lib/constants";
 import { OpenTicketsReportDownload } from "@/components/admin/OpenTicketsReportDownload";
 import { OPEN_TICKET_REPORT_HEADERS, OPEN_TICKET_REPORT_SQL, toOpenTicketReportRows, type OpenTicketReportSource } from "@/lib/open-ticket-report";
+import { formatBytes, getAttachmentStorageUsage } from "@/lib/attachments";
 
 const LIFECYCLE_ORDER = [
   "DRAFT",
-  "PENDING_FH_APPROVAL",
   "PENDING_L1_APPROVAL",
+  "PENDING_FH_APPROVAL",
+  "PENDING_FINANCE_APPROVAL",
   "PENDING_CFO_APPROVAL",
   "PENDING_CDO_APPROVAL",
   "ASSIGNED_TO_PRODUCTION",
@@ -36,6 +38,7 @@ export default async function AdminReportsPage() {
 
   const openTicketReportSource = await query<OpenTicketReportSource>(OPEN_TICKET_REPORT_SQL);
   const openTicketReportRows = toOpenTicketReportRows(openTicketReportSource);
+  const attachmentStorage = await getAttachmentStorageUsage();
 
   const byStatus = LIFECYCLE_ORDER.reduce(
     (acc, status) => {
@@ -63,7 +66,7 @@ export default async function AdminReportsPage() {
         </p>
       </div>
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card p-5 dark:bg-[#171717]">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-300">Total tickets</p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{total}</p>
@@ -75,6 +78,11 @@ export default async function AdminReportsPage() {
         <div className="card p-5 dark:bg-[#171717]">
           <p className="text-sm font-medium text-slate-500 dark:text-slate-300">Closed / Rejected</p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{closedOrRejected}</p>
+        </div>
+        <div className="card p-5 dark:bg-[#171717]">
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-300">Attachment storage</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{formatBytes(attachmentStorage.bytes)}</p>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{attachmentStorage.files} files on VM</p>
         </div>
       </div>
 
@@ -108,7 +116,7 @@ export default async function AdminReportsPage() {
       <div className="card overflow-hidden mb-8 dark:bg-[#171717] dark:border-white/10">
         <div className="card-header border-b px-6 py-4 dark:bg-[#1f1f1f] dark:border-white/10">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Tickets by status (lifecycle)</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Open &gt; Pending L1 &gt; Pending Department Head &gt; Pending CFO &gt; Pending CDO &gt; Assigned to Production &gt; Order Placed &gt; Delivered &gt; Confirmed &gt; Closed.</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Open &gt; Pending L1 &gt; Pending Department Head &gt; Finance Approval if needed &gt; Pending CFO &gt; Pending CDO &gt; Assigned to Production &gt; Order Placed &gt; Delivered &gt; Confirmed &gt; Closed.</p>
         </div>
         <dl className="grid gap-0 sm:grid-cols-2 lg:grid-cols-3 dark:bg-[#171717]">
           {LIFECYCLE_ORDER.map((status) => (

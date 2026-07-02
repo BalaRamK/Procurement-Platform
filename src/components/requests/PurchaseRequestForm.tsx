@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { TeamName, CostCurrency, Priority } from "@/types/db";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { parseBulkUploadRows } from "@/lib/bulk-upload";
+import { getBulkTemplateRows } from "@/lib/bulk-template";
 
 const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },
@@ -25,6 +26,27 @@ const PRIORITIES: { value: Priority; label: string }[] = [
   { value: "HIGH", label: "High" },
   { value: "URGENT", label: "Urgent" },
 ];
+
+async function downloadBulkTemplate() {
+  const XLSX = await import("xlsx");
+  const worksheet = XLSX.utils.aoa_to_sheet(getBulkTemplateRows());
+  worksheet["!cols"] = [
+    { wch: 8 },
+    { wch: 26 },
+    { wch: 18 },
+    { wch: 14 },
+    { wch: 10 },
+    { wch: 42 },
+    { wch: 20 },
+    { wch: 22 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 24 },
+  ];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Bulk Items Template");
+  XLSX.writeFile(workbook, "procurement-bulk-items-template.xlsx");
+}
 
 /** Map flow steps by team (constant per team) */
 const TEAM_FLOW_STEPS: Record<TeamName, string[]> = {
@@ -176,6 +198,7 @@ export function PurchaseRequestForm({
   const [quantity, setQuantity] = useState("1");
   const [dealName, setDealName] = useState("");
   const [dealId, setDealId] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [teamName, setTeamName] = useState<TeamName>(requesterTeam ?? "ENGINEERING");
   const [priority, setPriority] = useState<Priority>("MEDIUM");
   const [zohoLocked, setZohoLocked] = useState(false);
@@ -195,7 +218,7 @@ export function PurchaseRequestForm({
   const [lastLookupResponse, setLastLookupResponse] = useState<Record<string, unknown> | null>(null);
   const [itemMode, setItemMode] = useState<"single" | "bulk">("single");
   const [bulkLineItems, setBulkLineItems] = useState<
-    { slNo: number; componentName: string; bomId: string; costPerItem: number; quantity: number; itemDescription: string; zohoAvailable?: boolean }[]
+    { slNo: number; componentName: string; bomId: string; costPerItem: number; quantity: number; itemDescription: string; manufacturer: string; preferredSupplier: string; countryOfOrigin: string; extraSpares: string; remarks: string; zohoAvailable?: boolean }[]
   >([]);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkModalRows, setBulkModalRows] = useState<typeof bulkLineItems>([]);
@@ -331,7 +354,7 @@ export function PurchaseRequestForm({
     const errors: Record<string, string> = {};
     if (!title.trim()) errors.title = "Title is required.";
     if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
-    if (!department.trim()) errors.department = "Department is required.";
+    if (!department.trim()) errors.department = "Project is required.";
     if (isBulk) {
       const missingComponentRow = bulkLineItems.find((row) => !row.componentName.trim());
       if (missingComponentRow) {
@@ -397,6 +420,11 @@ export function PurchaseRequestForm({
           costPerItem: li.costPerItem,
           quantity: li.quantity,
           itemDescription: li.itemDescription || undefined,
+          manufacturer: li.manufacturer || undefined,
+          preferredSupplier: li.preferredSupplier || undefined,
+          countryOfOrigin: li.countryOfOrigin || undefined,
+          extraSpares: li.extraSpares || undefined,
+          remarks: li.remarks || undefined,
           zohoAvailable: li.zohoAvailable,
         }));
       }
@@ -417,6 +445,18 @@ export function PurchaseRequestForm({
         );
       }
       const ticket = await res.json();
+      if (attachments.length > 0 && ticket.id) {
+        const formData = new FormData();
+        attachments.forEach((file) => formData.append("files", file));
+        const uploadRes = await fetch(`/api/requests/${ticket.id}/attachments`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          const uploadError = (await uploadRes.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(uploadError?.error ?? "Request was created, but attachment upload failed.");
+        }
+      }
       router.push("/requests/" + ticket.id);
       router.refresh();
     } catch (error) {
@@ -478,11 +518,11 @@ export function PurchaseRequestForm({
               />
             </FormField>
             <FormField
-              label="Department/Project"
+              label="Project"
               required
               fieldId="department"
               error={fieldErrors.department}
-              hint="This should reflect the business owner for the request."
+              hint="This should reflect the project or business owner for the request."
             >
               <input
                 id="department"
@@ -490,14 +530,14 @@ export function PurchaseRequestForm({
                 value={department}
                 onChange={(e) => { setDepartment(e.target.value); if (fieldErrors.department) setFieldErrors((p) => ({ ...p, department: "" })); }}
                 className={`input-base ${fieldErrors.department ? "border-red-400 focus:ring-red-400/30" : ""}`}
-                placeholder="e.g. Engineering"
+                placeholder="e.g. QKD3.0 R&D"
                 aria-required="true"
                 aria-invalid={!!fieldErrors.department}
                 aria-describedby={fieldErrors.department ? "department-error" : undefined}
               />
             </FormField>
             <FormField
-              label="Department / Team"
+              label="Team"
               required
               hint={
                 canChooseTeam
@@ -598,9 +638,14 @@ export function PurchaseRequestForm({
               <>
                 {bulkLineItems.length === 0 ? (
                   <div>
-                    <label htmlFor="bulkExcelUpload" className="mb-2 block text-sm text-slate-600 dark:text-slate-300">
-                      Upload an Excel file with columns: <strong>Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description</strong>
-                    </label>
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <label htmlFor="bulkExcelUpload" className="block text-sm text-slate-600 dark:text-slate-300">
+                        Upload an Excel file with columns: <strong>Sl. No., Component Name, BOM ID, Cost per item, Quantity, Item Description, Manufacturer, Preferred Supplier, Country of Origin, Extra spares, Remarks</strong>
+                      </label>
+                      <button type="button" className="btn-secondary shrink-0" onClick={() => void downloadBulkTemplate()}>
+                        Download Excel Template
+                      </button>
+                    </div>
                     <input
                       id="bulkExcelUpload"
                       name="bulkExcelUpload"
@@ -680,6 +725,9 @@ export function PurchaseRequestForm({
                             <th className="px-3 py-2 text-left font-medium">BOM ID</th>
                             <th className="px-3 py-2 text-right font-medium">Cost/item</th>
                             <th className="px-3 py-2 text-right font-medium">Qty</th>
+                            <th className="px-3 py-2 text-left font-medium">Manufacturer</th>
+                            <th className="px-3 py-2 text-left font-medium">Supplier</th>
+                            <th className="px-3 py-2 text-left font-medium">Origin</th>
                             <th className="px-3 py-2 text-left font-medium">Zoho</th>
                           </tr>
                         </thead>
@@ -691,6 +739,9 @@ export function PurchaseRequestForm({
                               <td className="px-3 py-2">{li.bomId}</td>
                               <td className="px-3 py-2 text-right">{li.costPerItem}</td>
                               <td className="px-3 py-2 text-right">{li.quantity}</td>
+                              <td className="px-3 py-2">{li.manufacturer}</td>
+                              <td className="px-3 py-2">{li.preferredSupplier}</td>
+                              <td className="px-3 py-2">{li.countryOfOrigin}</td>
                               <td className="px-3 py-2">{li.zohoAvailable === true ? "Available" : li.zohoAvailable === false ? "Not available" : "—"}</td>
                             </tr>
                           ))}
@@ -777,9 +828,9 @@ export function PurchaseRequestForm({
                               }}
                             >
                               <span className="font-medium text-slate-900 dark:text-slate-100">{item.name || item.sku || "—"}</span>
-                              {(item.sku || item.rate != null) && (
+                              {item.rate != null && (
                                 <span className="text-xs text-slate-500 dark:text-slate-400">
-                                  {[item.sku, item.rate != null ? `${item.rate} ${item.unit ?? ""}` : ""].filter(Boolean).join(" · ")}
+                                  {`${item.rate} ${item.unit ?? ""}`.trim()}
                                 </span>
                               )}
                             </button>
@@ -1064,6 +1115,9 @@ export function PurchaseRequestForm({
                         <th className="px-3 py-2 text-left font-medium">BOM ID</th>
                         <th className="px-3 py-2 text-right font-medium">Cost per item</th>
                         <th className="px-3 py-2 text-right font-medium">Quantity</th>
+                        <th className="px-3 py-2 text-left font-medium">Manufacturer</th>
+                        <th className="px-3 py-2 text-left font-medium">Supplier</th>
+                        <th className="px-3 py-2 text-left font-medium">Origin</th>
                         <th className="px-3 py-2 text-left font-medium">Zoho check</th>
                       </tr>
                     </thead>
@@ -1075,6 +1129,9 @@ export function PurchaseRequestForm({
                           <td className="px-3 py-2">{row.bomId}</td>
                           <td className="px-3 py-2 text-right">{row.costPerItem}</td>
                           <td className="px-3 py-2 text-right">{row.quantity}</td>
+                          <td className="px-3 py-2">{row.manufacturer}</td>
+                          <td className="px-3 py-2">{row.preferredSupplier}</td>
+                          <td className="px-3 py-2">{row.countryOfOrigin}</td>
                           <td className="px-3 py-2">{row.zohoAvailable === true ? "Available" : row.zohoAvailable === false ? "Not available" : "—"}</td>
                         </tr>
                       ))}
@@ -1206,6 +1263,33 @@ export function PurchaseRequestForm({
                 className="input-base date-picker-visible"
               />
             </FormField>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Attachments"
+          description="Optional quotes, specifications, drawings, or supporting documents."
+        >
+          <div className="space-y-3">
+            <input
+              id="requestAttachments"
+              name="requestAttachments"
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.zip,.txt,.csv"
+              onChange={(event) => setAttachments(Array.from(event.target.files ?? []))}
+              className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-700 hover:file:bg-primary-100 dark:text-slate-300 dark:file:bg-primary-900/30 dark:file:text-primary-300"
+            />
+            {attachments.length > 0 && (
+              <ul className="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                {attachments.map((file) => (
+                  <li key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-700">
+                    <span className="truncate">{file.name}</span>
+                    <span className="shrink-0 text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </SectionCard>
 

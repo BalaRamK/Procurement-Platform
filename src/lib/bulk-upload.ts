@@ -5,6 +5,11 @@ export type BulkUploadLineItem = {
   costPerItem: number;
   quantity: number;
   itemDescription: string;
+  manufacturer: string;
+  preferredSupplier: string;
+  countryOfOrigin: string;
+  extraSpares: string;
+  remarks: string;
 };
 
 type HeaderMatch = {
@@ -65,7 +70,27 @@ const HEADER_MATCHES: Record<string, HeaderMatch> = {
   },
   itemDescription: {
     label: "Item Description",
-    patterns: [/^item\s*description$/i, /^description$/i, /^details$/i, /^specification$/i, /^specifications$/i, /^remarks$/i, /^notes$/i],
+    patterns: [/^item\s*description$/i, /^description$/i, /^details$/i, /^specification$/i, /^specifications$/i],
+  },
+  manufacturer: {
+    label: "Manufacturer",
+    patterns: [/^manufacturer$/i, /^mfg$/i, /^make$/i, /^brand$/i, /^brand\s*name$/i],
+  },
+  preferredSupplier: {
+    label: "Preferred Supplier",
+    patterns: [/^preferred\s*supplier$/i, /^supplier$/i, /^vendor$/i, /^preferred\s*vendor$/i],
+  },
+  countryOfOrigin: {
+    label: "Country of Origin",
+    patterns: [/^country\s*of\s*origin$/i, /^origin$/i, /^coo$/i],
+  },
+  extraSpares: {
+    label: "Extra spares",
+    patterns: [/^extra\s*spares$/i, /^spares$/i, /^spare\s*qty$/i, /^spare\s*quantity$/i],
+  },
+  remarks: {
+    label: "Remarks",
+    patterns: [/^remarks$/i, /^notes$/i, /^comments$/i],
   },
 };
 
@@ -90,6 +115,11 @@ function getColumnIndexes(headers: string[]) {
     costPerItem: findColumn(headers, HEADER_MATCHES.costPerItem),
     quantity: findColumn(headers, HEADER_MATCHES.quantity),
     itemDescription: findColumn(headers, HEADER_MATCHES.itemDescription),
+    manufacturer: findColumn(headers, HEADER_MATCHES.manufacturer),
+    preferredSupplier: findColumn(headers, HEADER_MATCHES.preferredSupplier),
+    countryOfOrigin: findColumn(headers, HEADER_MATCHES.countryOfOrigin),
+    extraSpares: findColumn(headers, HEADER_MATCHES.extraSpares),
+    remarks: findColumn(headers, HEADER_MATCHES.remarks),
   };
 }
 
@@ -168,6 +198,11 @@ export function parseBulkUploadRows(rows: unknown[][]): BulkUploadLineItem[] {
       costPerItem,
       quantity,
       itemDescription: indexes.itemDescription >= 0 ? String(row[indexes.itemDescription] ?? "").trim() : "",
+      manufacturer: indexes.manufacturer >= 0 ? String(row[indexes.manufacturer] ?? "").trim() : "",
+      preferredSupplier: indexes.preferredSupplier >= 0 ? String(row[indexes.preferredSupplier] ?? "").trim() : "",
+      countryOfOrigin: indexes.countryOfOrigin >= 0 ? String(row[indexes.countryOfOrigin] ?? "").trim() : "",
+      extraSpares: indexes.extraSpares >= 0 ? String(row[indexes.extraSpares] ?? "").trim() : "",
+      remarks: indexes.remarks >= 0 ? String(row[indexes.remarks] ?? "").trim() : "",
     });
   }
 

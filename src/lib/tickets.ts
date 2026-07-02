@@ -28,6 +28,7 @@ export function canViewTicket(
   if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
   if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_FH_APPROVAL") return true;
   if (hasRole(roles, "L1_APPROVER") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_L1_APPROVAL") return true;
+  if (hasRole(roles, "FINANCE_APPROVER") && ticket.status === "PENDING_FINANCE_APPROVAL") return true;
   if (hasRole(roles, "CFO") && ticket.status === "PENDING_CFO_APPROVAL") return true;
   if (hasRole(roles, "CDO") && ticket.status === "PENDING_CDO_APPROVAL") return true;
   return false;

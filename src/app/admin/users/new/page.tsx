@@ -10,6 +10,7 @@ const ROLES: UserRole[] = [
   "REQUESTER",
   "FUNCTIONAL_HEAD",
   "L1_APPROVER",
+  "FINANCE_APPROVER",
   "CFO",
   "CDO",
   "PRODUCTION",

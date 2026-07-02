@@ -3,13 +3,13 @@
 
 -- Enums (idempotent: skip if exists)
 DO $$ BEGIN
-  CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'REQUESTER', 'FUNCTIONAL_HEAD', 'L1_APPROVER', 'CFO', 'CDO', 'PRODUCTION');
+  CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'REQUESTER', 'FUNCTIONAL_HEAD', 'L1_APPROVER', 'FINANCE_APPROVER', 'CFO', 'CDO', 'PRODUCTION');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE "TeamName" AS ENUM ('INNOVATION', 'ENGINEERING', 'SALES');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
-  CREATE TYPE "TicketStatus" AS ENUM ('DRAFT', 'PENDING_FH_APPROVAL', 'PENDING_L1_APPROVAL', 'PENDING_CFO_APPROVAL', 'PENDING_CDO_APPROVAL', 'ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER', 'CONFIRMED_BY_REQUESTER', 'CLOSED', 'REJECTED');
+  CREATE TYPE "TicketStatus" AS ENUM ('DRAFT', 'PENDING_L1_APPROVAL', 'PENDING_FH_APPROVAL', 'PENDING_FINANCE_APPROVAL', 'PENDING_CFO_APPROVAL', 'PENDING_CDO_APPROVAL', 'ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER', 'CONFIRMED_BY_REQUESTER', 'CLOSED', 'REJECTED');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN
   CREATE TYPE "CostCurrency" AS ENUM ('USD', 'INR', 'EUR');
@@ -85,11 +85,30 @@ CREATE TABLE IF NOT EXISTS ticket_line_items (
   cost_per_item DECIMAL(12,2),
   quantity INT NOT NULL DEFAULT 1,
   item_description TEXT,
+  manufacturer TEXT,
+  preferred_supplier TEXT,
+  country_of_origin TEXT,
+  extra_spares TEXT,
+  remarks TEXT,
   zoho_available BOOLEAN,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_ticket_line_items_ticket_id ON ticket_line_items(ticket_id);
+
+CREATE TABLE IF NOT EXISTS ticket_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticket_id UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  original_name TEXT NOT NULL,
+  stored_name TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT,
+  size_bytes BIGINT NOT NULL DEFAULT 0,
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_attachments_ticket_id ON ticket_attachments(ticket_id);
 
 -- Approval logs
 CREATE TABLE IF NOT EXISTS approval_logs (

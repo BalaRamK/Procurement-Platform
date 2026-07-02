@@ -34,6 +34,19 @@ test("open ticket report maps pending owner by lifecycle status", () => {
     }),
     "Department Head - Dilip"
   );
+  assert.equal(
+    getOpenTicketPendingWith({
+      requestId: "IN396327",
+      requesterName: "Bala K",
+      teamName: "ENGINEERING",
+      createdAt: "2026-06-12T00:00:00.000Z",
+      title: "Optics procurement",
+      item: "Photon counter",
+      status: "PENDING_FINANCE_APPROVAL",
+      financeApproverNames: "Finance User",
+    }),
+    "Finance Approval - Finance User"
+  );
 });
 
 test("open ticket report formats rows for the table and Excel download", () => {

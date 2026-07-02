@@ -17,6 +17,7 @@ const ROLES: UserRole[] = [
   "REQUESTER",
   "FUNCTIONAL_HEAD",
   "L1_APPROVER",
+  "FINANCE_APPROVER",
   "CFO",
   "CDO",
   "PRODUCTION",
@@ -44,6 +45,8 @@ function roleTone(role: UserRole) {
       return "bg-indigo-100 text-indigo-800 ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-100 dark:ring-indigo-400/20";
     case "L1_APPROVER":
       return "bg-amber-100 text-amber-900 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-100 dark:ring-amber-400/20";
+    case "FINANCE_APPROVER":
+      return "bg-violet-100 text-violet-900 ring-violet-200 dark:bg-violet-500/15 dark:text-violet-100 dark:ring-violet-400/20";
     case "CFO":
       return "bg-emerald-100 text-emerald-900 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-100 dark:ring-emerald-400/20";
     case "CDO":
