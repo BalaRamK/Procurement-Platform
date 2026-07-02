@@ -18,6 +18,8 @@ export const EMAIL_TEMPLATE_FIELDS = [
   { key: "actionBy", label: "Action by" },
   { key: "approverPosition", label: "Approver position" },
   { key: "approverName", label: "Approver name" },
+  { key: "commentSnippet", label: "Comment snippet" },
+  { key: "mentionedBy", label: "Mentioned by" },
   { key: "requestUrl", label: "Request URL" },
 ] as const;
 
@@ -30,6 +32,7 @@ export const EMAIL_TEMPLATE_TRIGGER_OPTIONS = [
   { value: "fh_approved_moved_to_cfo", label: "Department Head approved and moved to CFO" },
   { value: "cfo_approved_moved_to_cdo", label: "CFO approved and moved to CDO" },
   { value: "cdo_approved_moved_to_production", label: "CDO approved and moved to Production" },
+  { value: "request_approval_update", label: "Requester approval update" },
   { value: "production_marked_order_placed", label: "Procurement Team marked order placed" },
   { value: "production_marked_delivered", label: "Procurement Team marked delivered" },
   { value: "requester_confirmed_receipt", label: "Requester confirmed receipt" },
@@ -166,6 +169,15 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     ),
   },
   {
+    name: "Requester approval update",
+    trigger: "request_approval_update",
+    subjectTemplate: prefixedSubject("Request {{ticketId}} approved at {{currentStage}}"),
+    bodyTemplate: standardBody(
+      "An approval action has been completed on your procurement request.",
+      "The request has moved to the next workflow stage. You can open the request to review the approval history, current owner, and any comments."
+    ),
+  },
+  {
     name: "Procurement Team marked order placed",
     trigger: "production_marked_order_placed",
     subjectTemplate: prefixedSubject("Order placed: {{ticketId}}"),
@@ -251,9 +263,33 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     name: "Comment mention",
     trigger: "comment_mention",
     subjectTemplate: prefixedSubject("You were mentioned on request {{ticketId}}"),
-    bodyTemplate: standardBody(
-      "You were mentioned in a comment on this procurement request.",
-      "Please open the request in Procurement Platform to review the latest comment and respond in the ticket if needed."
-    ),
+    bodyTemplate: [
+      "Hello,",
+      "",
+      "{{mentionedBy}} mentioned you in a comment on this procurement request.",
+      "",
+      "Comment:",
+      "{{commentSnippet}}",
+      "",
+      "Please open the request in Procurement Platform to review the full conversation and respond in the ticket if needed.",
+      "",
+      "Request details:",
+      "Request ID: {{ticketId}}",
+      "Title: {{ticketTitle}}",
+      "Requester: {{requesterName}}",
+      "Department: {{department}}",
+      "Team: {{teamName}}",
+      "Priority: {{priority}}",
+      "Need by date: {{needByDate}}",
+      "Estimated cost: {{estimatedCost}}",
+      "Current stage: {{currentStage}}",
+      "Next stage: {{nextStage}}",
+      "Action by: {{actionBy}}",
+      "Next owner: {{approverName}}",
+      "",
+      "Open request: {{requestUrl}}",
+      "",
+      "Please do not reply to this automated email. Continue the conversation in Procurement Platform so the audit trail remains complete.",
+    ].join("\n"),
   },
 ];

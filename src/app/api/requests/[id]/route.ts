@@ -5,7 +5,6 @@ import { query, queryOne } from "@/lib/db";
 import { getAssigneesForTeam, getProductionEmails } from "@/lib/assignees";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
-import { sendNotificationEmail } from "@/lib/email";
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 import { canViewTicket, isRequesterForActiveRole } from "@/lib/tickets";
 import { getPrimaryRole } from "@/types/db";
@@ -344,14 +343,23 @@ export async function PATCH(
     );
     const requester = await queryOne<{ email: string | null }>("SELECT email FROM users WHERE id = $1", [ticket.requesterId]);
     if (requester?.email) {
-      sendNotificationEmail("request_rejected", requester.email, id, {
-        rejectionRemarks: body.remarks ?? "",
-        currentStage: status,
-        nextStage: "Rejected",
-        actionBy: actorName(session.user),
-        approverPosition: "Not applicable",
-        approverName: "Not applicable",
-      }).catch((e) => console.error("[rejection email]", e));
+      await logNotification({
+        ticketId: id,
+        type: "approval_update",
+        recipient: requester.email,
+        payload: {
+          rejectionRemarks: body.remarks ?? "",
+          currentStage: STAGE_LABELS[status] ?? status,
+          nextStage: "Rejected",
+          actionBy: actorName(session.user),
+          approverPosition: ROLE_POSITION_LABELS[activeRole as UserRole] ?? activeRole ?? "Approver",
+          approverName: assigneeLabel(ROLE_POSITION_LABELS[activeRole as UserRole] ?? "Approver", {
+            name: session.user.name ?? null,
+            email: session.user.email,
+          }),
+        },
+        emailTrigger: "request_rejected",
+      });
     }
     return NextResponse.json({ ok: true, status: "REJECTED" });
   }
@@ -365,6 +373,26 @@ export async function PATCH(
   await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [nextStatus, id]);
 
   const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
+  if (requesterEmail) {
+    await logNotification({
+      ticketId: id,
+      type: "approval_update",
+      recipient: requesterEmail,
+      payload: {
+        title: ticket.title,
+        status: nextStatus,
+        currentStage: STAGE_LABELS[status] ?? status,
+        nextStage: STAGE_LABELS[nextStatus] ?? nextStatus,
+        actionBy: actorName(session.user),
+        approverPosition: ROLE_POSITION_LABELS[activeRole as UserRole] ?? activeRole ?? "Approver",
+        approverName: assigneeLabel(ROLE_POSITION_LABELS[activeRole as UserRole] ?? "Approver", {
+          name: session.user.name ?? null,
+          email: session.user.email,
+        }),
+      },
+      emailTrigger: "request_approval_update",
+    });
+  }
   if (nextStatus === "ASSIGNED_TO_PRODUCTION") {
     const productionEmails = await getProductionEmails();
     for (const email of productionEmails) {

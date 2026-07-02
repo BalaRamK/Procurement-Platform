@@ -8,6 +8,7 @@ import { STATUS_LABELS } from "@/lib/constants";
 import { OpenTicketsReportDownload } from "@/components/admin/OpenTicketsReportDownload";
 import { OPEN_TICKET_REPORT_HEADERS, OPEN_TICKET_REPORT_SQL, toOpenTicketReportRows, type OpenTicketReportSource } from "@/lib/open-ticket-report";
 import { formatBytes, getAttachmentStorageUsage } from "@/lib/attachments";
+import { APPROVAL_SLA_SQL, formatApprovalDuration, normalizeApprovalSlaRows, type ApprovalSlaRow } from "@/lib/approval-sla";
 
 const LIFECYCLE_ORDER = [
   "DRAFT",
@@ -39,6 +40,7 @@ export default async function AdminReportsPage() {
   const openTicketReportSource = await query<OpenTicketReportSource>(OPEN_TICKET_REPORT_SQL);
   const openTicketReportRows = toOpenTicketReportRows(openTicketReportSource);
   const attachmentStorage = await getAttachmentStorageUsage();
+  const approvalSlaRows = normalizeApprovalSlaRows(await query<ApprovalSlaRow>(APPROVAL_SLA_SQL));
 
   const byStatus = LIFECYCLE_ORDER.reduce(
     (acc, status) => {
@@ -84,6 +86,22 @@ export default async function AdminReportsPage() {
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{formatBytes(attachmentStorage.bytes)}</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{attachmentStorage.files} files on VM</p>
         </div>
+      </div>
+
+      <div className="card overflow-hidden mb-8 dark:bg-[#171717] dark:border-white/10">
+        <div className="card-header border-b px-6 py-4 dark:bg-[#1f1f1f] dark:border-white/10">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Average approval time by level</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-200">Average time taken from the previous workflow handoff to approval at each level.</p>
+        </div>
+        <dl className="grid gap-0 sm:grid-cols-2 lg:grid-cols-5 dark:bg-[#171717]">
+          {approvalSlaRows.map((row) => (
+            <div key={row.key} className="border-b border-white/20 px-6 py-4 dark:border-white/10 sm:border-r sm:border-r-white/20 dark:sm:border-r-white/10">
+              <dt className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-300">{row.label}</dt>
+              <dd className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">{formatApprovalDuration(row.averageHours)}</dd>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">{row.completedCount} approvals measured</p>
+            </div>
+          ))}
+        </dl>
       </div>
 
       <div className="card overflow-hidden mb-8 dark:bg-[#171717] dark:border-white/10">

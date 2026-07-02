@@ -4,6 +4,7 @@ import { sendNotificationEmailByType } from "@/lib/email";
 export type NotificationType =
   | "on_creation"
   | "assignment"
+  | "approval_update"
   | "order_placed"
   | "delivered"
   | "closure"

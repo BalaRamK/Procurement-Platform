@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { logNotification } from "@/lib/notifications";
 import { canViewTicket } from "@/lib/tickets";
+import { STATUS_LABELS } from "@/lib/constants";
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 
 export async function GET(
@@ -62,8 +63,8 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string; status: string; teamName: string; title: string }>(
-    `SELECT requester_id AS "requesterId", status, team_name AS "teamName", title FROM tickets WHERE id = $1`,
+  const ticket = await queryOne<{ requesterId: string; status: string; teamName: string; title: string; requestId: string | null }>(
+    `SELECT requester_id AS "requesterId", status, team_name AS "teamName", title, request_id AS "requestId" FROM tickets WHERE id = $1`,
     [ticketId]
   );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -110,12 +111,27 @@ export async function POST(
       "SELECT id, email FROM users WHERE id = ANY($1) AND status = true",
       [uniqueIds]
     );
+    const mentionedBy = user?.name || user?.email || session.user.email || "A user";
+    const commentSnippet = trimmedBody
+      .replace(/@\[[^\]]*\]\([a-f0-9-]{36}\)/gi, (match) => match.replace(/^@\[([^\]]*)\].*$/, "@$1"))
+      .slice(0, 500);
     for (const u of mentioned) {
       await logNotification({
         ticketId,
         type: "comment_mention",
         recipient: u.email,
-        payload: { title: ticket.title ?? "", commentSnippet: trimmedBody.slice(0, 100) },
+        payload: {
+          title: ticket.title ?? "",
+          ticketTitle: ticket.title ?? "",
+          ticketId: ticket.requestId ?? ticketId,
+          currentStage: STATUS_LABELS[ticket.status] ?? ticket.status,
+          nextStage: STATUS_LABELS[ticket.status] ?? ticket.status,
+          mentionedBy,
+          actionBy: mentionedBy,
+          approverName: mentionedBy,
+          commentSnippet,
+        },
+        emailTrigger: "comment_mention",
       });
     }
   }

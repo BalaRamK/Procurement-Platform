@@ -43,6 +43,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
   assignment: "request_submitted_to_l1",
+  approval_update: "request_approval_update",
   order_placed: "production_marked_order_placed",
   delivered: "production_marked_delivered",
   closure: "requester_confirmed_receipt",
@@ -68,6 +69,8 @@ export type EmailContext = {
   actionBy?: string;
   approverPosition?: string;
   approverName?: string;
+  commentSnippet?: string;
+  mentionedBy?: string;
   requestUrl?: string;
   [key: string]: string | undefined;
 };
@@ -435,5 +438,9 @@ export async function sendNotificationEmailByType(
   const extra: EmailContext = {};
   if (payload?.title) extra.ticketTitle = String(payload.title);
   if (payload?.rejectionRemarks) extra.rejectionRemarks = String(payload.rejectionRemarks);
+  for (const [key, value] of Object.entries(payload ?? {})) {
+    if (typeof value === "string") extra[key] = value;
+    if (typeof value === "number" || typeof value === "boolean") extra[key] = String(value);
+  }
   await sendNotificationEmail(trigger, recipient, ticketId, extra);
 }
