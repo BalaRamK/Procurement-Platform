@@ -13,6 +13,7 @@ const TEAMS: { value: TeamName; label: string }[] = [
 
 const ROLE_HELP: Partial<Record<UserRole, string>> = {
   REQUESTER: "Can create and track purchase requests.",
+  VERTICAL_OWNER: "Can view all tickets and statuses for one vertical without approval actions.",
   FUNCTIONAL_HEAD: "Reviews requests for the assigned department.",
   L1_APPROVER: "Handles the first approval stage for a department.",
   CFO: "Approves finance-stage requests across teams.",
@@ -42,6 +43,8 @@ function roleTone(role: UserRole) {
       return "border-slate-300/60 bg-slate-100/80 text-slate-800 dark:border-slate-500/30 dark:bg-slate-800/60 dark:text-slate-100";
     case "REQUESTER":
       return "border-sky-300/60 bg-sky-50/80 text-sky-800 dark:border-sky-500/30 dark:bg-sky-950/30 dark:text-sky-200";
+    case "VERTICAL_OWNER":
+      return "border-cyan-300/60 bg-cyan-50/80 text-cyan-900 dark:border-cyan-500/30 dark:bg-cyan-950/30 dark:text-cyan-200";
     case "FUNCTIONAL_HEAD":
       return "border-indigo-300/60 bg-indigo-50/80 text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-950/30 dark:text-indigo-200";
     case "L1_APPROVER":
@@ -85,7 +88,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const needsTeam = selectedRoles.includes("REQUESTER") || selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
+  const needsTeam = selectedRoles.includes("REQUESTER") || selectedRoles.includes("VERTICAL_OWNER") || selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
 
   function toggleRole(role: UserRole) {
     setSelectedRoles((prev) => (prev.includes(role) ? prev.filter((item) => item !== role) : [...prev, role]));
@@ -99,7 +102,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
       return;
     }
     if (needsTeam && !team) {
-      setError("Department is required for Requester, L1 Approver, and Department Head roles.");
+      setError("Vertical is required for Requester, Vertical Owner, L1 Approver, and Department Head roles.");
       return;
     }
 
@@ -159,7 +162,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
           </div>
         </SectionCard>
 
-        <SectionCard title="Roles and routing" description="Adjust what this profile can do and whether routing should be scoped to a department.">
+        <SectionCard title="Roles and routing" description="Adjust what this profile can do and whether routing should be scoped to a vertical.">
           <div className="grid gap-3 md:grid-cols-2">
             {roles.map((role) => {
               const selected = selectedRoles.includes(role);
@@ -191,7 +194,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
 
           {needsTeam ? (
             <div className="mt-4 rounded-2xl border border-amber-300/50 bg-amber-50/80 p-4 dark:border-amber-500/20 dark:bg-amber-950/20">
-              <label className="mb-1.5 block text-sm font-medium text-amber-900 dark:text-amber-100">Department assignment *</label>
+              <label className="mb-1.5 block text-sm font-medium text-amber-900 dark:text-amber-100">Vertical assignment *</label>
               <select value={team} onChange={(e) => setTeam(e.target.value as TeamName | "")} className="input-base">
                 <option value="">Select team</option>
                 {TEAMS.map((teamOption) => (
@@ -200,7 +203,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Requester, L1 Approver, and Department Head roles use department assignment for routing and visibility.</p>
+              <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">Requester, Vertical Owner, L1 Approver, and Department Head roles use vertical assignment for routing and visibility.</p>
             </div>
           ) : (
             <div className="mt-4 rounded-2xl border border-white/30 bg-white/35 p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
@@ -241,7 +244,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
             <div className="rounded-2xl border border-white/30 bg-white/35 px-4 py-3 dark:border-white/10 dark:bg-white/5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Routing</p>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
-                {needsTeam && team ? `Department-scoped access for ${TEAMS.find((item) => item.value === team)?.label}` : needsTeam ? "Department assignment still needed" : "No department routing required"}
+                {needsTeam && team ? `Vertical-scoped access for ${TEAMS.find((item) => item.value === team)?.label}` : needsTeam ? "Vertical assignment still needed" : "No vertical routing required"}
               </p>
             </div>
           </div>

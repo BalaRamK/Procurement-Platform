@@ -145,6 +145,14 @@ export async function GET() {
     return NextResponse.json(rows.map(mapRowWithRequester));
   }
 
+  if (role === "VERTICAL_OWNER" && userTeam) {
+    const rows = await query<Record<string, unknown>>(
+      `${TICKET_JOIN_REQ} WHERE t.team_name = $1 ORDER BY t.created_at DESC`,
+      [userTeam]
+    );
+    return NextResponse.json(rows.map(mapRowWithRequester));
+  }
+
   if (role === "FUNCTIONAL_HEAD" && userTeam) {
     const rows = await query<Record<string, unknown>>(
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_FH_APPROVAL' AND t.team_name = $1 ORDER BY t.updated_at DESC`,

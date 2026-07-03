@@ -11,6 +11,7 @@ import { asRolesArray } from "@/types/db";
 const ROLES: UserRole[] = [
   "SUPER_ADMIN",
   "REQUESTER",
+  "VERTICAL_OWNER",
   "FUNCTIONAL_HEAD",
   "L1_APPROVER",
   "FINANCE_APPROVER",

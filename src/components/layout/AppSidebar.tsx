@@ -16,6 +16,7 @@ type AppSidebarProps = {
 export function AppSidebar({ userRoles, userEmail, mobileOpen, onMobileClose }: AppSidebarProps) {
   const roles = asRolesArray(userRoles);
   const isSuperAdmin = roles.includes("SUPER_ADMIN");
+  const canCreateRequest = isSuperAdmin || roles.includes("REQUESTER");
   const pathname = usePathname();
   const roleSummary = roles.length > 0 ? roles.join(" | ").replaceAll("_", " ") : "Workspace";
 
@@ -51,12 +52,14 @@ export function AppSidebar({ userRoles, userEmail, mobileOpen, onMobileClose }: 
             </svg>
             Pending queue
           </Link>
-          <Link href="/requests/new" className={navLink("/requests/new")} onClick={onMobileClose}>
-            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            New request
-          </Link>
+          {canCreateRequest && (
+            <Link href="/requests/new" className={navLink("/requests/new")} onClick={onMobileClose}>
+              <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New request
+            </Link>
+          )}
           <Link href="/inventory-search" className={navLink("/inventory-search")} onClick={onMobileClose}>
             <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3M5 11h14M7 15h4m-4 4h7M5 7h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z" />

@@ -88,6 +88,27 @@ export default async function DashboardPage({
     return <RequesterDashboardEnhanced tickets={tickets as (Ticket & { requester?: User })[]} />;
   }
 
+  if (role === "VERTICAL_OWNER" && userTeam) {
+    const where = ["t.team_name = $1"];
+    const args: (string | undefined)[] = [userTeam];
+    if (searchJoin) {
+      where.push("(t.title ILIKE $2 OR t.request_id ILIKE $2 OR t.requester_name ILIKE $2 OR u.email ILIKE $2 OR u.name ILIKE $2)");
+      args.push(searchJoin.param);
+    }
+    const rows = await query<Record<string, unknown>>(
+      `${TICKET_JOIN_REQ} WHERE ${where.join(" AND ")} ORDER BY t.created_at DESC`,
+      args
+    );
+    return (
+      <RequesterDashboardEnhanced
+        tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]}
+        showAll
+        title={`${userTeam} vertical requests`}
+        subtitle="Read-only view of all procurement tickets and statuses for your vertical."
+      />
+    );
+  }
+
   if (role === "FUNCTIONAL_HEAD" && userTeam) {
     const where = ["t.status = 'PENDING_FH_APPROVAL'", "t.team_name = $1"];
     const args: (string | undefined)[] = [userTeam];

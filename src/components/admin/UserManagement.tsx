@@ -15,6 +15,7 @@ type UserManagementProps = {
 const ROLES: UserRole[] = [
   "SUPER_ADMIN",
   "REQUESTER",
+  "VERTICAL_OWNER",
   "FUNCTIONAL_HEAD",
   "L1_APPROVER",
   "FINANCE_APPROVER",
@@ -41,6 +42,8 @@ function roleTone(role: UserRole) {
       return "bg-slate-100 text-slate-800 ring-slate-200 dark:bg-slate-500/15 dark:text-slate-100 dark:ring-slate-400/20";
     case "REQUESTER":
       return "bg-sky-100 text-sky-800 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-100 dark:ring-sky-400/20";
+    case "VERTICAL_OWNER":
+      return "bg-cyan-100 text-cyan-900 ring-cyan-200 dark:bg-cyan-500/15 dark:text-cyan-100 dark:ring-cyan-400/20";
     case "FUNCTIONAL_HEAD":
       return "bg-indigo-100 text-indigo-800 ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-100 dark:ring-indigo-400/20";
     case "L1_APPROVER":
@@ -125,7 +128,7 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
   }
 
   const showTeam = (roles: UserRole[]) =>
-    roles?.includes("REQUESTER") || roles?.includes("FUNCTIONAL_HEAD") || roles?.includes("L1_APPROVER");
+    roles?.includes("REQUESTER") || roles?.includes("VERTICAL_OWNER") || roles?.includes("FUNCTIONAL_HEAD") || roles?.includes("L1_APPROVER");
 
   function resetFilters() {
     setSearch("");

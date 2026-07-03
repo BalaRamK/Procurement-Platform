@@ -7,6 +7,7 @@ import type { UserRole } from "@/types/db";
 export const ROLE_LABELS: Record<UserRole, string> = {
   SUPER_ADMIN: "Admin",
   REQUESTER: "Requester",
+  VERTICAL_OWNER: "Vertical Owner",
   FUNCTIONAL_HEAD: "Department Head",
   L1_APPROVER: "L1 Approver",
   FINANCE_APPROVER: "Finance Approval",

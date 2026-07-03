@@ -49,6 +49,21 @@ export default async function PendingApprovalsPage() {
     );
   }
 
+  if (role === "VERTICAL_OWNER" && userTeam) {
+    const rows = await query<Record<string, unknown>>(
+      `${TICKET_JOIN_REQ} WHERE t.team_name = $1 AND t.status NOT IN ('DRAFT', 'CLOSED', 'REJECTED', 'CONFIRMED_BY_REQUESTER') ORDER BY t.updated_at DESC`,
+      [userTeam]
+    );
+    return (
+      <RequesterDashboardEnhanced
+        tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]}
+        showAll
+        title={`${userTeam} pending queue`}
+        subtitle="Read-only queue of in-progress tickets for your vertical."
+      />
+    );
+  }
+
   if (role === "FUNCTIONAL_HEAD" && userTeam) {
     const rows = await query<Record<string, unknown>>(
       `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_FH_APPROVAL' AND t.team_name = $1 ORDER BY t.updated_at DESC`,

@@ -27,7 +27,7 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const needsTeam = selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
+  const needsTeam = selectedRoles.includes("REQUESTER") || selectedRoles.includes("VERTICAL_OWNER") || selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
 
   function toggleRole(r: UserRole) {
     setSelectedRoles((prev) =>
@@ -43,7 +43,7 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
       return;
     }
     if (needsTeam && !team) {
-      setError("Team is required for Department Head and L1 Approver roles.");
+      setError("Vertical is required for Requester, Vertical Owner, Department Head, and L1 Approver roles.");
       return;
     }
     setLoading(true);
@@ -203,19 +203,19 @@ export function AddUserForm({ roles, roleLabels }: AddUserFormProps) {
             ))}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
-            At least one role required. Team is used for Department Head and L1 Approver.
+            At least one role required. Vertical is used for Requester, Vertical Owner, Department Head, and L1 Approver.
           </p>
         </div>
         {needsTeam && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Team</label>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-200">Vertical</label>
             <select value={team} onChange={(e) => setTeam(e.target.value as TeamName | "")} className="input-base">
               <option value="">— Select team —</option>
               {TEAMS.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Required for Department Head and L1 Approver so they see the right pending approvals.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">Required for vertical-scoped visibility and department-based routing.</p>
           </div>
         )}
         {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}

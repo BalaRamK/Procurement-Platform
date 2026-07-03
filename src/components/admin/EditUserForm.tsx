@@ -36,7 +36,7 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const needsTeam = selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
+  const needsTeam = selectedRoles.includes("REQUESTER") || selectedRoles.includes("VERTICAL_OWNER") || selectedRoles.includes("FUNCTIONAL_HEAD") || selectedRoles.includes("L1_APPROVER");
 
   function toggleRole(r: UserRole) {
     setSelectedRoles((prev) =>
@@ -52,7 +52,7 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
       return;
     }
     if (needsTeam && !team) {
-      setError("Team is required for Department Head and L1 Approver roles.");
+      setError("Vertical is required for Requester, Vertical Owner, Department Head, and L1 Approver roles.");
       return;
     }
     setLoading(true);
@@ -125,7 +125,7 @@ export function EditUserForm({ user, roleLabels, roles }: EditUserFormProps) {
         </div>
         {needsTeam && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700">Team</label>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Vertical</label>
             <select value={team} onChange={(e) => setTeam(e.target.value as TeamName | "")} className="input-base">
               <option value="">— Select team —</option>
               {TEAMS.map((t) => (

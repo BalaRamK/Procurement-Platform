@@ -25,6 +25,7 @@ export function canViewTicket(
 ) {
   if (hasRole(roles, "SUPER_ADMIN")) return true;
   if (currentUserId && ticket.requesterId === currentUserId && hasRole(roles, "REQUESTER")) return true;
+  if (hasRole(roles, "VERTICAL_OWNER") && userTeam && ticket.teamName === userTeam) return true;
   if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
   if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_FH_APPROVAL") return true;
   if (hasRole(roles, "L1_APPROVER") && userTeam && ticket.teamName === userTeam && ticket.status === "PENDING_L1_APPROVAL") return true;
