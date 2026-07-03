@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type Action = "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt";
@@ -59,9 +60,14 @@ export function TicketActions({
   if (status === "DRAFT" && isRequester) {
     return (
       <div className="space-y-3">
-        <button type="button" onClick={() => act("submit")} disabled={!!loading} className="btn-primary">
-          {loading === "submit" ? "Submitting..." : "Submit for approval"}
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <Link href={`/requests/${ticketId}/edit`} className="btn-secondary">
+            Edit draft
+          </Link>
+          <button type="button" onClick={() => act("submit")} disabled={!!loading} className="btn-primary">
+            {loading === "submit" ? "Submitting..." : "Submit for approval"}
+          </button>
+        </div>
         {errorMessage}
       </div>
     );

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { query, queryOne } from "@/lib/db";
+import { query, queryClient, queryOne, withTransaction } from "@/lib/db";
 import { getAssigneesForTeam, getProductionEmails } from "@/lib/assignees";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
-import type { TicketStatus, TeamName, UserRole } from "@/types/db";
+import { COST_CURRENCIES, PRIORITIES, TEAM_NAMES, type TicketStatus, type TeamName, type UserRole } from "@/types/db";
 import { canViewTicket, isRequesterForActiveRole } from "@/lib/tickets";
 import { getPrimaryRole } from "@/types/db";
 
@@ -108,7 +108,11 @@ export async function GET(
   return NextResponse.json(ticket);
 }
 
-type ApprovalBody = { action: "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt"; remarks?: string };
+type ApprovalBody = {
+  action: "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt" | "update_draft";
+  remarks?: string;
+  [key: string]: unknown;
+};
 
 const nextStatusOnApproval: Partial<Record<TicketStatus, TicketStatus>> = {
   PENDING_L1_APPROVAL: "PENDING_FH_APPROVAL",
@@ -176,6 +180,122 @@ export async function PATCH(
   const sessionEmail = session.user.email.trim().toLowerCase();
   const isRequester = isRequesterForActiveRole(activeRole, ticket.requesterId, session.user.id, requesterEmail, sessionEmail);
   const isProduction = activeRole === "PRODUCTION" || session.user.roles?.includes("PRODUCTION");
+
+  if (body.action === "update_draft") {
+    if (ticket.status !== "DRAFT") {
+      return NextResponse.json({ error: "Only draft tickets can be edited" }, { status: 400 });
+    }
+    if (!isRequester) {
+      return NextResponse.json({ error: "Only the requester can edit this draft" }, { status: 403 });
+    }
+
+    const lineItems = Array.isArray(body.lineItems) ? body.lineItems as Record<string, unknown>[] : [];
+    const hasLineItems = lineItems.length > 0;
+    const teamName = TEAM_NAMES.includes(body.teamName as TeamName) ? body.teamName as TeamName : ticket.teamName as TeamName;
+    const costCurrency = COST_CURRENCIES.includes(body.costCurrency as (typeof COST_CURRENCIES)[number])
+      ? body.costCurrency as (typeof COST_CURRENCIES)[number]
+      : null;
+    const priority = PRIORITIES.includes(body.priority as (typeof PRIORITIES)[number])
+      ? body.priority as (typeof PRIORITIES)[number]
+      : "MEDIUM";
+    const title = String(body.title ?? "").trim();
+    const requesterName = String(body.requesterName ?? "").trim();
+    const department = String(body.department ?? "").trim();
+    const needByDate = body.needByDate ? new Date(String(body.needByDate)) : null;
+    const estimatedPODate = body.estimatedPODate ? new Date(String(body.estimatedPODate)) : null;
+    const estimatedCostValue = Number(body.estimatedCost);
+    const rateValue = body.rate == null || body.rate === "" ? null : Number(body.rate);
+    const quantityValue = body.quantity == null || body.quantity === "" ? null : Number(body.quantity);
+
+    if (!title || !requesterName || !department || !needByDate || Number.isNaN(needByDate.getTime())) {
+      return NextResponse.json({ error: "Title, requester, project, and need-by date are required." }, { status: 400 });
+    }
+    if (!Number.isFinite(estimatedCostValue) || estimatedCostValue <= 0) {
+      return NextResponse.json({ error: "Estimated cost must be greater than 0." }, { status: 400 });
+    }
+
+    const ticketComponentDescription = hasLineItems ? "Bulk items" : String(body.componentDescription ?? "").trim();
+    const ticketItemName = hasLineItems
+      ? String(lineItems[0]?.componentName ?? "").trim()
+      : String(body.itemName ?? body.componentDescription ?? "").trim();
+    const ticketBomId = hasLineItems
+      ? String(lineItems[0]?.bomId ?? "").trim() || null
+      : String(body.bomId ?? "").trim() || null;
+
+    if (!hasLineItems && (!ticketComponentDescription || !ticketItemName || !rateValue || rateValue <= 0 || !quantityValue || quantityValue < 1)) {
+      return NextResponse.json({ error: "Component, item, rate, and quantity are required for single-item drafts." }, { status: 400 });
+    }
+
+    await withTransaction(async (client) => {
+      await queryClient(
+        client,
+        `UPDATE tickets SET
+          title = $1, description = $2, requester_name = $3, department = $4,
+          component_description = $5, item_name = $6, bom_id = $7, product_id = $8,
+          brand_name_company = $9, preferred_supplier = $10, country_of_origin = $11,
+          project_customer = $12, need_by_date = $13, charge_code = $14,
+          cost_currency = $15, estimated_cost = $16, rate = $17, unit = $18,
+          estimated_po_date = $19, place_of_delivery = $20, quantity = $21,
+          deal_name = $22, team_name = $23, priority = $24, updated_at = now()
+         WHERE id = $25`,
+        [
+          title,
+          String(body.description ?? "").trim() || null,
+          requesterName,
+          department,
+          ticketComponentDescription || null,
+          ticketItemName || null,
+          ticketBomId,
+          String(body.productId ?? "").trim() || null,
+          hasLineItems ? null : String(body.brandNameCompany ?? "").trim() || null,
+          hasLineItems ? null : String(body.preferredSupplier ?? "").trim() || null,
+          hasLineItems ? null : String(body.countryOfOrigin ?? "").trim() || null,
+          String(body.projectCustomer ?? "").trim() || null,
+          needByDate,
+          String(body.chargeCode ?? "").trim() || null,
+          costCurrency,
+          estimatedCostValue,
+          hasLineItems ? Number(lineItems[0]?.costPerItem ?? 0) : rateValue,
+          String(body.unit ?? "").trim() || null,
+          estimatedPODate && !Number.isNaN(estimatedPODate.getTime()) ? estimatedPODate : null,
+          String(body.placeOfDelivery ?? "").trim() || null,
+          hasLineItems ? lineItems.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0) : quantityValue,
+          String(body.dealName ?? "").trim() || null,
+          teamName,
+          priority,
+          id,
+        ]
+      );
+      await queryClient(client, "DELETE FROM ticket_line_items WHERE ticket_id = $1", [id]);
+      for (let i = 0; i < lineItems.length; i++) {
+        const li = lineItems[i];
+        await queryClient(
+          client,
+          `INSERT INTO ticket_line_items (
+             ticket_id, sort_order, component_name, bom_id, cost_per_item, quantity, item_description,
+             manufacturer, preferred_supplier, country_of_origin, extra_spares, remarks, zoho_available
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            id,
+            i,
+            String(li.componentName ?? "").trim() || null,
+            String(li.bomId ?? "").trim() || null,
+            Number(li.costPerItem ?? 0),
+            Number(li.quantity ?? 1),
+            String(li.itemDescription ?? "").trim() || null,
+            String(li.manufacturer ?? "").trim() || null,
+            String(li.preferredSupplier ?? "").trim() || null,
+            String(li.countryOfOrigin ?? "").trim() || null,
+            String(li.extraSpares ?? "").trim() || null,
+            String(li.remarks ?? "").trim() || null,
+            typeof li.zohoAvailable === "boolean" ? li.zohoAvailable : null,
+          ]
+        );
+      }
+    });
+    return NextResponse.json({ ok: true, id, status: "DRAFT" });
+  }
 
   if (body.action === "submit") {
     if (ticket.status !== "DRAFT") {

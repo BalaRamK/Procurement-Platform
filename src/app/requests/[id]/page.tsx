@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
 import { TicketActions } from "@/components/requests/TicketActions";
+import { AttachmentList } from "@/components/requests/AttachmentList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -382,25 +383,15 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
           {attachmentRows.length > 0 && (
             <DetailCard title="Attachments" description="Quotes, specifications, and supporting documents uploaded with this request.">
-              <ul className="divide-y divide-slate-200 rounded-2xl border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                {attachmentRows.map((attachment) => {
-                  const size = Number(attachment.sizeBytes ?? 0);
-                  const sizeLabel = size >= 1024 * 1024
-                    ? `${(size / 1024 / 1024).toFixed(2)} MB`
-                    : `${(size / 1024).toFixed(1)} KB`;
-                  return (
-                    <li key={String(attachment.id)} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-medium text-slate-900 dark:text-slate-100">{String(attachment.originalName ?? "")}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">{sizeLabel}</p>
-                      </div>
-                      <a href={`/api/requests/${ticket.id}/attachments/${attachment.id}`} className="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-sky-200 dark:hover:text-white">
-                        Download
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
+              <AttachmentList
+                ticketId={ticket.id}
+                canDelete={isRequester && ticket.status === "DRAFT"}
+                attachments={attachmentRows.map((attachment) => ({
+                  id: String(attachment.id),
+                  originalName: String(attachment.originalName ?? ""),
+                  sizeBytes: Number(attachment.sizeBytes ?? 0),
+                }))}
+              />
             </DetailCard>
           )}
         </main>

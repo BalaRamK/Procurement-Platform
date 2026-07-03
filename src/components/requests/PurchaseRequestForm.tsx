@@ -15,9 +15,9 @@ const TEAMS: { value: TeamName; label: string }[] = [
 ];
 
 const CURRENCIES: { value: CostCurrency; label: string }[] = [
-  { value: "USD", label: "USD" },
   { value: "INR", label: "INR" },
-  { value: "EUR", label: "EUR" },
+  { value: "USD", label: "$" },
+  { value: "EUR", label: "Euro" },
 ];
 
 const PRIORITIES: { value: Priority; label: string }[] = [
@@ -166,6 +166,48 @@ type Props = {
   requesterEmail: string;
   requesterTeam?: TeamName | null;
   canChooseTeam?: boolean;
+  mode?: "create" | "edit";
+  ticketId?: string;
+  initialValues?: Partial<{
+    title: string;
+    description: string;
+    requesterName: string;
+    department: string;
+    componentDescription: string;
+    bomId: string;
+    productId: string;
+    itemName: string;
+    brandNameCompany: string;
+    preferredSupplier: string;
+    countryOfOrigin: string;
+    projectCustomer: string;
+    needByDate: string;
+    chargeCode: string;
+    costCurrency: CostCurrency;
+    estimatedCost: string;
+    rate: string;
+    unit: string;
+    estimatedPODate: string;
+    placeOfDelivery: string;
+    quantity: string;
+    dealName: string;
+    teamName: TeamName;
+    priority: Priority;
+    lineItems: {
+      slNo: number;
+      componentName: string;
+      bomId: string;
+      costPerItem: number;
+      quantity: number;
+      itemDescription: string;
+      manufacturer: string;
+      preferredSupplier: string;
+      countryOfOrigin: string;
+      extraSpares: string;
+      remarks: string;
+      zohoAvailable?: boolean;
+    }[];
+  }>;
 };
 
 export function PurchaseRequestForm({
@@ -173,34 +215,37 @@ export function PurchaseRequestForm({
   requesterEmail,
   requesterTeam = null,
   canChooseTeam = false,
+  mode = "create",
+  ticketId,
+  initialValues,
 }: Props) {
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [requesterNameVal, setRequesterNameVal] = useState(requesterName);
-  const [department, setDepartment] = useState("");
-  const [componentDescription, setComponentDescription] = useState("");
-  const [bomId, setBomId] = useState("");
-  const [productId, setProductId] = useState("");
-  const [itemName, setItemName] = useState("");
-  const [brandNameCompany, setBrandNameCompany] = useState("");
-  const [preferredSupplier, setPreferredSupplier] = useState("");
-  const [countryOfOrigin, setCountryOfOrigin] = useState("");
-  const [projectCustomer, setProjectCustomer] = useState("");
-  const [needByDate, setNeedByDate] = useState("");
-  const [chargeCode, setChargeCode] = useState("");
-  const [costCurrency, setCostCurrency] = useState<CostCurrency>("USD");
-  const [estimatedCost, setEstimatedCost] = useState("");
-  const [rate, setRate] = useState("");
-  const [unit, setUnit] = useState("");
-  const [estimatedPODate, setEstimatedPODate] = useState("");
-  const [placeOfDelivery, setPlaceOfDelivery] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [dealName, setDealName] = useState("");
+  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [description, setDescription] = useState(initialValues?.description ?? "");
+  const [requesterNameVal, setRequesterNameVal] = useState(initialValues?.requesterName ?? requesterName);
+  const [department, setDepartment] = useState(initialValues?.department ?? "");
+  const [componentDescription, setComponentDescription] = useState(initialValues?.componentDescription ?? "");
+  const [bomId, setBomId] = useState(initialValues?.bomId ?? "");
+  const [productId, setProductId] = useState(initialValues?.productId ?? "");
+  const [itemName, setItemName] = useState(initialValues?.itemName ?? "");
+  const [brandNameCompany, setBrandNameCompany] = useState(initialValues?.brandNameCompany ?? "");
+  const [preferredSupplier, setPreferredSupplier] = useState(initialValues?.preferredSupplier ?? "");
+  const [countryOfOrigin, setCountryOfOrigin] = useState(initialValues?.countryOfOrigin ?? "");
+  const [projectCustomer, setProjectCustomer] = useState(initialValues?.projectCustomer ?? "");
+  const [needByDate, setNeedByDate] = useState(initialValues?.needByDate ?? "");
+  const [chargeCode, setChargeCode] = useState(initialValues?.chargeCode ?? "");
+  const [costCurrency, setCostCurrency] = useState<CostCurrency>(initialValues?.costCurrency ?? "INR");
+  const [estimatedCost, setEstimatedCost] = useState(initialValues?.estimatedCost ?? "");
+  const [rate, setRate] = useState(initialValues?.rate ?? "");
+  const [unit, setUnit] = useState(initialValues?.unit ?? "");
+  const [estimatedPODate, setEstimatedPODate] = useState(initialValues?.estimatedPODate ?? "");
+  const [placeOfDelivery, setPlaceOfDelivery] = useState(initialValues?.placeOfDelivery ?? "");
+  const [quantity, setQuantity] = useState(initialValues?.quantity ?? "1");
+  const [dealName, setDealName] = useState(initialValues?.dealName ?? "");
   const [dealId, setDealId] = useState("");
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [teamName, setTeamName] = useState<TeamName>(requesterTeam ?? "ENGINEERING");
-  const [priority, setPriority] = useState<Priority>("MEDIUM");
+  const [teamName, setTeamName] = useState<TeamName>(initialValues?.teamName ?? requesterTeam ?? "ENGINEERING");
+  const [priority, setPriority] = useState<Priority>(initialValues?.priority ?? "MEDIUM");
   const [zohoLocked, setZohoLocked] = useState(false);
   const [manualAddMode, setManualAddMode] = useState(false); // + Add Component: user enters details manually (not in Zoho)
   const [flowAssignees, setFlowAssignees] = useState<FlowAssignees | null>(null);
@@ -216,10 +261,10 @@ export function PurchaseRequestForm({
   const [submitError, setSubmitError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [lastLookupResponse, setLastLookupResponse] = useState<Record<string, unknown> | null>(null);
-  const [itemMode, setItemMode] = useState<"single" | "bulk">("single");
+  const [itemMode, setItemMode] = useState<"single" | "bulk">(initialValues?.lineItems?.length ? "bulk" : "single");
   const [bulkLineItems, setBulkLineItems] = useState<
     { slNo: number; componentName: string; bomId: string; costPerItem: number; quantity: number; itemDescription: string; manufacturer: string; preferredSupplier: string; countryOfOrigin: string; extraSpares: string; remarks: string; zohoAvailable?: boolean }[]
-  >([]);
+  >(initialValues?.lineItems ?? []);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkModalRows, setBulkModalRows] = useState<typeof bulkLineItems>([]);
   const [bulkZohoChecking, setBulkZohoChecking] = useState(false);
@@ -233,6 +278,11 @@ export function PurchaseRequestForm({
   const qtyNum = quantity ? Number(quantity) || 1 : 1;
   const isBulkReady = itemMode === "bulk" && bulkLineItems.length > 0;
   const bulkTotal = bulkLineItems.reduce((sum, li) => sum + li.costPerItem * li.quantity, 0);
+  const effectiveEstimatedCost = isBulkReady
+    ? Number(estimatedCost || bulkTotal)
+    : rate
+      ? Number(rate) * qtyNum
+      : undefined;
   const validationCount = Object.keys(fieldErrors).length;
   const currentChargeCodes = chargeCodesByTeam[teamName] ?? [];
 
@@ -372,6 +422,9 @@ export function PurchaseRequestForm({
       if (!quantity || Number(quantity) < 1) errors.quantity = "Quantity must be at least 1.";
       if (!description.trim()) errors.description = "Item description is required.";
     }
+    if (isBulk && (!Number.isFinite(Number(estimatedCost || bulkTotal)) || Number(estimatedCost || bulkTotal) <= 0)) {
+      errors.estimatedCost = "Estimated cost must be greater than 0.";
+    }
     if (!needByDate) errors.needByDate = "Need by date is required.";
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -400,9 +453,7 @@ export function PurchaseRequestForm({
         needByDate: needByDate || undefined,
         chargeCode: chargeCode || undefined,
         costCurrency,
-        estimatedCost: isBulk
-          ? bulkLineItems.reduce((s, li) => s + li.costPerItem * li.quantity, 0)
-          : (rate ? Number(rate) * qtyNum : undefined),
+        estimatedCost: effectiveEstimatedCost,
         rate: isBulk ? undefined : (rate ? Number(rate) : undefined),
         unit: unit || undefined,
         estimatedPODate: estimatedPODate || undefined,
@@ -428,10 +479,10 @@ export function PurchaseRequestForm({
           zohoAvailable: li.zohoAvailable,
         }));
       }
-      const res = await fetch("/api/requests", {
-        method: "POST",
+      const res = await fetch(mode === "edit" && ticketId ? `/api/requests/${ticketId}` : "/api/requests", {
+        method: mode === "edit" ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(mode === "edit" ? { action: "update_draft", ...payload } : payload),
       });
       if (!res.ok) {
         const errorPayload = (await res.json().catch(() => null)) as
@@ -474,7 +525,7 @@ export function PurchaseRequestForm({
 
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          Please fill the details to raise a new Request
+          {mode === "edit" ? "Edit draft request" : "Please fill the details to raise a new Request"}
         </h1>
       </div>
 
@@ -636,6 +687,22 @@ export function PurchaseRequestForm({
 
             {itemMode === "bulk" && (
               <>
+                <div className="mb-4 max-w-xs">
+                  <FormField label="Currency" required hint="Applies to all bulk item costs and the estimated total.">
+                    <select
+                      value={costCurrency}
+                      onChange={(e) => setCostCurrency(e.target.value as CostCurrency)}
+                      className="input-base"
+                      required
+                    >
+                      {CURRENCIES.map((currency) => (
+                        <option key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FormField>
+                </div>
                 {bulkLineItems.length === 0 ? (
                   <div>
                     <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -706,11 +773,12 @@ export function PurchaseRequestForm({
                       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{bulkLineItems.length} item(s) added</p>
                       <button
                         type="button"
-                        onClick={() => {
-                          setBulkLineItems([]);
-                          setBulkUploadFileName("");
-                          setBulkUploadStatus("");
-                        }}
+                          onClick={() => {
+                            setBulkLineItems([]);
+                            setEstimatedCost("");
+                            setBulkUploadFileName("");
+                            setBulkUploadStatus("");
+                          }}
                         className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
                       >
                         Clear and upload again
@@ -951,7 +1019,7 @@ export function PurchaseRequestForm({
                   placeholder="Not used"
                 />
               </FormField>
-              <FormField label="Cost per item ($)" required hint="This drives the estimated total below. Zero or blank cost cannot be submitted.">
+              <FormField label="Cost per item" required hint="This drives the estimated total below. Zero or blank cost cannot be submitted.">
                 <input
                   id="rate"
                   type="number"
@@ -973,6 +1041,20 @@ export function PurchaseRequestForm({
                     {fieldErrors.rate}
                   </p>
                 )}
+              </FormField>
+              <FormField label="Currency" required hint="Use the same currency for item and estimated cost.">
+                <select
+                  value={costCurrency}
+                  onChange={(e) => setCostCurrency(e.target.value as CostCurrency)}
+                  className="input-base"
+                  required
+                >
+                  {CURRENCIES.map((currency) => (
+                    <option key={currency.value} value={currency.value}>
+                      {currency.label}
+                    </option>
+                  ))}
+                </select>
               </FormField>
               <FormField label="Quantity" required hint="Use the stepper if you want a quick adjustment.">
                 <div className="flex items-stretch rounded-2xl border border-white/30 bg-white/35 shadow-[var(--glass-inner)] dark:border-white/10 dark:bg-white/5">
@@ -1064,17 +1146,40 @@ export function PurchaseRequestForm({
 
             {/* Estimated cost & Need by — shown for both single and bulk */}
             <div className="grid gap-6 sm:grid-cols-2">
-              <FormField label="Estimated cost (auto)" required>
-                <input
-                  type="text"
-                  value={itemMode === "bulk" && bulkLineItems.length > 0
-                    ? bulkLineItems.reduce((s, li) => s + li.costPerItem * li.quantity, 0).toFixed(2) + " " + costCurrency
-                    : displayCost}
-                  readOnly
-                  className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
-                  placeholder={itemMode === "bulk" ? "Add items to see total" : "Cost per item × Quantity"}
-                />
-              </FormField>
+              {itemMode === "bulk" && bulkLineItems.length > 0 ? (
+                <FormField
+                  label="Estimated cost"
+                  required
+                  fieldId="estimatedCost"
+                  error={fieldErrors.estimatedCost}
+                  hint={`Auto-calculated from line items as ${bulkTotal.toFixed(2)} ${costCurrency}. You can edit it.`}
+                >
+                  <input
+                    id="estimatedCost"
+                    type="number"
+                    step="any"
+                    min={0.01}
+                    value={estimatedCost}
+                    onChange={(e) => {
+                      setEstimatedCost(e.target.value);
+                      if (fieldErrors.estimatedCost) setFieldErrors((prev) => ({ ...prev, estimatedCost: "" }));
+                    }}
+                    className={`input-base ${fieldErrors.estimatedCost ? "border-red-400 focus:ring-red-400/30" : ""}`}
+                    placeholder="Estimated total"
+                    required
+                  />
+                </FormField>
+              ) : (
+                <FormField label="Estimated cost (auto)" required>
+                  <input
+                    type="text"
+                    value={displayCost ? `${displayCost} ${costCurrency}` : ""}
+                    readOnly
+                    className="input-base read-only:bg-white/40 read-only:border-white/40 dark:read-only:bg-white/5 dark:read-only:border-white/10"
+                    placeholder="Cost per item × Quantity"
+                  />
+                </FormField>
+              )}
               <FormField
                 label="Need by date"
                 required
@@ -1168,7 +1273,9 @@ export function PurchaseRequestForm({
                   <button
                     type="button"
                     onClick={() => {
-                      setBulkLineItems(bulkModalRows.map((r) => ({ ...r, zohoAvailable: r.zohoAvailable })));
+                      const nextRows = bulkModalRows.map((r) => ({ ...r, zohoAvailable: r.zohoAvailable }));
+                      setBulkLineItems(nextRows);
+                      setEstimatedCost(nextRows.reduce((s, li) => s + li.costPerItem * li.quantity, 0).toFixed(2));
                       setBulkModalOpen(false);
                     }}
                     className="btn-primary"
@@ -1286,6 +1393,13 @@ export function PurchaseRequestForm({
                   <li key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 dark:border-slate-700">
                     <span className="truncate">{file.name}</span>
                     <span className="shrink-0 text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments((prev) => prev.filter((item) => item !== file))}
+                      className="shrink-0 text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-300 dark:hover:text-red-200"
+                    >
+                      Remove
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -1300,7 +1414,7 @@ export function PurchaseRequestForm({
             disabled={loading}
             className="btn-primary w-full sm:w-auto"
           >
-            {loading ? "Creating..." : "Create Request"}
+            {loading ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save draft" : "Create Request"}
           </button>
           <button
             type="button"

@@ -22,6 +22,9 @@ export async function POST(
   if (ticket.requesterId !== session.user.id) {
     return NextResponse.json({ error: "Only the requester can add attachments at request creation." }, { status: 403 });
   }
+  if (ticket.status !== "DRAFT") {
+    return NextResponse.json({ error: "Attachments can only be changed while the request is in draft." }, { status: 400 });
+  }
 
   const formData = await req.formData();
   const files = formData.getAll("files").filter((value): value is File => value instanceof File);
