@@ -2,6 +2,7 @@
 import { redirect, notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { authOptions } from "@/lib/auth";
+import { canUploadAttachment } from "@/lib/attachment-permissions";
 import { query } from "@/lib/db";
 import { TicketActions } from "@/components/requests/TicketActions";
 import { AttachmentList } from "@/components/requests/AttachmentList";
@@ -10,7 +11,7 @@ import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WorkflowStepper } from "@/components/ui/WorkflowStepper";
 import { isRequesterForActiveRole } from "@/lib/tickets";
-import type { TeamName, UserRole } from "@/types/db";
+import type { TeamName, TicketStatus, UserRole } from "@/types/db";
 import { getPrimaryRole, hasRole } from "@/types/db";
 
 function canView(
@@ -178,6 +179,17 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const requesterEmail = ticket.requester?.email?.trim().toLowerCase() ?? "";
   const isRequester = isRequesterForActiveRole(activeRole, ticket.requesterId, session.user.id, requesterEmail, sessionEmail);
   const isProduction = activeRole === "PRODUCTION" || hasRole(session.user.roles, "PRODUCTION");
+  const canUploadAttachments = canUploadAttachment({
+    activeRole,
+    roles: session.user.roles,
+    ticket: {
+      requesterId: ticket.requesterId,
+      requesterEmail,
+      status: ticket.status as TicketStatus,
+    },
+    currentUserId: session.user.id,
+    sessionEmail,
+  });
   const canShowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
     (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
@@ -381,11 +393,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             </DetailCard>
           )}
 
-          {attachmentRows.length > 0 && (
+          {(attachmentRows.length > 0 || canUploadAttachments) && (
             <DetailCard title="Attachments" description="Quotes, specifications, and supporting documents uploaded with this request.">
               <AttachmentList
                 ticketId={ticket.id}
                 canDelete={isRequester && ticket.status === "DRAFT"}
+                canUpload={canUploadAttachments}
                 attachments={attachmentRows.map((attachment) => ({
                   id: String(attachment.id),
                   originalName: String(attachment.originalName ?? ""),

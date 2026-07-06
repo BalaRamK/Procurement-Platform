@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { canUploadAttachment } from "@/lib/attachment-permissions";
 import { query, queryOne } from "@/lib/db";
 import { canViewTicket } from "@/lib/tickets";
 import type { TeamName, TicketStatus, UserRole } from "@/types/db";
+import { getPrimaryRole } from "@/types/db";
 import { saveTicketAttachment } from "@/lib/attachments";
 
 export async function POST(
@@ -14,16 +16,29 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string; status: string; teamName: string }>(
-    `SELECT requester_id AS "requesterId", status, team_name AS "teamName" FROM tickets WHERE id = $1`,
+  const ticket = await queryOne<{ requesterId: string; requesterEmail: string | null; status: TicketStatus; teamName: TeamName }>(
+    `SELECT t.requester_id AS "requesterId", u.email AS "requesterEmail", t.status, t.team_name AS "teamName"
+     FROM tickets t LEFT JOIN users u ON u.id = t.requester_id WHERE t.id = $1`,
     [ticketId]
   );
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (ticket.requesterId !== session.user.id) {
-    return NextResponse.json({ error: "Only the requester can add attachments at request creation." }, { status: 403 });
-  }
-  if (ticket.status !== "DRAFT") {
-    return NextResponse.json({ error: "Attachments can only be changed while the request is in draft." }, { status: 400 });
+
+  const roles = session.user.roles ?? [];
+  const activeRole = session.user.activeRole ?? getPrimaryRole(roles as UserRole[]);
+  const authorized =
+    ticket.requesterId === session.user.id ||
+    canViewTicket(roles as UserRole[], session.user.team as TeamName | null, ticket, session.user.id);
+  if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const canAttach = canUploadAttachment({
+    activeRole,
+    roles: roles as UserRole[],
+    ticket,
+    currentUserId: session.user.id,
+    sessionEmail: session.user.email,
+  });
+  if (!canAttach) {
+    return NextResponse.json({ error: "Your role cannot add attachments to this request right now." }, { status: 403 });
   }
 
   const formData = await req.formData();
@@ -53,7 +68,7 @@ export async function GET(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string; status: string; teamName: string }>(
+  const ticket = await queryOne<{ requesterId: string; status: TicketStatus; teamName: TeamName }>(
     `SELECT requester_id AS "requesterId", status, team_name AS "teamName" FROM tickets WHERE id = $1`,
     [ticketId]
   );
