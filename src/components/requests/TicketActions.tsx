@@ -4,18 +4,22 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type Action = "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt";
+type Action = "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt" | "delete_draft";
 
 export function TicketActions({
   ticketId,
   status,
   isRequester,
   isProduction,
+  canDeleteTicket = false,
+  canApproveActions = true,
 }: {
   ticketId: string;
   status: string;
   isRequester: boolean;
   isProduction: boolean;
+  canDeleteTicket?: boolean;
+  canApproveActions?: boolean;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState<Action | null>(null);
@@ -55,6 +59,29 @@ export function TicketActions({
     }
   }
 
+  async function deleteTicket() {
+    const label = status === "DRAFT" ? "draft request" : "ticket";
+    if (!window.confirm(`Delete this ${label} permanently? This cannot be undone.`)) {
+      return;
+    }
+
+    setLoading("delete_draft");
+    setError("");
+    try {
+      const res = await fetch("/api/requests/" + ticketId, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error ?? "Could not delete this ticket. Please try again.");
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete this ticket. Please try again.");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   const errorMessage = error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null;
 
   if (status === "DRAFT" && isRequester) {
@@ -66,6 +93,9 @@ export function TicketActions({
           </Link>
           <button type="button" onClick={() => act("submit")} disabled={!!loading} className="btn-primary">
             {loading === "submit" ? "Submitting..." : "Submit for approval"}
+          </button>
+          <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+            {loading === "delete_draft" ? "Deleting..." : "Delete draft"}
           </button>
         </div>
         {errorMessage}
@@ -113,7 +143,28 @@ export function TicketActions({
     "PENDING_CFO_APPROVAL",
     "PENDING_CDO_APPROVAL",
   ];
-  if (!approvalStatuses.includes(status)) return null;
+  if (!approvalStatuses.includes(status)) {
+    if (!canDeleteTicket) return null;
+    return (
+      <div className="space-y-3">
+        <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+          {loading === "delete_draft" ? "Deleting..." : "Delete ticket"}
+        </button>
+        {errorMessage}
+      </div>
+    );
+  }
+  if (!canApproveActions) {
+    if (!canDeleteTicket) return null;
+    return (
+      <div className="space-y-3">
+        <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+          {loading === "delete_draft" ? "Deleting..." : "Delete ticket"}
+        </button>
+        {errorMessage}
+      </div>
+    );
+  }
 
   if (showReject) {
     return (
@@ -153,6 +204,11 @@ export function TicketActions({
         <button type="button" onClick={() => setShowReject(true)} disabled={!!loading} className="btn-danger">
           Reject
         </button>
+        {canDeleteTicket && (
+          <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+            {loading === "delete_draft" ? "Deleting..." : "Delete ticket"}
+          </button>
+        )}
       </div>
       {errorMessage}
     </div>

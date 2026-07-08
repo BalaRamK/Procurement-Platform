@@ -179,6 +179,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const requesterEmail = ticket.requester?.email?.trim().toLowerCase() ?? "";
   const isRequester = isRequesterForActiveRole(activeRole, ticket.requesterId, session.user.id, requesterEmail, sessionEmail);
   const isProduction = activeRole === "PRODUCTION" || hasRole(session.user.roles, "PRODUCTION");
+  const canDeleteTicket = hasRole(session.user.roles, "SUPER_ADMIN");
   const canUploadAttachments = canUploadAttachment({
     activeRole,
     roles: session.user.roles,
@@ -190,7 +191,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     currentUserId: session.user.id,
     sessionEmail,
   });
-  const canShowActions =
+  const canShowWorkflowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
     (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
@@ -198,6 +199,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     (activeRole === "FINANCE_APPROVER" && ticket.status === "PENDING_FINANCE_APPROVAL") ||
     (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
     (activeRole === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
+  const canShowActions = canShowWorkflowActions || canDeleteTicket;
 
   if (!canView(roles, userTeam, ticket, session.user.id) && !isRequester) redirect("/dashboard");
 
@@ -250,7 +252,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
         <aside className="order-first space-y-4 lg:sticky lg:top-24 lg:order-last lg:self-start">
           <DetailCard title="Next action" description="Primary controls are kept near the top so they are easy to find.">
             {canShowActions ? (
-              <TicketActions ticketId={ticket.id} status={ticket.status} isRequester={isRequester} isProduction={isProduction} />
+              <TicketActions
+                ticketId={ticket.id}
+                status={ticket.status}
+                isRequester={isRequester}
+                isProduction={isProduction}
+                canDeleteTicket={canDeleteTicket}
+                canApproveActions={canShowWorkflowActions}
+              />
             ) : (
               <p className="text-sm text-slate-600 dark:text-slate-300">No action is available right now for your role.</p>
             )}

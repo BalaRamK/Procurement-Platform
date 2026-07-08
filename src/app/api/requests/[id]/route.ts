@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { rm } from "fs/promises";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryClient, queryOne, withTransaction } from "@/lib/db";
@@ -7,7 +8,7 @@ import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { COST_CURRENCIES, PRIORITIES, TEAM_NAMES, type TicketStatus, type TeamName, type UserRole } from "@/types/db";
 import { canViewTicket, isRequesterForActiveRole } from "@/lib/tickets";
-import { getPrimaryRole } from "@/types/db";
+import { getPrimaryRole, hasRole } from "@/types/db";
 
 const STAGE_LABELS: Record<string, string> = {
   DRAFT: "Draft",
@@ -106,6 +107,55 @@ export async function GET(
   (ticket as Record<string, unknown>).lineItems = lineRows;
 
   return NextResponse.json(ticket);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const ticket = await queryOne<{
+    status: TicketStatus;
+    requesterId: string;
+    requesterEmail: string | null;
+  }>(
+    `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail"
+     FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
+    [id]
+  );
+  if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const activeRole = session.user.activeRole ?? getPrimaryRole(session.user.roles);
+  const isSuperAdmin = hasRole(session.user.roles, "SUPER_ADMIN");
+  const requesterEmail = ticket.requesterEmail?.trim().toLowerCase() ?? "";
+  const sessionEmail = session.user.email.trim().toLowerCase();
+  const isRequester = isRequesterForActiveRole(activeRole, ticket.requesterId, session.user.id, requesterEmail, sessionEmail);
+  if (!isSuperAdmin && ticket.status !== "DRAFT") {
+    return NextResponse.json({ error: "Only draft tickets can be deleted" }, { status: 400 });
+  }
+  if (!isSuperAdmin && !isRequester) {
+    return NextResponse.json({ error: "Only the requester can delete this draft" }, { status: 403 });
+  }
+
+  const attachments = await query<{ filePath: string }>(
+    `SELECT file_path AS "filePath" FROM ticket_attachments WHERE ticket_id = $1`,
+    [id]
+  );
+
+  await query("DELETE FROM tickets WHERE id = $1", [id]);
+
+  await Promise.all(
+    attachments.map((attachment) =>
+      rm(attachment.filePath, { force: true }).catch((error) => {
+        console.warn("[draft delete] attachment file removal failed", error);
+      })
+    )
+  );
+
+  return NextResponse.json({ ok: true });
 }
 
 type ApprovalBody = {
