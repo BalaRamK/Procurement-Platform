@@ -1,3 +1,9 @@
 "use client";
 
-export { EmailTemplateManagerView as EmailTemplateManager } from "./EmailTemplateManagerView";
+import { EmailTemplateManagerView } from "./EmailTemplateManagerView";
+
+type AdminTab = "templates" | "delivery" | "diagnostics";
+
+export function EmailTemplateManager({ initialTab }: { initialTab?: AdminTab }) {
+  return <EmailTemplateManagerView initialTab={initialTab} />;
+}

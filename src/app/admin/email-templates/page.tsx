@@ -4,10 +4,18 @@ import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { EmailTemplateManager } from "@/components/admin/EmailTemplateManager";
 
-export default async function AdminEmailTemplatesPage() {
+export default async function AdminEmailTemplatesPage({
+  searchParams = {},
+}: {
+  searchParams?: Promise<{ tab?: string }> | { tab?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/auth/signin");
   if (!session.user.roles?.includes("SUPER_ADMIN")) redirect("/dashboard");
+  const resolved = searchParams && typeof (searchParams as Promise<unknown>).then === "function"
+    ? await (searchParams as Promise<{ tab?: string }>)
+    : (searchParams as { tab?: string }) ?? {};
+  const initialTab = resolved.tab === "delivery" || resolved.tab === "diagnostics" ? resolved.tab : "templates";
 
   return (
     <div>
@@ -22,7 +30,7 @@ export default async function AdminEmailTemplatesPage() {
           Add or edit auto email templates and set when they are sent (immediate, 24h, 48h, or custom delay).
         </p>
       </div>
-      <EmailTemplateManager />
+      <EmailTemplateManager initialTab={initialTab} />
     </div>
   );
 }

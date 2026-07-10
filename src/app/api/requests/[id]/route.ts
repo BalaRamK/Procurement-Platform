@@ -159,7 +159,7 @@ export async function DELETE(
 }
 
 type ApprovalBody = {
-  action: "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt" | "update_draft";
+  action: "approved" | "rejected" | "submit" | "reraised" | "order_placed" | "mark_delivered" | "confirm_receipt" | "update_draft";
   remarks?: string;
   [key: string]: unknown;
 };
@@ -367,6 +367,43 @@ export async function PATCH(
           status: initialStatus,
           title: ticket.title,
           currentStage: "Draft",
+          nextStage: STAGE_LABELS[initialStatus],
+          actionBy: actorName(session.user),
+          approverPosition: "L1 Approver",
+          approverName: assigneeLabel("L1 Approver", firstApprover),
+        },
+        emailTrigger: "request_submitted_to_l1",
+      });
+    }
+    return NextResponse.json({ ok: true, status: initialStatus });
+  }
+
+  if (body.action === "reraised") {
+    if (ticket.status !== "REJECTED") {
+      return NextResponse.json({ error: "Only rejected tickets can be re-raised" }, { status: 400 });
+    }
+    if (!isRequester) {
+      return NextResponse.json({ error: "Only the requester can re-raise this request" }, { status: 403 });
+    }
+    const initialStatus: TicketStatus = "PENDING_L1_APPROVAL";
+    await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [initialStatus, id]);
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "reraised",
+    });
+    const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
+    const firstApprover = assignees.l1Approver;
+    if (firstApprover?.email) {
+      await logNotification({
+        ticketId: id,
+        type: "assignment",
+        recipient: firstApprover.email,
+        payload: {
+          status: initialStatus,
+          title: ticket.title,
+          currentStage: "Rejected",
           nextStage: STAGE_LABELS[initialStatus],
           actionBy: actorName(session.user),
           approverPosition: "L1 Approver",

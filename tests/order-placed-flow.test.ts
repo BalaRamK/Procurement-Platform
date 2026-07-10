@@ -24,6 +24,7 @@ test("workflow emails use expanded procurement platform content and no cc delive
   assert.ok(emailSource.includes("renderWorkflowEmailHtml"));
   assert.ok(emailSource.includes("<table"));
   assert.ok(emailSource.includes("Open request"));
+  assert.ok(emailSource.includes("Please do not reply to this email"));
 });
 
 test("requester close action requires active requester role", () => {

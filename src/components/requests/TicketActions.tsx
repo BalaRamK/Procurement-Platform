@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type Action = "approved" | "rejected" | "submit" | "order_placed" | "mark_delivered" | "confirm_receipt" | "delete_draft";
+type Action = "approved" | "rejected" | "submit" | "reraised" | "order_placed" | "mark_delivered" | "confirm_receipt" | "delete_draft";
 
 export function TicketActions({
   ticketId,
@@ -109,6 +109,22 @@ export function TicketActions({
         <button type="button" onClick={() => act("confirm_receipt")} disabled={!!loading} className="btn-success">
           {loading === "confirm_receipt" ? "Processing..." : "Confirm received and close"}
         </button>
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (status === "REJECTED" && isRequester) {
+    return (
+      <div className="space-y-3">
+        <button type="button" onClick={() => act("reraised")} disabled={!!loading} className="btn-primary">
+          {loading === "reraised" ? "Processing..." : "Re-Raise request"}
+        </button>
+        {canDeleteTicket && (
+          <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+            {loading === "delete_draft" ? "Deleting..." : "Delete ticket"}
+          </button>
+        )}
         {errorMessage}
       </div>
     );

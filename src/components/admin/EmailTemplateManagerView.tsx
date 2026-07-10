@@ -106,7 +106,7 @@ function formatTimestamp(iso: string) {
   return new Date(iso).toLocaleString();
 }
 
-export function EmailTemplateManagerView() {
+export function EmailTemplateManagerView({ initialTab = "templates" }: { initialTab?: AdminTab }) {
   const router = useRouter();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +115,7 @@ export function EmailTemplateManagerView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const [activeTab, setActiveTab] = useState<AdminTab>("templates");
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   const [templateQuery, setTemplateQuery] = useState("");
   const [templateGroupFilter, setTemplateGroupFilter] = useState<TemplateGroupFilter>("all");
   const [templateStatusFilter, setTemplateStatusFilter] = useState<TemplateStatusFilter>("all");

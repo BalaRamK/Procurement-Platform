@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 
-export type ApprovalAction = "approved" | "rejected" | "order_placed" | "mark_delivered" | "confirm_receipt";
+export type ApprovalAction = "approved" | "rejected" | "order_placed" | "mark_delivered" | "confirm_receipt" | "reraised";
 
 export async function logApproval(params: {
   ticketId: string;

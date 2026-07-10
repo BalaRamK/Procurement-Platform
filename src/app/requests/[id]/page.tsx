@@ -192,7 +192,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     sessionEmail,
   });
   const canShowWorkflowActions =
-    (isRequester && (ticket.status === "DRAFT" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
+    (isRequester && (ticket.status === "DRAFT" || ticket.status === "REJECTED" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
     (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
     (activeRole === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||

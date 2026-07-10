@@ -43,6 +43,9 @@ export default async function AdminUsersPage({
           <Link href="/admin/reports" className="btn-secondary">
             Reports & SLA
           </Link>
+          <Link href="/admin/email-templates?tab=delivery" className="btn-secondary">
+            Email settings & test
+          </Link>
           <Link href="/admin/email-templates" className="btn-secondary">
             Email templates
           </Link>
