@@ -102,13 +102,19 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
      t.department, t.component_description AS "componentDescription", t.item_name AS "itemName",
      t.brand_name_company AS "brandNameCompany", t.preferred_supplier AS "preferredSupplier",
      t.country_of_origin AS "countryOfOrigin", t.team_name AS "teamName", t.priority, t.status,
-     t.rejection_remarks AS "rejectionRemarks", t.requester_id AS "requesterId",
+     t.rejection_remarks AS "rejectionRemarks", t.rejected_by_name AS "rejectedByName",
+     t.rejected_by_email AS "rejectedByEmail", t.rejected_at AS "rejectedAt",
+     t.rejected_stage AS "rejectedStage", t.l1_manager_id AS "l1ManagerId",
      t.need_by_date AS "needByDate", t.charge_code AS "chargeCode", t.estimated_cost AS "estimatedCost",
      t.cost_currency AS "costCurrency", t.rate, t.unit, t.estimated_po_date AS "estimatedPoDate",
      t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName", t.bom_id AS "bomId", t.product_id AS "productId",
      t.project_customer AS "projectCustomer", t.created_at AS "createdAt", t.delivered_at AS "deliveredAt", t.updated_at AS "updatedAt",
-     u.id AS "rId", u.email AS "rEmail", u.name AS "rName"
-     FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
+     u.id AS "rId", u.email AS "rEmail", u.name AS "rName",
+     lm.name AS "l1ManagerName", lm.email AS "l1ManagerEmail"
+     FROM tickets t
+     LEFT JOIN users u ON t.requester_id = u.id
+     LEFT JOIN users lm ON t.l1_manager_id = lm.id
+     WHERE t.id = $1`,
     [id]
   );
   const row = rows[0];
@@ -153,6 +159,13 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     countryOfOrigin?: string;
     priority: string;
     rejectionRemarks?: string;
+    rejectedByName?: string;
+    rejectedByEmail?: string;
+    rejectedAt?: string;
+    rejectedStage?: string;
+    l1ManagerId?: string;
+    l1ManagerName?: string;
+    l1ManagerEmail?: string;
     needByDate?: string;
     chargeCode?: string;
     estimatedCost?: string | number;
@@ -195,13 +208,25 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "REJECTED" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
     (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
-    (activeRole === "L1_APPROVER" && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") ||
+    (activeRole === "L1_APPROVER" &&
+      userTeam === ticket.teamName &&
+      ticket.status === "PENDING_L1_APPROVAL" &&
+      (ticket.teamName !== "ENGINEERING" || !ticket.l1ManagerId || ticket.l1ManagerId === session.user.id)) ||
     (activeRole === "FINANCE_APPROVER" && ticket.status === "PENDING_FINANCE_APPROVAL") ||
     (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
     (activeRole === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
   const canShowActions = canShowWorkflowActions || canDeleteTicket;
 
   if (!canView(roles, userTeam, ticket, session.user.id) && !isRequester) redirect("/dashboard");
+  if (
+    activeRole === "L1_APPROVER" &&
+    ticket.status === "PENDING_L1_APPROVAL" &&
+    ticket.teamName === "ENGINEERING" &&
+    ticket.l1ManagerId &&
+    ticket.l1ManagerId !== session.user.id
+  ) {
+    redirect("/dashboard");
+  }
 
   const isRejected = ticket.status === "REJECTED" && !!ticket.rejectionRemarks;
   const costValue =
@@ -218,6 +243,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     { label: "Project", value: ticket.department },
     { label: "Team", value: ticket.teamName },
     { label: "Priority", value: ticket.priority },
+    ...(ticket.teamName === "ENGINEERING"
+      ? [{
+          label: "L1 Manager",
+          value: ticket.l1ManagerName
+            ? `${ticket.l1ManagerName} (${ticket.l1ManagerEmail ?? ""})`
+            : ticket.l1ManagerEmail ?? "Not assigned",
+        }]
+      : []),
     { label: "Created", value: formatDate(ticket.createdAt) },
     { label: "Updated", value: formatDate(ticket.updatedAt) },
   ];
@@ -300,7 +333,22 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 {ticket.description && <p className="max-w-4xl text-sm leading-6 text-slate-600 dark:text-slate-200">{ticket.description}</p>}
                 {isRejected && (
                   <div className="rounded-2xl border border-red-200/50 bg-red-50/70 px-4 py-3 text-sm text-red-900 dark:border-red-800/40 dark:bg-red-950/30 dark:text-red-100">
-                    <p className="font-semibold">Rejection remarks</p>
+                    <p className="font-semibold">Request rejected</p>
+                    <dl className="mt-2 grid gap-2 sm:grid-cols-3">
+                      <div>
+                        <dt className="text-xs font-semibold uppercase text-red-700 dark:text-red-300">Rejected by</dt>
+                        <dd>{ticket.rejectedByName || ticket.rejectedByEmail || "Not recorded"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-semibold uppercase text-red-700 dark:text-red-300">Approval level</dt>
+                        <dd>{ticket.rejectedStage || "Not recorded"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs font-semibold uppercase text-red-700 dark:text-red-300">Rejected on</dt>
+                        <dd>{ticket.rejectedAt ? formatDate(ticket.rejectedAt) : "Not recorded"}</dd>
+                      </div>
+                    </dl>
+                    <p className="mt-3 font-semibold">Rejection remarks</p>
                     <p className="mt-1 leading-6">{ticket.rejectionRemarks}</p>
                   </div>
                 )}

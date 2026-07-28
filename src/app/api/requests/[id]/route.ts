@@ -214,8 +214,10 @@ export async function PATCH(
     teamName: string;
     title: string;
     bomId: string | null;
+    l1ManagerId: string | null;
   }>(
-    `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail", t.team_name AS "teamName", t.title, t.bom_id AS "bomId"
+    `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail", t.team_name AS "teamName", t.title,
+      t.bom_id AS "bomId", t.l1_manager_id AS "l1ManagerId"
      FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
     [id]
   );
@@ -248,6 +250,22 @@ export async function PATCH(
     const priority = PRIORITIES.includes(body.priority as (typeof PRIORITIES)[number])
       ? body.priority as (typeof PRIORITIES)[number]
       : "MEDIUM";
+    let l1ManagerId: string | null = null;
+    if (teamName === "ENGINEERING") {
+      const requestedManagerId = String(body.l1ManagerId ?? "").trim();
+      const manager = requestedManagerId
+        ? await queryOne<{ id: string }>(
+            `SELECT id FROM users
+             WHERE id = $1 AND status = true AND team = 'ENGINEERING'
+               AND roles @> ARRAY['L1_APPROVER']::"UserRole"[]`,
+            [requestedManagerId]
+          )
+        : null;
+      if (!manager) {
+        return NextResponse.json({ error: "Select an active Engineering L1 Manager." }, { status: 400 });
+      }
+      l1ManagerId = manager.id;
+    }
     const title = String(body.title ?? "").trim();
     const requesterName = String(body.requesterName ?? "").trim();
     const department = String(body.department ?? "").trim();
@@ -286,8 +304,8 @@ export async function PATCH(
           project_customer = $12, need_by_date = $13, charge_code = $14,
           cost_currency = $15, estimated_cost = $16, rate = $17, unit = $18,
           estimated_po_date = $19, place_of_delivery = $20, quantity = $21,
-          deal_name = $22, team_name = $23, priority = $24, updated_at = now()
-         WHERE id = $25`,
+          deal_name = $22, team_name = $23, priority = $24, l1_manager_id = $25, updated_at = now()
+         WHERE id = $26`,
         [
           title,
           String(body.description ?? "").trim() || null,
@@ -313,6 +331,7 @@ export async function PATCH(
           String(body.dealName ?? "").trim() || null,
           teamName,
           priority,
+          l1ManagerId,
           id,
         ]
       );
@@ -355,8 +374,13 @@ export async function PATCH(
       return NextResponse.json({ error: "Only the requester can submit" }, { status: 403 });
     }
     const initialStatus: TicketStatus = "PENDING_L1_APPROVAL";
-    await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [initialStatus, id]);
-    const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
+    await query(
+      `UPDATE tickets SET status = $1,
+       urgent_reminder_due_at = CASE WHEN priority = 'URGENT' THEN now() + interval '48 hours' ELSE NULL END,
+       updated_at = now() WHERE id = $2`,
+      [initialStatus, id]
+    );
+    const assignees = await getAssigneesForTeam(ticket.teamName as TeamName, ticket.l1ManagerId);
     const firstApprover = assignees.l1Approver;
     if (firstApprover?.email) {
       await logNotification({
@@ -386,14 +410,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Only the requester can re-raise this request" }, { status: 403 });
     }
     const initialStatus: TicketStatus = "PENDING_L1_APPROVAL";
-    await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [initialStatus, id]);
+    await query(
+      `UPDATE tickets SET status = $1,
+       urgent_reminder_due_at = CASE WHEN priority = 'URGENT' THEN now() + interval '48 hours' ELSE NULL END,
+       updated_at = now() WHERE id = $2`,
+      [initialStatus, id]
+    );
     await logApproval({
       ticketId: id,
       userEmail: session.user.email,
       userId: session.user.id,
       action: "reraised",
     });
-    const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
+    const assignees = await getAssigneesForTeam(ticket.teamName as TeamName, ticket.l1ManagerId);
     const firstApprover = assignees.l1Approver;
     if (firstApprover?.email) {
       await logNotification({
@@ -420,7 +449,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Only Procurement Team can mark an order as placed" }, { status: 403 });
     }
     await query(
-      "UPDATE tickets SET status = 'ORDER_PLACED', updated_at = now() WHERE id = $1",
+      `UPDATE tickets SET status = 'ORDER_PLACED',
+       urgent_reminder_due_at = CASE WHEN priority = 'URGENT' THEN now() + interval '48 hours' ELSE NULL END,
+       updated_at = now() WHERE id = $1`,
       [id]
     );
     await logApproval({
@@ -457,7 +488,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Only Procurement Team can mark as delivered after the order is placed" }, { status: 403 });
     }
     await query(
-      "UPDATE tickets SET status = 'DELIVERED_TO_REQUESTER', delivered_at = now(), updated_at = now() WHERE id = $1",
+      "UPDATE tickets SET status = 'DELIVERED_TO_REQUESTER', delivered_at = now(), urgent_reminder_due_at = NULL, updated_at = now() WHERE id = $1",
       [id]
     );
     await logApproval({
@@ -494,7 +525,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Only the requester can confirm receipt" }, { status: 403 });
     }
     await query(
-      "UPDATE tickets SET status = 'CLOSED', confirmed_at = now(), auto_closed_at = now(), updated_at = now() WHERE id = $1",
+      "UPDATE tickets SET status = 'CLOSED', confirmed_at = now(), auto_closed_at = now(), urgent_reminder_due_at = NULL, updated_at = now() WHERE id = $1",
       [id]
     );
     await logApproval({
@@ -528,6 +559,14 @@ export async function PATCH(
   if (allowed.teamRequired && userTeam !== ticket.teamName) {
     return NextResponse.json({ error: "Ticket is not for your team" }, { status: 403 });
   }
+  if (
+    status === "PENDING_L1_APPROVAL" &&
+    ticket.teamName === "ENGINEERING" &&
+    ticket.l1ManagerId &&
+    ticket.l1ManagerId !== session.user.id
+  ) {
+    return NextResponse.json({ error: "This request is assigned to another L1 Manager" }, { status: 403 });
+  }
   if (body.action !== "approved" && body.action !== "rejected") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
@@ -545,8 +584,17 @@ export async function PATCH(
 
   if (body.action === "rejected") {
     await query(
-      "UPDATE tickets SET status = 'REJECTED', rejection_remarks = $1, updated_at = now() WHERE id = $2",
-      [body.remarks ?? null, id]
+      `UPDATE tickets SET status = 'REJECTED', rejection_remarks = $1,
+       rejected_by_name = $2, rejected_by_email = $3, rejected_at = now(),
+       rejected_stage = $4, urgent_reminder_due_at = NULL, updated_at = now()
+       WHERE id = $5`,
+      [
+        body.remarks ?? null,
+        actorName(session.user),
+        session.user.email,
+        STAGE_LABELS[status] ?? status,
+        id,
+      ]
     );
     const requester = await queryOne<{ email: string | null }>("SELECT email FROM users WHERE id = $1", [ticket.requesterId]);
     if (requester?.email) {
@@ -577,9 +625,14 @@ export async function PATCH(
       : nextStatusOnApproval[status];
   if (!nextStatus) return NextResponse.json({ ok: true, status: ticket.status });
 
-  await query("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2", [nextStatus, id]);
+  await query(
+    `UPDATE tickets SET status = $1,
+     urgent_reminder_due_at = CASE WHEN priority = 'URGENT' THEN now() + interval '48 hours' ELSE NULL END,
+     updated_at = now() WHERE id = $2`,
+    [nextStatus, id]
+  );
 
-  const assignees = await getAssigneesForTeam(ticket.teamName as TeamName);
+  const assignees = await getAssigneesForTeam(ticket.teamName as TeamName, ticket.l1ManagerId);
   if (requesterEmail) {
     await logNotification({
       ticketId: id,

@@ -32,6 +32,7 @@ export default async function EditDraftRequestPage({ params }: { params: Promise
       t.charge_code AS "chargeCode", t.cost_currency AS "costCurrency", t.estimated_cost AS "estimatedCost",
       t.rate, t.unit, t.estimated_po_date AS "estimatedPoDate", t.place_of_delivery AS "placeOfDelivery",
       t.quantity, t.deal_name AS "dealName", t.team_name AS "teamName", t.priority, t.status,
+      t.l1_manager_id AS "l1ManagerId",
       t.requester_id AS "requesterId", u.email AS "requesterEmail"
      FROM tickets t LEFT JOIN users u ON u.id = t.requester_id
      WHERE t.id = $1`,
@@ -88,6 +89,7 @@ export default async function EditDraftRequestPage({ params }: { params: Promise
         dealName: toText(ticket.dealName),
         teamName: ticket.teamName as TeamName,
         priority: ticket.priority as Priority,
+        l1ManagerId: toText(ticket.l1ManagerId),
         lineItems: lineItems.map((row, index) => ({
           slNo: Number(row.sortOrder ?? index) + 1,
           componentName: toText(row.componentName),

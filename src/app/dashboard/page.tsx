@@ -127,8 +127,13 @@ export default async function DashboardPage({
   if (role === "L1_APPROVER" && userTeam) {
     const where = ["t.status = 'PENDING_L1_APPROVAL'", "t.team_name = $1"];
     const args: (string | undefined)[] = [userTeam];
+    if (userTeam === "ENGINEERING") {
+      where.push("(t.l1_manager_id IS NULL OR t.l1_manager_id = $2)");
+      args.push(session.user.id);
+    }
     if (searchJoin) {
-      where.push("(t.title ILIKE $2 OR t.request_id ILIKE $2 OR t.requester_name ILIKE $2 OR u.email ILIKE $2 OR u.name ILIKE $2)");
+      const searchIndex = args.length + 1;
+      where.push(`(t.title ILIKE $${searchIndex} OR t.request_id ILIKE $${searchIndex} OR t.requester_name ILIKE $${searchIndex} OR u.email ILIKE $${searchIndex} OR u.name ILIKE $${searchIndex})`);
       args.push(searchJoin.param);
     }
     const rows = await query<Record<string, unknown>>(

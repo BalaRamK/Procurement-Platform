@@ -1,7 +1,7 @@
 import { query, queryOne } from "@/lib/db";
 import type { TeamName } from "@/types/db";
 
-type Assignee = { name: string | null; email: string } | null;
+type Assignee = { id: string; name: string | null; email: string } | null;
 
 export type TeamAssignees = {
   functionalHead: Assignee;
@@ -11,24 +11,27 @@ export type TeamAssignees = {
   cdo: Assignee;
 };
 
-export async function getAssigneesForTeam(team: TeamName): Promise<TeamAssignees> {
+export async function getAssigneesForTeam(team: TeamName, selectedL1ManagerId?: string | null): Promise<TeamAssignees> {
   const [functionalHead, l1Approver, financeApprover, cfo, cdo] = await Promise.all([
-    queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE roles @> ARRAY['FUNCTIONAL_HEAD']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
+    queryOne<{ id: string; name: string | null; email: string }>(
+      "SELECT id, name, email FROM users WHERE roles @> ARRAY['FUNCTIONAL_HEAD']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
       [team]
     ),
-    queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE roles @> ARRAY['L1_APPROVER']::\"UserRole\"[] AND team = $1 AND status = true LIMIT 1",
-      [team]
+    queryOne<{ id: string; name: string | null; email: string }>(
+      `SELECT id, name, email FROM users
+       WHERE roles @> ARRAY['L1_APPROVER']::"UserRole"[] AND team = $1 AND status = true
+         AND ($2::uuid IS NULL OR id = $2)
+       ORDER BY name NULLS LAST, email LIMIT 1`,
+      [team, selectedL1ManagerId ?? null]
     ),
-    queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE roles @> ARRAY['FINANCE_APPROVER']::\"UserRole\"[] AND status = true LIMIT 1"
+    queryOne<{ id: string; name: string | null; email: string }>(
+      "SELECT id, name, email FROM users WHERE roles @> ARRAY['FINANCE_APPROVER']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
-    queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE roles @> ARRAY['CFO']::\"UserRole\"[] AND status = true LIMIT 1"
+    queryOne<{ id: string; name: string | null; email: string }>(
+      "SELECT id, name, email FROM users WHERE roles @> ARRAY['CFO']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
-    queryOne<{ name: string | null; email: string }>(
-      "SELECT name, email FROM users WHERE roles @> ARRAY['CDO']::\"UserRole\"[] AND status = true LIMIT 1"
+    queryOne<{ id: string; name: string | null; email: string }>(
+      "SELECT id, name, email FROM users WHERE roles @> ARRAY['CDO']::\"UserRole\"[] AND status = true LIMIT 1"
     ),
   ]);
   return {

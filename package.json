@@ -14,6 +14,7 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:migrate-request-options": "tsx scripts/migrate-request-options.ts",
     "db:migrate-ticket-component-details": "tsx scripts/migrate-ticket-component-details.ts",
+    "db:migrate-engineering-l1": "tsx scripts/migrate-engineering-l1-rejection-urgent.ts",
     "db:seed-request-options": "tsx scripts/seed-request-options.ts",
     "db:reset-users": "tsx scripts/reset-users.ts",
     "grant-super-admin": "tsx scripts/grant-super-admin.ts",

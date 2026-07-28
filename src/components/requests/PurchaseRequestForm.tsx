@@ -55,10 +55,11 @@ const TEAM_FLOW_STEPS: Record<TeamName, string[]> = {
   SALES: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
 };
 
-type FlowAssignee = { name: string | null; email: string } | null;
+type FlowAssignee = { id: string; name: string | null; email: string } | null;
 type FlowAssignees = {
   functionalHead: FlowAssignee;
   l1Approver: FlowAssignee;
+  l1Approvers: Exclude<FlowAssignee, null>[];
   cfo: FlowAssignee;
   cdo: FlowAssignee;
 };
@@ -193,6 +194,7 @@ type Props = {
     dealName: string;
     teamName: TeamName;
     priority: Priority;
+    l1ManagerId: string;
     lineItems: {
       slNo: number;
       componentName: string;
@@ -246,6 +248,7 @@ export function PurchaseRequestForm({
   const [attachments, setAttachments] = useState<File[]>([]);
   const [teamName, setTeamName] = useState<TeamName>(initialValues?.teamName ?? requesterTeam ?? "ENGINEERING");
   const [priority, setPriority] = useState<Priority>(initialValues?.priority ?? "MEDIUM");
+  const [l1ManagerId, setL1ManagerId] = useState(initialValues?.l1ManagerId ?? "");
   const [zohoLocked, setZohoLocked] = useState(false);
   const [manualAddMode, setManualAddMode] = useState(false); // + Add Component: user enters details manually (not in Zoho)
   const [flowAssignees, setFlowAssignees] = useState<FlowAssignees | null>(null);
@@ -291,13 +294,18 @@ export function PurchaseRequestForm({
     fetch("/api/flow-assignees?team=" + encodeURIComponent(teamName))
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && data) setFlowAssignees(data);
+        if (!cancelled && data) {
+          setFlowAssignees(data);
+          if (teamName === "ENGINEERING" && !l1ManagerId && data.l1Approvers?.length === 1) {
+            setL1ManagerId(data.l1Approvers[0].id);
+          }
+        }
       })
       .catch(() => {
         if (!cancelled) setFlowAssignees(null);
       });
     return () => { cancelled = true; };
-  }, [teamName]);
+  }, [teamName, l1ManagerId]);
 
   const componentSearchQuery = (componentDescription || itemName || "").trim();
   useEffect(() => {
@@ -405,6 +413,9 @@ export function PurchaseRequestForm({
     if (!title.trim()) errors.title = "Title is required.";
     if (!requesterNameVal.trim()) errors.requesterName = "Requester name is required.";
     if (!department.trim()) errors.department = "Project is required.";
+    if (teamName === "ENGINEERING" && !l1ManagerId) {
+      errors.l1ManagerId = "L1 Manager is required for Engineering requests.";
+    }
     if (isBulk) {
       const missingComponentRow = bulkLineItems.find((row) => !row.componentName.trim());
       if (missingComponentRow) {
@@ -462,6 +473,7 @@ export function PurchaseRequestForm({
         dealName: dealName || undefined,
         teamName,
         priority,
+        l1ManagerId: teamName === "ENGINEERING" ? l1ManagerId : undefined,
       };
       if (isBulk) {
         payload.lineItems = bulkLineItems.map((li) => ({
@@ -601,6 +613,10 @@ export function PurchaseRequestForm({
                 onChange={(e) => {
                   const next = e.target.value as TeamName;
                   setTeamName(next);
+                  if (next !== "ENGINEERING") {
+                    setL1ManagerId("");
+                    setFieldErrors((previous) => ({ ...previous, l1ManagerId: "" }));
+                  }
                   const nextCodes = chargeCodesByTeam[next] ?? [];
                   if (chargeCode && nextCodes.length > 0 && !nextCodes.includes(chargeCode)) {
                     setChargeCode("");
@@ -617,6 +633,38 @@ export function PurchaseRequestForm({
                 ))}
               </select>
             </FormField>
+            {teamName === "ENGINEERING" && (
+              <FormField
+                label="L1 Manager"
+                required
+                fieldId="l1ManagerId"
+                error={fieldErrors.l1ManagerId}
+                hint="Only active Engineering users with L1 Approver access are listed."
+              >
+                <select
+                  id="l1ManagerId"
+                  name="l1ManagerId"
+                  value={l1ManagerId}
+                  onChange={(event) => {
+                    setL1ManagerId(event.target.value);
+                    if (fieldErrors.l1ManagerId) {
+                      setFieldErrors((previous) => ({ ...previous, l1ManagerId: "" }));
+                    }
+                  }}
+                  className={`input-base ${fieldErrors.l1ManagerId ? "border-red-400 focus:ring-red-400/30" : ""}`}
+                  required
+                  aria-invalid={!!fieldErrors.l1ManagerId}
+                  aria-describedby={fieldErrors.l1ManagerId ? "l1ManagerId-error" : undefined}
+                >
+                  <option value="">Select L1 Manager</option>
+                  {(flowAssignees?.l1Approvers ?? []).map((approver) => (
+                    <option key={approver.id} value={approver.id}>
+                      {approver.name ? `${approver.name} (${approver.email})` : approver.email}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+            )}
             <FormField label="Priority" hint="Used only to signal urgency, not to bypass approvals.">
               <select
                 value={priority}

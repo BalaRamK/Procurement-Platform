@@ -43,6 +43,7 @@ export const EMAIL_TEMPLATE_TRIGGER_OPTIONS = [
   { value: "pending_cdo_reminder", label: "Pending CDO reminder" },
   { value: "request_auto_closed", label: "Request auto closed" },
   { value: "comment_mention", label: "Comment @mention" },
+  { value: "urgent_ticket_reminder", label: "Urgent ticket reminder" },
 ] as const;
 
 export type TemplateSeed = {
@@ -248,6 +249,15 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     bodyTemplate: standardBody(
       "This procurement request is still pending CDO approval.",
       "Please open the request in Procurement Platform and take final approval action so the Procurement Team can begin fulfillment."
+    ),
+  },
+  {
+    name: "Urgent ticket reminder",
+    trigger: "urgent_ticket_reminder",
+    subjectTemplate: prefixedSubject("Urgent action required: {{ticketId}} is awaiting {{currentStage}}"),
+    bodyTemplate: standardBody(
+      "This urgent procurement request has remained pending for 48 hours at its current workflow stage.",
+      "Please review and act on the request as soon as possible. A reminder will continue every 48 hours while the urgent request remains pending."
     ),
   },
   {

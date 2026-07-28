@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { query, queryClient, withTransaction } from "@/lib/db";
+import { query, queryClient, queryOne, withTransaction } from "@/lib/db";
 import { z } from "zod";
 import {
   type TeamName,
@@ -54,6 +54,7 @@ const createSchema = z.object({
   dealName: z.string().optional(),
   teamName: z.enum(TEAM_NAMES),
   priority: z.enum(PRIORITIES).default("MEDIUM"),
+  l1ManagerId: z.string().uuid().optional(),
   lineItems: z.array(lineItemSchema).optional(),
 }).superRefine((data, ctx) => {
   const hasLineItems = Array.isArray(data.lineItems) && data.lineItems.length > 0;
@@ -163,8 +164,10 @@ export async function GET() {
 
   if (role === "L1_APPROVER" && userTeam) {
     const rows = await query<Record<string, unknown>>(
-      `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_L1_APPROVAL' AND t.team_name = $1 ORDER BY t.updated_at DESC`,
-      [userTeam]
+      `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_L1_APPROVAL' AND t.team_name = $1
+       AND ($1::text <> 'ENGINEERING' OR t.l1_manager_id IS NULL OR t.l1_manager_id = $2)
+       ORDER BY t.updated_at DESC`,
+      [userTeam, session.user.id]
     );
     return NextResponse.json(rows.map(mapRowWithRequester));
   }
@@ -216,6 +219,22 @@ export async function POST(req: NextRequest) {
 
   const effectiveTeamName =
     activeRole === "SUPER_ADMIN" ? data.teamName : session.user.team ?? data.teamName;
+  let l1ManagerId: string | null = null;
+  if (effectiveTeamName === "ENGINEERING") {
+    if (!data.l1ManagerId) {
+      return NextResponse.json({ error: "L1 Manager is required for Engineering requests." }, { status: 400 });
+    }
+    const manager = await queryOne<{ id: string }>(
+      `SELECT id FROM users
+       WHERE id = $1 AND status = true AND team = 'ENGINEERING'
+         AND roles @> ARRAY['L1_APPROVER']::"UserRole"[]`,
+      [data.l1ManagerId]
+    );
+    if (!manager) {
+      return NextResponse.json({ error: "Select an active Engineering L1 Manager." }, { status: 400 });
+    }
+    l1ManagerId = manager.id;
+  }
 
   const requestId = await generateRequestId(effectiveTeamName);
 
@@ -249,8 +268,8 @@ export async function POST(req: NextRequest) {
           title, description, requester_name, department, component_description, item_name, bom_id, product_id,
           brand_name_company, preferred_supplier, country_of_origin, project_customer, need_by_date, charge_code,
           cost_currency, estimated_cost, rate, unit, estimated_po_date, place_of_delivery, quantity, deal_name,
-          team_name, priority, status, request_id, requester_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'DRAFT', $25, $26)
+          team_name, priority, status, request_id, requester_id, l1_manager_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'DRAFT', $25, $26, $27)
         RETURNING id, title`,
         [
           data.title,
@@ -279,6 +298,7 @@ export async function POST(req: NextRequest) {
           data.priority ?? "MEDIUM",
           requestId,
           session.user.id,
+          l1ManagerId,
         ]
       );
       const inserted = rows[0];

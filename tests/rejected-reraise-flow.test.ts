@@ -10,7 +10,8 @@ test("requester can re-raise a rejected request without creating a new ticket", 
   assert.ok(requestRoute.includes('"reraised"'));
   assert.ok(requestRoute.includes("Only rejected tickets can be re-raised"));
   assert.ok(requestRoute.includes("Only the requester can re-raise this request"));
-  assert.ok(requestRoute.includes("UPDATE tickets SET status = $1, updated_at = now() WHERE id = $2"));
+  assert.ok(requestRoute.includes("urgent_reminder_due_at = CASE WHEN priority = 'URGENT'"));
+  assert.ok(requestRoute.includes("updated_at = now() WHERE id = $2"));
   assert.ok(!requestRoute.includes("INSERT INTO tickets"));
   assert.ok(requestPage.includes('ticket.status === "REJECTED"'));
   assert.ok(ticketActions.includes("Re-Raise request"));

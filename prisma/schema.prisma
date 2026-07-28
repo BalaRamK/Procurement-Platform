@@ -65,6 +65,7 @@ model User {
   ticketsAsRequester Ticket[]      @relation("RequesterTickets")
   comments           Comment[]
   approvalLogs       ApprovalLog[]
+  ticketsAsL1Manager Ticket[]      @relation("TicketL1Manager")
 
   @@map("users")
 }
@@ -100,6 +101,12 @@ model Ticket {
   status               TicketStatus   @default(DRAFT)
   rejectionRemarks     String?        @map("rejection_remarks")
   requesterId          String         @map("requester_id")
+  l1ManagerId          String?        @map("l1_manager_id")
+  rejectedByName       String?        @map("rejected_by_name")
+  rejectedByEmail      String?        @map("rejected_by_email")
+  rejectedAt           DateTime?      @map("rejected_at")
+  rejectedStage        String?        @map("rejected_stage")
+  urgentReminderDueAt  DateTime?      @map("urgent_reminder_due_at")
   deliveredAt          DateTime?      @map("delivered_at")
   confirmedAt          DateTime?      @map("confirmed_at")
   autoClosedAt         DateTime?      @map("auto_closed_at")
@@ -107,6 +114,7 @@ model Ticket {
   updatedAt            DateTime       @updatedAt @map("updated_at")
 
   requester    User           @relation("RequesterTickets", fields: [requesterId], references: [id])
+  l1Manager    User?          @relation("TicketL1Manager", fields: [l1ManagerId], references: [id], onDelete: SetNull)
   approvalLogs ApprovalLog[]
   comments     Comment[]
   notifications Notification[]

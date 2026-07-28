@@ -74,8 +74,10 @@ export default async function PendingApprovalsPage() {
 
   if (role === "L1_APPROVER" && userTeam) {
     const rows = await query<Record<string, unknown>>(
-      `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_L1_APPROVAL' AND t.team_name = $1 ORDER BY t.updated_at DESC`,
-      [userTeam]
+      `${TICKET_JOIN_REQ} WHERE t.status = 'PENDING_L1_APPROVAL' AND t.team_name = $1
+       AND ($1::text <> 'ENGINEERING' OR t.l1_manager_id IS NULL OR t.l1_manager_id = $2)
+       ORDER BY t.updated_at DESC`,
+      [userTeam, session.user.id]
     );
     return <ApproverDashboardEnhanced tickets={rows.map(mapWithRequester) as unknown as (Ticket & { requester: User })[]} role={role} teamName={userTeam} />;
   }
