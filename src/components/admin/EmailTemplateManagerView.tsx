@@ -66,7 +66,7 @@ const PLACEHOLDER_GROUPS: { title: string; keys: string[] }[] = [
     keys: ["ticketId", "ticketTitle", "status", "department", "teamName", "priority", "needByDate", "estimatedCost"],
   },
   { title: "Workflow", keys: ["currentStage", "nextStage", "actionBy", "approverName", "requestUrl"] },
-  { title: "Notes", keys: ["description", "rejectionRemarks"] },
+  { title: "Notes", keys: ["description", "rejectionRemarks", "commentText"] },
 ];
 
 function getTemplateGroup(trigger: string): TemplateGroup {

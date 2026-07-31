@@ -112,9 +112,10 @@ export async function POST(
       [uniqueIds]
     );
     const mentionedBy = user?.name || user?.email || session.user.email || "A user";
-    const commentSnippet = trimmedBody
-      .replace(/@\[[^\]]*\]\([a-f0-9-]{36}\)/gi, (match) => match.replace(/^@\[([^\]]*)\].*$/, "@$1"))
-      .slice(0, 500);
+    const commentText = trimmedBody.replace(
+      /@\[[^\]]*\]\([a-f0-9-]{36}\)/gi,
+      (match) => match.replace(/^@\[([^\]]*)\].*$/, "@$1")
+    );
     for (const u of mentioned) {
       await logNotification({
         ticketId,
@@ -129,7 +130,8 @@ export async function POST(
           mentionedBy,
           actionBy: mentionedBy,
           approverName: mentionedBy,
-          commentSnippet,
+          commentSnippet: commentText,
+          commentText,
         },
         emailTrigger: "comment_mention",
       });

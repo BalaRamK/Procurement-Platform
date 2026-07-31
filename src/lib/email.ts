@@ -70,6 +70,7 @@ export type EmailContext = {
   approverPosition?: string;
   approverName?: string;
   commentSnippet?: string;
+  commentText?: string;
   mentionedBy?: string;
   requestUrl?: string;
   [key: string]: string | undefined;
@@ -105,6 +106,19 @@ function replacePlaceholders(text: string, context: EmailContext): string {
     }
   }
   return out.replace(/\{\{[a-zA-Z0-9_]+\}\}/g, "Not applicable");
+}
+
+function ensureMentionCommentText(body: string, commentText?: string) {
+  const cleaned = commentText?.trim();
+  if (!cleaned || body.includes(cleaned)) return body;
+
+  const section = `Comment:\n${cleaned}\n\n`;
+  const detailsMarker = "Request details:";
+  const detailsIndex = body.indexOf(detailsMarker);
+  if (detailsIndex >= 0) {
+    return `${body.slice(0, detailsIndex)}${section}${body.slice(detailsIndex)}`;
+  }
+  return `${body.trimEnd()}\n\n${section.trimEnd()}`;
 }
 
 export async function sendPlatformEmail({
@@ -419,7 +433,10 @@ export async function sendNotificationEmail(
     const template = await getTemplateForTrigger(trigger, "immediate");
     if (!template) return;
     const subject = replacePlaceholders(template.subjectTemplate, context);
-    const body = replacePlaceholders(template.bodyTemplate, context);
+    const renderedBody = replacePlaceholders(template.bodyTemplate, context);
+    const body = trigger === "comment_mention"
+      ? ensureMentionCommentText(renderedBody, context.commentText ?? context.commentSnippet)
+      : renderedBody;
 
     await sendWorkflowEmail([recipient], subject, body);
   } catch (e) {

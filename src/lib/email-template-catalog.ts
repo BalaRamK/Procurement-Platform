@@ -19,6 +19,7 @@ export const EMAIL_TEMPLATE_FIELDS = [
   { key: "approverPosition", label: "Approver position" },
   { key: "approverName", label: "Approver name" },
   { key: "commentSnippet", label: "Comment snippet" },
+  { key: "commentText", label: "Full comment text" },
   { key: "mentionedBy", label: "Mentioned by" },
   { key: "requestUrl", label: "Request URL" },
 ] as const;
@@ -279,7 +280,7 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
       "{{mentionedBy}} mentioned you in a comment on this procurement request.",
       "",
       "Comment:",
-      "{{commentSnippet}}",
+      "{{commentText}}",
       "",
       "Please open the request in Procurement Platform to review the full conversation and respond in the ticket if needed.",
       "",
