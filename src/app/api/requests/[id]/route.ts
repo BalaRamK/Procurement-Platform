@@ -633,6 +633,46 @@ export async function PATCH(
   );
 
   const assignees = await getAssigneesForTeam(ticket.teamName as TeamName, ticket.l1ManagerId);
+
+  // The stage the ticket is actually sitting at right now (post-transition), used for every
+  // "current stage" field below — using the pre-transition `status` here was the bug that made
+  // emails still say e.g. "Pending L1 Approval" after L1 had already approved.
+  const currentStageLabel = STAGE_LABELS[nextStatus] ?? nextStatus;
+
+  const nextAssignee =
+    nextStatus === "PENDING_FH_APPROVAL"
+      ? assignees.functionalHead
+      : nextStatus === "PENDING_L1_APPROVAL"
+        ? assignees.l1Approver
+        : nextStatus === "PENDING_FINANCE_APPROVAL"
+          ? assignees.financeApprover
+        : nextStatus === "PENDING_CFO_APPROVAL"
+          ? assignees.cfo
+          : nextStatus === "PENDING_CDO_APPROVAL"
+            ? assignees.cdo
+            : null;
+  const nextRole =
+    nextStatus === "PENDING_FH_APPROVAL"
+      ? "FUNCTIONAL_HEAD"
+      : nextStatus === "PENDING_FINANCE_APPROVAL"
+        ? "FINANCE_APPROVER"
+      : nextStatus === "PENDING_CFO_APPROVAL"
+        ? "CFO"
+        : nextStatus === "PENDING_CDO_APPROVAL"
+          ? "CDO"
+          : null;
+  const nextPosition =
+    nextStatus === "ASSIGNED_TO_PRODUCTION"
+      ? "Procurement Team"
+      : nextRole
+        ? ROLE_POSITION_LABELS[nextRole as UserRole] ?? nextStatus
+        : nextStatus;
+  // The person/team who owns the ticket next — this is what the requester actually wants to
+  // see as "Next owner". Previously this field was populated from the person who just approved,
+  // which is why it never matched the real next approver.
+  const nextOwnerName =
+    nextStatus === "ASSIGNED_TO_PRODUCTION" ? "Procurement Team" : assigneeLabel(nextPosition, nextAssignee);
+
   if (requesterEmail) {
     await logNotification({
       ticketId: id,
@@ -641,14 +681,11 @@ export async function PATCH(
       payload: {
         title: ticket.title,
         status: nextStatus,
-        currentStage: STAGE_LABELS[status] ?? status,
-        nextStage: STAGE_LABELS[nextStatus] ?? nextStatus,
+        currentStage: currentStageLabel,
+        nextStage: currentStageLabel,
         actionBy: actorName(session.user),
-        approverPosition: ROLE_POSITION_LABELS[activeRole as UserRole] ?? activeRole ?? "Approver",
-        approverName: assigneeLabel(ROLE_POSITION_LABELS[activeRole as UserRole] ?? "Approver", {
-          name: session.user.name ?? null,
-          email: session.user.email,
-        }),
+        approverPosition: nextPosition,
+        approverName: nextOwnerName,
       },
       emailTrigger: "request_approval_update",
     });
@@ -663,8 +700,8 @@ export async function PATCH(
         payload: {
           title: ticket.title,
           status: nextStatus,
-          currentStage: "Pending CDO Approval",
-          nextStage: "Assigned to Production",
+          currentStage: currentStageLabel,
+          nextStage: currentStageLabel,
           actionBy: actorName(session.user),
           approverPosition: "Procurement Team",
           approverName: "Procurement Team",
@@ -672,59 +709,34 @@ export async function PATCH(
         emailTrigger: "cdo_approved_moved_to_production",
       });
     }
-  } else {
-      const nextAssignee =
+  } else if (nextAssignee?.email) {
+    const emailTrigger =
       nextStatus === "PENDING_FH_APPROVAL"
-        ? assignees.functionalHead
-        : nextStatus === "PENDING_L1_APPROVAL"
-          ? assignees.l1Approver
-          : nextStatus === "PENDING_FINANCE_APPROVAL"
-            ? assignees.financeApprover
-          : nextStatus === "PENDING_CFO_APPROVAL"
-            ? assignees.cfo
-            : nextStatus === "PENDING_CDO_APPROVAL"
-              ? assignees.cdo
-              : null;
-    if (nextAssignee?.email) {
-      const emailTrigger =
-        nextStatus === "PENDING_FH_APPROVAL"
-          ? "l1_approved_moved_to_fh"
-          : nextStatus === "PENDING_FINANCE_APPROVAL"
-            ? "fh_approved_moved_to_finance"
-          : nextStatus === "PENDING_CFO_APPROVAL"
-            ? status === "PENDING_FINANCE_APPROVAL"
-              ? "finance_approved_moved_to_cfo"
-              : "fh_approved_moved_to_cfo"
-            : nextStatus === "PENDING_CDO_APPROVAL"
-              ? "cfo_approved_moved_to_cdo"
-              : "request_submitted_to_l1";
-      const nextRole =
-        nextStatus === "PENDING_FH_APPROVAL"
-          ? "FUNCTIONAL_HEAD"
-          : nextStatus === "PENDING_FINANCE_APPROVAL"
-            ? "FINANCE_APPROVER"
-          : nextStatus === "PENDING_CFO_APPROVAL"
-            ? "CFO"
-            : nextStatus === "PENDING_CDO_APPROVAL"
-              ? "CDO"
-              : null;
-      const nextPosition = nextRole ? ROLE_POSITION_LABELS[nextRole] ?? nextStatus : nextStatus;
-      await logNotification({
-        ticketId: id,
-        type: "assignment",
-        recipient: nextAssignee.email,
-        payload: {
-          status: nextStatus,
-          title: ticket.title,
-          currentStage: STAGE_LABELS[status] ?? status,
-          nextStage: STAGE_LABELS[nextStatus] ?? nextStatus,
-          approverPosition: nextPosition,
-          approverName: assigneeLabel(nextPosition, nextAssignee),
-          actionBy: actorName(session.user),
-        },
-        emailTrigger,
-      });
-    }
+        ? "l1_approved_moved_to_fh"
+        : nextStatus === "PENDING_FINANCE_APPROVAL"
+          ? "fh_approved_moved_to_finance"
+        : nextStatus === "PENDING_CFO_APPROVAL"
+          ? status === "PENDING_FINANCE_APPROVAL"
+            ? "finance_approved_moved_to_cfo"
+            : "fh_approved_moved_to_cfo"
+          : nextStatus === "PENDING_CDO_APPROVAL"
+            ? "cfo_approved_moved_to_cdo"
+            : "request_submitted_to_l1";
+    await logNotification({
+      ticketId: id,
+      type: "assignment",
+      recipient: nextAssignee.email,
+      payload: {
+        status: nextStatus,
+        title: ticket.title,
+        currentStage: currentStageLabel,
+        nextStage: currentStageLabel,
+        approverPosition: nextPosition,
+        approverName: nextOwnerName,
+        actionBy: actorName(session.user),
+      },
+      emailTrigger,
+    });
   }
 
   return NextResponse.json({ ok: true, status: nextStatus });
