@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const team = req.nextUrl.searchParams.get("team") as TeamName | null;
-  if (!team || !["INNOVATION", "ENGINEERING", "SALES"].includes(team)) {
+  if (!team || !["INNOVATION", "ENGINEERING", "SALES", "DEPLOYMENT"].includes(team)) {
     return NextResponse.json({ error: "Invalid or missing team" }, { status: 400 });
   }
 

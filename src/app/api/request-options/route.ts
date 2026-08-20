@@ -19,6 +19,7 @@ export async function GET() {
       INNOVATION: [],
       ENGINEERING: [],
       SALES: [],
+      DEPLOYMENT: [],
     };
     for (const r of chargeRows) {
       if (TEAM_NAMES.includes(r.teamName)) {

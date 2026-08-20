@@ -5,9 +5,10 @@ const TEAM_PREFIX: Record<TeamName, string> = {
   INNOVATION: "IN",
   ENGINEERING: "EN",
   SALES: "SA",
+  DEPLOYMENT: "DE",
 };
 
-/** Generate a unique requestId: prefix (IN|EN|SA) + 6 digits */
+/** Generate a unique requestId: prefix (IN|EN|SA|DE) + 6 digits */
 export async function generateRequestId(teamName: TeamName): Promise<string> {
   const prefix = TEAM_PREFIX[teamName];
   for (let attempt = 0; attempt < 50; attempt++) {

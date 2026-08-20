@@ -16,7 +16,7 @@ export const USER_ROLES = [
 ] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-export const TEAM_NAMES = ["INNOVATION", "ENGINEERING", "SALES"] as const;
+export const TEAM_NAMES = ["INNOVATION", "ENGINEERING", "SALES", "DEPLOYMENT"] as const;
 export type TeamName = (typeof TEAM_NAMES)[number];
 
 export const TICKET_STATUSES = [

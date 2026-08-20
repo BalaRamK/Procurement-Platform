@@ -9,6 +9,7 @@ const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },
   { value: "ENGINEERING", label: "Engineering" },
   { value: "SALES", label: "Sales" },
+  { value: "DEPLOYMENT", label: "Deployment" },
 ];
 
 type UserForEdit = {

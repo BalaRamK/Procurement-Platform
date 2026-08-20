@@ -284,7 +284,7 @@ export async function PATCH(
 
     const ticketComponentDescription = hasLineItems ? "Bulk items" : String(body.componentDescription ?? "").trim();
     const ticketItemName = hasLineItems
-      ? String(lineItems[0]?.componentName ?? "").trim()
+      ? "Refer below"
       : String(body.itemName ?? body.componentDescription ?? "").trim();
     const ticketBomId = hasLineItems
       ? String(lineItems[0]?.bomId ?? "").trim() || null

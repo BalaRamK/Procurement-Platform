@@ -28,12 +28,14 @@ const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },
   { value: "ENGINEERING", label: "Engineering" },
   { value: "SALES", label: "Sales" },
+  { value: "DEPLOYMENT", label: "Deployment" },
 ];
 
 const TEAM_LABELS: Record<TeamName, string> = {
   INNOVATION: "Innovation",
   ENGINEERING: "Engineering",
   SALES: "Sales",
+  DEPLOYMENT: "Deployment",
 };
 
 function roleTone(role: UserRole) {

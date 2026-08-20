@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
   if (lineItems && lineItems.length > 0) {
     ticketEstimatedCost = lineItems.reduce((sum, li) => sum + li.costPerItem * li.quantity, 0);
     ticketComponentDescription = "Bulk items";
-    ticketItemName = lineItems[0].componentName ?? null;
+    ticketItemName = "Refer below";
     ticketBrandNameCompany = null;
     ticketPreferredSupplier = null;
     ticketCountryOfOrigin = null;

@@ -22,6 +22,7 @@ enum TeamName {
   INNOVATION
   ENGINEERING
   SALES
+  DEPLOYMENT
 }
 
 enum TicketStatus {

@@ -12,6 +12,7 @@ const TEAMS: { value: TeamName; label: string }[] = [
   { value: "INNOVATION", label: "Innovation" },
   { value: "ENGINEERING", label: "Engineering" },
   { value: "SALES", label: "Sales" },
+  { value: "DEPLOYMENT", label: "Deployment" },
 ];
 
 const CURRENCIES: { value: CostCurrency; label: string }[] = [
@@ -53,6 +54,7 @@ const TEAM_FLOW_STEPS: Record<TeamName, string[]> = {
   INNOVATION: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
   ENGINEERING: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
   SALES: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
+  DEPLOYMENT: ["Requester", "L1 Approver", "Department Head", "CFO", "CDO", "Production"],
 };
 
 type FlowAssignee = { id: string; name: string | null; email: string } | null;
@@ -257,6 +259,7 @@ export function PurchaseRequestForm({
     INNOVATION: [],
     ENGINEERING: [],
     SALES: [],
+    DEPLOYMENT: [],
   });
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);

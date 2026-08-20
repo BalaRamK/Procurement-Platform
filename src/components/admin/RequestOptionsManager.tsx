@@ -8,6 +8,7 @@ const TEAM_LABELS: Record<TeamName, string> = {
   INNOVATION: "Innovation",
   ENGINEERING: "Engineering",
   SALES: "Sales",
+  DEPLOYMENT: "Deployment",
 };
 
 type Project = { id: string; name: string; sortOrder: number };
