@@ -60,6 +60,7 @@ export type EmailContext = {
   currentStage?: string;
   nextStage?: string;
   rejectionRemarks?: string;
+  quoteRemarks?: string;
   department?: string;
   teamName?: string;
   priority?: string;       // formatted e.g. "High"

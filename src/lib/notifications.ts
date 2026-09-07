@@ -10,7 +10,9 @@ export type NotificationType =
   | "closure"
   | "team_assignment"
   | "comment_mention"
-  | "urgent_reminder";
+  | "urgent_reminder"
+  | "alternate_quote_requested"
+  | "alternate_quote_submitted";
 
 export async function logNotification(params: {
   ticketId: string;

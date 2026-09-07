@@ -14,6 +14,15 @@ import { isRequesterForActiveRole } from "@/lib/tickets";
 import type { TeamName, TicketStatus, UserRole } from "@/types/db";
 import { getPrimaryRole, hasRole } from "@/types/db";
 
+const PRODUCTION_PREVIEW_STATUSES = new Set([
+  "PENDING_FINANCE_APPROVAL",
+  "PENDING_CFO_APPROVAL",
+  "PENDING_CDO_APPROVAL",
+  "ASSIGNED_TO_PRODUCTION",
+  "ORDER_PLACED",
+  "DELIVERED_TO_REQUESTER",
+]);
+
 function canView(
   roles: UserRole[] | null | undefined,
   userTeam: TeamName | null,
@@ -23,7 +32,9 @@ function canView(
   if (hasRole(roles, "SUPER_ADMIN")) return true;
   if (currentUserId && ticket.requesterId === currentUserId && hasRole(roles, "REQUESTER")) return true;
   if (hasRole(roles, "VERTICAL_OWNER") && userTeam === ticket.teamName) return true;
-  if (hasRole(roles, "PRODUCTION") && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED" || ticket.status === "DELIVERED_TO_REQUESTER")) return true;
+  // Production gets read-only visibility as soon as Department Head approval is done, well before the
+  // ticket is actually assigned to them — mirrors canViewTicket in src/lib/tickets.ts.
+  if (hasRole(roles, "PRODUCTION") && PRODUCTION_PREVIEW_STATUSES.has(ticket.status)) return true;
   if (hasRole(roles, "FUNCTIONAL_HEAD") && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") return true;
   if (hasRole(roles, "L1_APPROVER") && userTeam === ticket.teamName && ticket.status === "PENDING_L1_APPROVAL") return true;
   if (hasRole(roles, "FINANCE_APPROVER") && ticket.status === "PENDING_FINANCE_APPROVAL") return true;
@@ -105,6 +116,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
      t.rejection_remarks AS "rejectionRemarks", t.rejected_by_name AS "rejectedByName",
      t.rejected_by_email AS "rejectedByEmail", t.rejected_at AS "rejectedAt",
      t.rejected_stage AS "rejectedStage", t.l1_manager_id AS "l1ManagerId",
+     t.alternate_quote_state AS "alternateQuoteState", t.alternate_quote_remarks AS "alternateQuoteRemarks",
      t.need_by_date AS "needByDate", t.charge_code AS "chargeCode", t.estimated_cost AS "estimatedCost",
      t.cost_currency AS "costCurrency", t.rate, t.unit, t.estimated_po_date AS "estimatedPoDate",
      t.place_of_delivery AS "placeOfDelivery", t.quantity, t.deal_name AS "dealName", t.bom_id AS "bomId", t.product_id AS "productId",
@@ -166,6 +178,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     l1ManagerId?: string;
     l1ManagerName?: string;
     l1ManagerEmail?: string;
+    alternateQuoteState?: string | null;
+    alternateQuoteRemarks?: string | null;
     needByDate?: string;
     chargeCode?: string;
     estimatedCost?: string | number;
@@ -200,19 +214,24 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       requesterId: ticket.requesterId,
       requesterEmail,
       status: ticket.status as TicketStatus,
+      alternateQuoteState: ticket.alternateQuoteState,
     },
     currentUserId: session.user.id,
     sessionEmail,
   });
+  const isFinanceApprover = activeRole === "FINANCE_APPROVER" && ticket.status === "PENDING_FINANCE_APPROVAL";
+  const canSubmitAlternateQuote =
+    isProduction && ticket.status === "PENDING_FINANCE_APPROVAL" && ticket.alternateQuoteState === "REQUESTED";
   const canShowWorkflowActions =
     (isRequester && (ticket.status === "DRAFT" || ticket.status === "REJECTED" || ticket.status === "DELIVERED_TO_REQUESTER")) ||
     (isProduction && (ticket.status === "ASSIGNED_TO_PRODUCTION" || ticket.status === "ORDER_PLACED")) ||
+    canSubmitAlternateQuote ||
     (activeRole === "FUNCTIONAL_HEAD" && userTeam === ticket.teamName && ticket.status === "PENDING_FH_APPROVAL") ||
     (activeRole === "L1_APPROVER" &&
       userTeam === ticket.teamName &&
       ticket.status === "PENDING_L1_APPROVAL" &&
       (ticket.teamName !== "ENGINEERING" || !ticket.l1ManagerId || ticket.l1ManagerId === session.user.id)) ||
-    (activeRole === "FINANCE_APPROVER" && ticket.status === "PENDING_FINANCE_APPROVAL") ||
+    isFinanceApprover ||
     (activeRole === "CFO" && ticket.status === "PENDING_CFO_APPROVAL") ||
     (activeRole === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
   const canShowActions = canShowWorkflowActions || canDeleteTicket;
@@ -290,6 +309,8 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 status={ticket.status}
                 isRequester={isRequester}
                 isProduction={isProduction}
+                isFinanceApprover={isFinanceApprover}
+                alternateQuoteState={ticket.alternateQuoteState ?? null}
                 canDeleteTicket={canDeleteTicket}
                 canApproveActions={canShowWorkflowActions}
               />
@@ -308,6 +329,15 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               <DetailItem label="Team flow" value="Requester -> L1 -> Department Head -> Finance if needed -> CFO -> CDO -> Production" />
               <DetailItem label="Created" value={formatDate(ticket.createdAt)} />
               <DetailItem label="Updated" value={formatDate(ticket.updatedAt)} />
+              {ticket.alternateQuoteState === "REQUESTED" && (
+                <DetailItem label="Alternate quote" value="Requested from Procurement Team — awaiting upload" />
+              )}
+              {ticket.alternateQuoteState === "SUBMITTED" && (
+                <DetailItem
+                  label="Alternate quote"
+                  value={`Submitted by Procurement Team${ticket.alternateQuoteRemarks ? ` — ${ticket.alternateQuoteRemarks}` : ""}`}
+                />
+              )}
             </div>
           </DetailCard>
         </aside>

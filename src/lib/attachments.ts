@@ -18,6 +18,8 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/zip",
   "text/plain",
   "text/csv",
+  "application/vnd.ms-outlook",
+  "message/rfc822",
 ]);
 
 export function isAllowedAttachment(file: File) {

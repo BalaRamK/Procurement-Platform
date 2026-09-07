@@ -4,13 +4,25 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-type Action = "approved" | "rejected" | "submit" | "reraised" | "order_placed" | "mark_delivered" | "confirm_receipt" | "delete_draft";
+type Action =
+  | "approved"
+  | "rejected"
+  | "submit"
+  | "reraised"
+  | "order_placed"
+  | "mark_delivered"
+  | "confirm_receipt"
+  | "delete_draft"
+  | "request_alternate_quote"
+  | "submit_alternate_quote";
 
 export function TicketActions({
   ticketId,
   status,
   isRequester,
   isProduction,
+  isFinanceApprover = false,
+  alternateQuoteState = null,
   canDeleteTicket = false,
   canApproveActions = true,
 }: {
@@ -18,6 +30,8 @@ export function TicketActions({
   status: string;
   isRequester: boolean;
   isProduction: boolean;
+  isFinanceApprover?: boolean;
+  alternateQuoteState?: string | null;
   canDeleteTicket?: boolean;
   canApproveActions?: boolean;
 }) {
@@ -25,6 +39,7 @@ export function TicketActions({
   const [loading, setLoading] = useState<Action | null>(null);
   const [rejectionRemarks, setRejectionRemarks] = useState("");
   const [showReject, setShowReject] = useState(false);
+  const [quoteRemarks, setQuoteRemarks] = useState("");
   const [error, setError] = useState("");
 
   async function act(action: Action, payload?: { remarks?: string }) {
@@ -42,7 +57,11 @@ export function TicketActions({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          action === "rejected" ? { action, remarks: payload?.remarks ?? rejectionRemarks } : { action }
+          action === "rejected"
+            ? { action, remarks: payload?.remarks ?? rejectionRemarks }
+            : action === "submit_alternate_quote"
+              ? { action, remarks: payload?.remarks ?? quoteRemarks }
+              : { action }
         ),
       });
       if (!res.ok) {
@@ -51,6 +70,7 @@ export function TicketActions({
       }
       setShowReject(false);
       setRejectionRemarks("");
+      setQuoteRemarks("");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Action failed. Please try again.");
@@ -147,6 +167,99 @@ export function TicketActions({
         <button type="button" onClick={() => act("mark_delivered")} disabled={!!loading} className="btn-primary">
           {loading === "mark_delivered" ? "Processing..." : "Mark as delivered"}
         </button>
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (status === "PENDING_FINANCE_APPROVAL" && isProduction && alternateQuoteState === "REQUESTED") {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Finance has requested an alternate quote for this request. Upload the quote(s) below, then mark this done.
+        </p>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Notes for Finance (optional)</label>
+        <textarea
+          value={quoteRemarks}
+          onChange={(e) => setQuoteRemarks(e.target.value)}
+          className="input-base min-h-[80px]"
+          placeholder="e.g. Attached two alternate supplier quotes for comparison."
+          rows={3}
+        />
+        <button type="button" onClick={() => act("submit_alternate_quote")} disabled={!!loading} className="btn-primary">
+          {loading === "submit_alternate_quote" ? "Submitting..." : "Mark alternate quote submitted"}
+        </button>
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (status === "PENDING_FINANCE_APPROVAL" && isFinanceApprover && alternateQuoteState === "REQUESTED") {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-slate-600 dark:text-slate-300">
+          Waiting for the Procurement Team to upload an alternate quote. Approve/Reject will be available again once they mark it submitted.
+        </p>
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (status === "PENDING_FINANCE_APPROVAL" && isFinanceApprover && canApproveActions) {
+    return (
+      <div className="space-y-3">
+        {alternateQuoteState === "SUBMITTED" && (
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            The Procurement Team submitted an alternate quote — review the attachments below before deciding.
+          </p>
+        )}
+        {showReject ? (
+          <>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">Rejection remarks (mandatory)</label>
+            <textarea
+              value={rejectionRemarks}
+              onChange={(e) => setRejectionRemarks(e.target.value)}
+              className="input-base min-h-[80px]"
+              placeholder="Reason for rejection..."
+              rows={3}
+            />
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => act("rejected")}
+                disabled={!!loading || !rejectionRemarks.trim()}
+                className="btn-danger"
+              >
+                {loading === "rejected" ? "Processing..." : "Reject"}
+              </button>
+              <button type="button" onClick={() => setShowReject(false)} className="btn-secondary">
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => act("approved")} disabled={!!loading} className="btn-success">
+              {loading === "approved" ? "Processing..." : "Approve"}
+            </button>
+            <button type="button" onClick={() => setShowReject(true)} disabled={!!loading} className="btn-danger">
+              Reject
+            </button>
+            <button
+              type="button"
+              onClick={() => act("request_alternate_quote")}
+              disabled={!!loading}
+              className="btn-secondary"
+            >
+              {loading === "request_alternate_quote" ? "Requesting..." : "Get alternate quote"}
+            </button>
+            {canDeleteTicket && (
+              <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+                {loading === "delete_draft" ? "Deleting..." : "Delete ticket"}
+              </button>
+            )}
+          </div>
+        )}
         {errorMessage}
       </div>
     );

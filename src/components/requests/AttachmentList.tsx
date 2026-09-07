@@ -87,7 +87,7 @@ export function AttachmentList({
               name="attachments"
               type="file"
               multiple
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.zip,.txt,.csv,image/*"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.gif,.zip,.txt,.csv,.msg,.eml,image/*"
               onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))}
               className="block w-full text-sm text-slate-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-100 dark:text-slate-200 dark:file:bg-white/10 dark:file:text-sky-100"
             />

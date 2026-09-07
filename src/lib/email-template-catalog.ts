@@ -15,6 +15,7 @@ export const EMAIL_TEMPLATE_FIELDS = [
   { key: "estimatedCost", label: "Estimated cost" },
   { key: "description", label: "Description" },
   { key: "rejectionRemarks", label: "Rejection remarks" },
+  { key: "quoteRemarks", label: "Alternate quote remarks" },
   { key: "actionBy", label: "Action by" },
   { key: "approverPosition", label: "Approver position" },
   { key: "approverName", label: "Approver name" },
@@ -45,6 +46,9 @@ export const EMAIL_TEMPLATE_TRIGGER_OPTIONS = [
   { value: "request_auto_closed", label: "Request auto closed" },
   { value: "comment_mention", label: "Comment @mention" },
   { value: "urgent_ticket_reminder", label: "Urgent ticket reminder" },
+  { value: "finance_requested_alternate_quote", label: "Finance requested an alternate quote" },
+  { value: "production_submitted_alternate_quote", label: "Procurement Team submitted an alternate quote" },
+  { value: "fh_approved_production_preview", label: "Department Head approved (Procurement Team preview)" },
 ] as const;
 
 export type TemplateSeed = {
@@ -268,6 +272,55 @@ export const DEFAULT_EMAIL_TEMPLATES: TemplateSeed[] = [
     bodyTemplate: standardBody(
       "This procurement request was automatically closed after delivery because receipt confirmation was not recorded within the configured window.",
       "If the closure needs attention, open the ticket in Procurement Platform and contact the Procurement Team."
+    ),
+  },
+  {
+    name: "Finance requested an alternate quote",
+    trigger: "finance_requested_alternate_quote",
+    subjectTemplate: prefixedSubject("Action required: alternate quote needed for {{ticketId}}"),
+    bodyTemplate: standardBody(
+      "Finance Approval has requested an alternate quote for this procurement request. The request remains at Finance Approval while this is in progress.",
+      "Please review the item details, upload the alternate quote(s) as attachments in Procurement Platform, and mark the alternate quote as submitted once done."
+    ),
+  },
+  {
+    name: "Procurement Team submitted an alternate quote",
+    trigger: "production_submitted_alternate_quote",
+    subjectTemplate: prefixedSubject("Alternate quote ready for review: {{ticketId}}"),
+    bodyTemplate: [
+      "Hello,",
+      "",
+      "This is an automated Procurement Platform update for the request below.",
+      "",
+      "The Procurement Team has uploaded an alternate quote and marked it as submitted.",
+      "",
+      "Please review the attached quote(s) in Procurement Platform, then approve or reject the request.",
+      "",
+      "Notes from Procurement Team: {{quoteRemarks}}",
+      "",
+      "Request details:",
+      "Request ID: {{ticketId}}",
+      "Title: {{ticketTitle}}",
+      "Requester: {{requesterName}}",
+      "Department: {{department}}",
+      "Team: {{teamName}}",
+      "Priority: {{priority}}",
+      "Need by date: {{needByDate}}",
+      "Estimated cost: {{estimatedCost}}",
+      "Current stage: {{currentStage}}",
+      "",
+      "Open request: {{requestUrl}}",
+      "",
+      "Please do not reply to this automated email. Continue the conversation in Procurement Platform so the audit trail remains complete.",
+    ].join("\n"),
+  },
+  {
+    name: "Department Head approved (Procurement Team preview)",
+    trigger: "fh_approved_production_preview",
+    subjectTemplate: prefixedSubject("Preview: {{ticketId}} approved by Department Head"),
+    bodyTemplate: standardBody(
+      "Department Head approval is complete for this procurement request. It has not been assigned to the Procurement Team yet and is still moving through Finance/CFO/CDO approval.",
+      "This is an early, read-only preview so you can plan ahead. No action is needed until the request reaches Assigned to Production."
     ),
   },
   {

@@ -178,8 +178,13 @@ export async function GET() {
     CDO: "PENDING_CDO_APPROVAL",
   };
   if (role === "PRODUCTION") {
+    // Includes read-only preview statuses (Finance/CFO/CDO approval, once Department Head has approved)
+    // alongside the actionable ones, so Production can see what's coming before it's assigned to them.
     const rows = await query<Record<string, unknown>>(
-      `${TICKET_JOIN_REQ} WHERE t.status IN ('ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER') ORDER BY t.updated_at DESC`
+      `${TICKET_JOIN_REQ} WHERE t.status IN (
+         'PENDING_FINANCE_APPROVAL', 'PENDING_CFO_APPROVAL', 'PENDING_CDO_APPROVAL',
+         'ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER'
+       ) ORDER BY t.updated_at DESC`
     );
     return NextResponse.json(rows.map(mapRowWithRequester));
   }

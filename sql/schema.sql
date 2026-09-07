@@ -73,6 +73,12 @@ CREATE TABLE IF NOT EXISTS tickets (
   delivered_at TIMESTAMPTZ,
   confirmed_at TIMESTAMPTZ,
   auto_closed_at TIMESTAMPTZ,
+  alternate_quote_state TEXT CHECK (alternate_quote_state IN ('REQUESTED', 'SUBMITTED')),
+  alternate_quote_requested_at TIMESTAMPTZ,
+  alternate_quote_requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  alternate_quote_submitted_at TIMESTAMPTZ,
+  alternate_quote_submitted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  alternate_quote_remarks TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

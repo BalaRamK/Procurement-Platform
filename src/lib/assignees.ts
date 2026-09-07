@@ -43,10 +43,16 @@ export async function getAssigneesForTeam(team: TeamName, selectedL1ManagerId?: 
   };
 }
 
-/** Returns emails of users with PRODUCTION role (for ASSIGNED_TO_PRODUCTION notifications). */
-export async function getProductionEmails(): Promise<string[]> {
+/** Returns emails of active users holding the given role (e.g. all PRODUCTION or all FINANCE_APPROVER users). */
+export async function getActiveUserEmailsByRole(role: "PRODUCTION" | "FINANCE_APPROVER"): Promise<string[]> {
   const rows = await query<{ email: string }>(
-    "SELECT email FROM users WHERE roles @> ARRAY['PRODUCTION']::\"UserRole\"[] AND status = true"
+    `SELECT email FROM users WHERE roles @> ARRAY[$1::"UserRole"] AND status = true`,
+    [role]
   );
   return rows.map((r) => r.email).filter(Boolean);
+}
+
+/** Returns emails of users with PRODUCTION role (for ASSIGNED_TO_PRODUCTION notifications). */
+export async function getProductionEmails(): Promise<string[]> {
+  return getActiveUserEmailsByRole("PRODUCTION");
 }

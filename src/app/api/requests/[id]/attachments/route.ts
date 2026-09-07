@@ -16,8 +16,15 @@ export async function POST(
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: ticketId } = await params;
-  const ticket = await queryOne<{ requesterId: string; requesterEmail: string | null; status: TicketStatus; teamName: TeamName }>(
-    `SELECT t.requester_id AS "requesterId", u.email AS "requesterEmail", t.status, t.team_name AS "teamName"
+  const ticket = await queryOne<{
+    requesterId: string;
+    requesterEmail: string | null;
+    status: TicketStatus;
+    teamName: TeamName;
+    alternateQuoteState: string | null;
+  }>(
+    `SELECT t.requester_id AS "requesterId", u.email AS "requesterEmail", t.status, t.team_name AS "teamName",
+      t.alternate_quote_state AS "alternateQuoteState"
      FROM tickets t LEFT JOIN users u ON u.id = t.requester_id WHERE t.id = $1`,
     [ticketId]
   );

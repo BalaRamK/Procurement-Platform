@@ -111,6 +111,12 @@ model Ticket {
   deliveredAt          DateTime?      @map("delivered_at")
   confirmedAt          DateTime?      @map("confirmed_at")
   autoClosedAt         DateTime?      @map("auto_closed_at")
+  alternateQuoteState        String?   @map("alternate_quote_state")
+  alternateQuoteRequestedAt  DateTime? @map("alternate_quote_requested_at")
+  alternateQuoteRequestedBy  String?   @map("alternate_quote_requested_by")
+  alternateQuoteSubmittedAt  DateTime? @map("alternate_quote_submitted_at")
+  alternateQuoteSubmittedBy  String?   @map("alternate_quote_submitted_by")
+  alternateQuoteRemarks      String?   @map("alternate_quote_remarks")
   createdAt            DateTime       @default(now()) @map("created_at")
   updatedAt            DateTime       @updatedAt @map("updated_at")
 

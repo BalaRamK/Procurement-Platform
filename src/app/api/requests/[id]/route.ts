@@ -3,7 +3,7 @@ import { rm } from "fs/promises";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryClient, queryOne, withTransaction } from "@/lib/db";
-import { getAssigneesForTeam, getProductionEmails } from "@/lib/assignees";
+import { getAssigneesForTeam, getProductionEmails, getActiveUserEmailsByRole } from "@/lib/assignees";
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { COST_CURRENCIES, PRIORITIES, TEAM_NAMES, type TicketStatus, type TeamName, type UserRole } from "@/types/db";
@@ -159,7 +159,17 @@ export async function DELETE(
 }
 
 type ApprovalBody = {
-  action: "approved" | "rejected" | "submit" | "reraised" | "order_placed" | "mark_delivered" | "confirm_receipt" | "update_draft";
+  action:
+    | "approved"
+    | "rejected"
+    | "submit"
+    | "reraised"
+    | "order_placed"
+    | "mark_delivered"
+    | "confirm_receipt"
+    | "update_draft"
+    | "request_alternate_quote"
+    | "submit_alternate_quote";
   remarks?: string;
   [key: string]: unknown;
 };
@@ -215,9 +225,10 @@ export async function PATCH(
     title: string;
     bomId: string | null;
     l1ManagerId: string | null;
+    alternateQuoteState: string | null;
   }>(
     `SELECT t.status, t.requester_id AS "requesterId", u.email AS "requesterEmail", t.team_name AS "teamName", t.title,
-      t.bom_id AS "bomId", t.l1_manager_id AS "l1ManagerId"
+      t.bom_id AS "bomId", t.l1_manager_id AS "l1ManagerId", t.alternate_quote_state AS "alternateQuoteState"
      FROM tickets t LEFT JOIN users u ON t.requester_id = u.id WHERE t.id = $1`,
     [id]
   );
@@ -551,6 +562,85 @@ export async function PATCH(
     return NextResponse.json({ ok: true, status: "CLOSED" });
   }
 
+  if (body.action === "request_alternate_quote") {
+    if (ticket.status !== "PENDING_FINANCE_APPROVAL" || activeRole !== "FINANCE_APPROVER") {
+      return NextResponse.json({ error: "Only Finance Approval can request an alternate quote" }, { status: 403 });
+    }
+    await query(
+      `UPDATE tickets SET alternate_quote_state = 'REQUESTED',
+       alternate_quote_requested_at = now(), alternate_quote_requested_by = $1,
+       alternate_quote_submitted_at = NULL, alternate_quote_submitted_by = NULL, alternate_quote_remarks = NULL,
+       updated_at = now() WHERE id = $2`,
+      [session.user.id, id]
+    );
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "request_alternate_quote",
+    });
+    const productionEmails = await getProductionEmails();
+    for (const email of productionEmails) {
+      await logNotification({
+        ticketId: id,
+        type: "alternate_quote_requested",
+        recipient: email,
+        payload: {
+          title: ticket.title,
+          currentStage: STAGE_LABELS[ticket.status] ?? ticket.status,
+          nextStage: STAGE_LABELS[ticket.status] ?? ticket.status,
+          actionBy: actorName(session.user),
+          approverPosition: "Procurement Team",
+          approverName: "Procurement Team",
+        },
+        emailTrigger: "finance_requested_alternate_quote",
+      });
+    }
+    return NextResponse.json({ ok: true, status: ticket.status, alternateQuoteState: "REQUESTED" });
+  }
+
+  if (body.action === "submit_alternate_quote") {
+    if (ticket.status !== "PENDING_FINANCE_APPROVAL" || !isProduction || ticket.alternateQuoteState !== "REQUESTED") {
+      return NextResponse.json(
+        { error: "There is no pending alternate quote request for Production to submit." },
+        { status: 403 }
+      );
+    }
+    const quoteRemarks = typeof body.remarks === "string" ? body.remarks.trim() : "";
+    await query(
+      `UPDATE tickets SET alternate_quote_state = 'SUBMITTED',
+       alternate_quote_submitted_at = now(), alternate_quote_submitted_by = $1,
+       alternate_quote_remarks = $2, updated_at = now() WHERE id = $3`,
+      [session.user.id, quoteRemarks || null, id]
+    );
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "submit_alternate_quote",
+      remarks: quoteRemarks || undefined,
+    });
+    const financeEmails = await getActiveUserEmailsByRole("FINANCE_APPROVER");
+    for (const email of financeEmails) {
+      await logNotification({
+        ticketId: id,
+        type: "alternate_quote_submitted",
+        recipient: email,
+        payload: {
+          title: ticket.title,
+          currentStage: STAGE_LABELS[ticket.status] ?? ticket.status,
+          nextStage: STAGE_LABELS[ticket.status] ?? ticket.status,
+          actionBy: actorName(session.user),
+          approverPosition: "Finance Approval",
+          approverName: "Finance Approval",
+          quoteRemarks,
+        },
+        emailTrigger: "production_submitted_alternate_quote",
+      });
+    }
+    return NextResponse.json({ ok: true, status: ticket.status, alternateQuoteState: "SUBMITTED" });
+  }
+
   const status = ticket.status as TicketStatus;
   const allowed = roleAndTeamForStatus[status];
   if (!allowed || activeRole !== (allowed.role as UserRole)) {
@@ -566,6 +656,12 @@ export async function PATCH(
     ticket.l1ManagerId !== session.user.id
   ) {
     return NextResponse.json({ error: "This request is assigned to another L1 Manager" }, { status: 403 });
+  }
+  if (status === "PENDING_FINANCE_APPROVAL" && ticket.alternateQuoteState === "REQUESTED") {
+    return NextResponse.json(
+      { error: "Approve/Reject is blocked until Production submits the requested alternate quote." },
+      { status: 403 }
+    );
   }
   if (body.action !== "approved" && body.action !== "rejected") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
@@ -586,7 +682,7 @@ export async function PATCH(
     await query(
       `UPDATE tickets SET status = 'REJECTED', rejection_remarks = $1,
        rejected_by_name = $2, rejected_by_email = $3, rejected_at = now(),
-       rejected_stage = $4, urgent_reminder_due_at = NULL, updated_at = now()
+       rejected_stage = $4, urgent_reminder_due_at = NULL, alternate_quote_state = NULL, updated_at = now()
        WHERE id = $5`,
       [
         body.remarks ?? null,
@@ -628,9 +724,31 @@ export async function PATCH(
   await query(
     `UPDATE tickets SET status = $1,
      urgent_reminder_due_at = CASE WHEN priority = 'URGENT' THEN now() + interval '48 hours' ELSE NULL END,
-     updated_at = now() WHERE id = $2`,
+     alternate_quote_state = NULL, updated_at = now() WHERE id = $2`,
     [nextStatus, id]
   );
+
+  if (status === "PENDING_FH_APPROVAL") {
+    // Give Production a heads-up as soon as Department Head approval clears, well before the ticket
+    // is actually assigned to them, so they can plan ahead. Read-only until ASSIGNED_TO_PRODUCTION.
+    const productionPreviewEmails = await getProductionEmails();
+    for (const email of productionPreviewEmails) {
+      await logNotification({
+        ticketId: id,
+        type: "team_assignment",
+        recipient: email,
+        payload: {
+          title: ticket.title,
+          currentStage: STAGE_LABELS[nextStatus] ?? nextStatus,
+          nextStage: STAGE_LABELS[nextStatus] ?? nextStatus,
+          actionBy: actorName(session.user),
+          approverPosition: "Procurement Team",
+          approverName: "Procurement Team",
+        },
+        emailTrigger: "fh_approved_production_preview",
+      });
+    }
+  }
 
   const assignees = await getAssigneesForTeam(ticket.teamName as TeamName, ticket.l1ManagerId);
 
