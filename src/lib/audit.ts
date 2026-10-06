@@ -8,7 +8,8 @@ export type ApprovalAction =
   | "confirm_receipt"
   | "reraised"
   | "request_alternate_quote"
-  | "submit_alternate_quote";
+  | "submit_alternate_quote"
+  | "cancel_alternate_quote";
 
 export async function logApproval(params: {
   ticketId: string;

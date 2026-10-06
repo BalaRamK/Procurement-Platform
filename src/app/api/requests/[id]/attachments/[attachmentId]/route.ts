@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
-import { canViewTicket } from "@/lib/tickets";
+import { canAccessTicket } from "@/lib/ticket-access";
 import type { TeamName, TicketStatus, UserRole } from "@/types/db";
 
 export async function GET(
@@ -21,13 +21,13 @@ export async function GET(
   if (!ticket) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const roles = session.user.roles ?? [];
-  const authorized =
-    ticket.requesterId === session.user.id ||
-    canViewTicket(
-      roles as UserRole[],
-      session.user.team as TeamName | null,
-      ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }
-    );
+  const authorized = await canAccessTicket(
+    roles as UserRole[],
+    session.user.team as TeamName | null,
+    ticket as { requesterId: string; status: TicketStatus; teamName: TeamName },
+    ticketId,
+    session.user.id
+  );
   if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const attachment = await queryOne<{

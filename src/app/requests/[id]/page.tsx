@@ -11,6 +11,7 @@ import { TicketComments } from "@/components/requests/TicketComments";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { WorkflowStepper } from "@/components/ui/WorkflowStepper";
 import { isRequesterForActiveRole } from "@/lib/tickets";
+import { hasTicketInvolvement } from "@/lib/ticket-access";
 import type { TeamName, TicketStatus, UserRole } from "@/types/db";
 import { getPrimaryRole, hasRole } from "@/types/db";
 
@@ -220,6 +221,10 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     sessionEmail,
   });
   const isFinanceApprover = activeRole === "FINANCE_APPROVER" && ticket.status === "PENDING_FINANCE_APPROVAL";
+  const canCancelAlternateQuote =
+    (isFinanceApprover || activeRole === "SUPER_ADMIN") &&
+    ticket.status === "PENDING_FINANCE_APPROVAL" &&
+    ticket.alternateQuoteState === "REQUESTED";
   const canSubmitAlternateQuote =
     isProduction && ticket.status === "PENDING_FINANCE_APPROVAL" && ticket.alternateQuoteState === "REQUESTED";
   const canShowWorkflowActions =
@@ -236,15 +241,24 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     (activeRole === "CDO" && ticket.status === "PENDING_CDO_APPROVAL");
   const canShowActions = canShowWorkflowActions || canDeleteTicket;
 
-  if (!canView(roles, userTeam, ticket, session.user.id) && !isRequester) redirect("/dashboard");
+  // Users who already acted on this ticket, or were @mentioned in its comments, keep read-only access
+  // even after it has moved past their stage (so mention emails and approval history links still work).
+  const hasInvolvement =
+    !isRequester && !canView(roles, userTeam, ticket, session.user.id)
+      ? await hasTicketInvolvement(ticket.id, session.user.id)
+      : false;
+  if (!canView(roles, userTeam, ticket, session.user.id) && !isRequester && !hasInvolvement) {
+    redirect("/dashboard?notice=no-access");
+  }
   if (
+    !hasInvolvement &&
     activeRole === "L1_APPROVER" &&
     ticket.status === "PENDING_L1_APPROVAL" &&
     ticket.teamName === "ENGINEERING" &&
     ticket.l1ManagerId &&
     ticket.l1ManagerId !== session.user.id
   ) {
-    redirect("/dashboard");
+    redirect("/dashboard?notice=no-access");
   }
 
   const isRejected = ticket.status === "REJECTED" && !!ticket.rejectionRemarks;
@@ -310,6 +324,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 isRequester={isRequester}
                 isProduction={isProduction}
                 isFinanceApprover={isFinanceApprover}
+                canCancelAlternateQuote={canCancelAlternateQuote}
                 alternateQuoteState={ticket.alternateQuoteState ?? null}
                 canDeleteTicket={canDeleteTicket}
                 canApproveActions={canShowWorkflowActions}

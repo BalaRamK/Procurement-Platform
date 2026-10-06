@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
 import { NotificationBell } from "@/components/layout/NotificationBell";
+import { AccessNotice } from "@/components/layout/AccessNotice";
 import { TopBarUserEnhanced } from "@/components/layout/TopBarUserEnhanced";
 
 export default async function DashboardLayout({
@@ -32,6 +33,9 @@ export default async function DashboardLayout({
         </>
       }
     >
+      <Suspense fallback={null}>
+        <AccessNotice />
+      </Suspense>
       {children}
     </MobileLayoutShell>
   );

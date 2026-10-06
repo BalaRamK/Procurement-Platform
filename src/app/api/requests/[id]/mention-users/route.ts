@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
-import { canViewTicket } from "@/lib/tickets";
+import { canAccessTicket } from "@/lib/ticket-access";
 import type { TeamName, TicketStatus, UserRole } from "@/types/db";
 
 /** Returns all active users for @ mention dropdown (anyone can be tagged in a comment). */
@@ -20,10 +20,11 @@ export async function GET(
   );
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const canView = canViewTicket(
+  const canView = await canAccessTicket(
     session.user.roles as UserRole[],
     session.user.team as TeamName | null,
     row,
+    ticketId,
     session.user.id
   );
   if (!canView) return NextResponse.json({ error: "Forbidden" }, { status: 403 });

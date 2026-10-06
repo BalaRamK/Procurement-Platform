@@ -27,6 +27,7 @@ type DueTicket = {
   status: string;
   teamName: string;
   l1ManagerId: string | null;
+  alternateQuoteState: string | null;
 };
 
 async function recipientsFor(ticket: DueTicket) {
@@ -49,7 +50,9 @@ async function recipientsFor(ticket: DueTicket) {
     ASSIGNED_TO_PRODUCTION: "PRODUCTION",
     ORDER_PLACED: "PRODUCTION",
   };
-  const role = roleByStatus[ticket.status];
+  // While Finance is waiting on an alternate quote, the ball is in Production's court, not Finance's.
+  const waitingOnProduction = ticket.status === "PENDING_FINANCE_APPROVAL" && ticket.alternateQuoteState === "REQUESTED";
+  const role = waitingOnProduction ? "PRODUCTION" : roleByStatus[ticket.status];
   if (!role) return [];
   const teamScoped = ticket.status === "PENDING_FH_APPROVAL";
   const rows = await query<{ email: string }>(
@@ -64,7 +67,8 @@ async function recipientsFor(ticket: DueTicket) {
 
 export async function sendDueUrgentReminders() {
   const due = await query<DueTicket>(
-    `SELECT id, title, status, team_name AS "teamName", l1_manager_id AS "l1ManagerId"
+    `SELECT id, title, status, team_name AS "teamName", l1_manager_id AS "l1ManagerId",
+            alternate_quote_state AS "alternateQuoteState"
      FROM tickets
      WHERE priority = 'URGENT'
        AND status = ANY($1::"TicketStatus"[])

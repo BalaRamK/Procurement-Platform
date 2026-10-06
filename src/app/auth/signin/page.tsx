@@ -3,6 +3,20 @@
 import { signIn } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+/** Where to land after sign-in: the page the user originally requested (e.g. an emailed request link), if it's a safe same-site path. */
+function getCallbackUrl() {
+  try {
+    const raw = new URLSearchParams(window.location.search).get("callbackUrl");
+    if (!raw) return "/dashboard";
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) return "/dashboard";
+    const path = `${url.pathname}${url.search}`;
+    return path.startsWith("/") && !path.startsWith("//") && !path.startsWith("/auth/") ? path : "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
+}
+
 export default function SignInPage() {
   return (
     <div className="relative z-10 flex min-h-screen items-center justify-center bg-[#0f0f12] px-4 py-8 dark:bg-[#0f0f12]">
@@ -30,7 +44,7 @@ export default function SignInPage() {
           <div className="mt-10">
             <button
               type="button"
-              onClick={() => signIn("azure-ad", { callbackUrl: "/dashboard" })}
+              onClick={() => signIn("azure-ad", { callbackUrl: getCallbackUrl() })}
               className="flex w-full items-center justify-center gap-3 rounded-[1.25rem] py-3.5 text-base font-medium text-white transition-opacity hover:opacity-95 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:ring-offset-2 focus:ring-offset-[#1a1a1f]"
               style={{
                 background: "linear-gradient(90deg, #3f3f46 0%, #52525b 50%, #71717a 100%)",

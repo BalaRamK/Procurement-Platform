@@ -14,7 +14,8 @@ type Action =
   | "confirm_receipt"
   | "delete_draft"
   | "request_alternate_quote"
-  | "submit_alternate_quote";
+  | "submit_alternate_quote"
+  | "cancel_alternate_quote";
 
 export function TicketActions({
   ticketId,
@@ -22,6 +23,7 @@ export function TicketActions({
   isRequester,
   isProduction,
   isFinanceApprover = false,
+  canCancelAlternateQuote = false,
   alternateQuoteState = null,
   canDeleteTicket = false,
   canApproveActions = true,
@@ -31,6 +33,7 @@ export function TicketActions({
   isRequester: boolean;
   isProduction: boolean;
   isFinanceApprover?: boolean;
+  canCancelAlternateQuote?: boolean;
   alternateQuoteState?: string | null;
   canDeleteTicket?: boolean;
   canApproveActions?: boolean;
@@ -194,12 +197,32 @@ export function TicketActions({
     );
   }
 
-  if (status === "PENDING_FINANCE_APPROVAL" && isFinanceApprover && alternateQuoteState === "REQUESTED") {
+  if (status === "PENDING_FINANCE_APPROVAL" && canCancelAlternateQuote && alternateQuoteState === "REQUESTED") {
     return (
       <div className="space-y-3">
         <p className="text-sm text-slate-600 dark:text-slate-300">
-          Waiting for the Procurement Team to upload an alternate quote. Approve/Reject will be available again once they mark it submitted.
+          Waiting for the Procurement Team to upload an alternate quote. Approve/Reject will be available again once they
+          mark it submitted, or you can cancel the request.
         </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm("Cancel the alternate quote request? Approve/Reject will be available again right away.")) {
+                void act("cancel_alternate_quote");
+              }
+            }}
+            disabled={!!loading}
+            className="btn-secondary"
+          >
+            {loading === "cancel_alternate_quote" ? "Cancelling..." : "Cancel alternate quote request"}
+          </button>
+          {canDeleteTicket && (
+            <button type="button" onClick={() => void deleteTicket()} disabled={!!loading} className="btn-danger">
+              {loading === "delete_draft" ? "Deleting..." : "Delete ticket"}
+            </button>
+          )}
+        </div>
         {errorMessage}
       </div>
     );

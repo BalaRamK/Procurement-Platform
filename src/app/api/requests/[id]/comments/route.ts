@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query, queryOne } from "@/lib/db";
 import { logNotification } from "@/lib/notifications";
-import { canViewTicket } from "@/lib/tickets";
+import { canAccessTicket } from "@/lib/ticket-access";
 import { STATUS_LABELS } from "@/lib/constants";
 import type { TicketStatus, TeamName, UserRole } from "@/types/db";
 
@@ -23,14 +23,13 @@ export async function GET(
 
   const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
-  const isRequester = ticket.requesterId === session.user.id;
-  const authorized =
-    isRequester ||
-    canViewTicket(
-      roles as UserRole[],
-      userTeam as TeamName | null,
-      ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }
-    );
+  const authorized = await canAccessTicket(
+    roles as UserRole[],
+    userTeam as TeamName | null,
+    ticket as { requesterId: string; status: TicketStatus; teamName: TeamName },
+    ticketId,
+    session.user.id
+  );
   if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const comments = await query<Record<string, unknown>>(
@@ -71,17 +70,16 @@ export async function POST(
 
   const roles = session.user.roles ?? [];
   const userTeam = session.user.team ?? null;
-  const isRequester = ticket.requesterId === session.user.id;
-  const authorized =
-    isRequester ||
-    canViewTicket(
-      roles as UserRole[],
-      userTeam as TeamName | null,
-      ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }
-    );
+  const authorized = await canAccessTicket(
+    roles as UserRole[],
+    userTeam as TeamName | null,
+    ticket as { requesterId: string; status: TicketStatus; teamName: TeamName },
+    ticketId,
+    session.user.id
+  );
   if (!authorized) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-  const body = (await req.json()) as { body: string };
+  const body =(await req.json()) as { body: string };
   if (!body.body?.trim()) {
     return NextResponse.json({ error: "Comment body required" }, { status: 400 });
   }

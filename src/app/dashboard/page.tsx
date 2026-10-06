@@ -190,7 +190,9 @@ export default async function DashboardPage({
   }
 
   if (role === "PRODUCTION") {
-    const where = ["t.status IN ('ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER')"];
+    const where = [
+      "t.status IN ('PENDING_FINANCE_APPROVAL', 'PENDING_CFO_APPROVAL', 'PENDING_CDO_APPROVAL', 'ASSIGNED_TO_PRODUCTION', 'ORDER_PLACED', 'DELIVERED_TO_REQUESTER')",
+    ];
     const args: (string | undefined)[] = [];
     if (searchJoin) {
       where.push("(t.title ILIKE $1 OR t.request_id ILIKE $1 OR t.requester_name ILIKE $1 OR u.email ILIKE $1 OR u.name ILIKE $1)");

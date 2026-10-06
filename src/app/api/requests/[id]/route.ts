@@ -7,7 +7,8 @@ import { getAssigneesForTeam, getProductionEmails, getActiveUserEmailsByRole } f
 import { logApproval } from "@/lib/audit";
 import { logNotification } from "@/lib/notifications";
 import { COST_CURRENCIES, PRIORITIES, TEAM_NAMES, type TicketStatus, type TeamName, type UserRole } from "@/types/db";
-import { canViewTicket, isRequesterForActiveRole } from "@/lib/tickets";
+import { isRequesterForActiveRole } from "@/lib/tickets";
+import { canAccessTicket } from "@/lib/ticket-access";
 import { getPrimaryRole, hasRole } from "@/types/db";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -92,7 +93,10 @@ export async function GET(
   const roles = activeRole ? [activeRole] : [];
   const userTeam = session.user.team ?? null;
   const isRequester = ticket.requesterId === session.user.id;
-  if (!canViewTicket(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }, session.user.id) && !isRequester) {
+  if (
+    !isRequester &&
+    !(await canAccessTicket(roles, userTeam, ticket as { requesterId: string; status: TicketStatus; teamName: TeamName }, id, session.user.id))
+  ) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -169,7 +173,8 @@ type ApprovalBody = {
     | "confirm_receipt"
     | "update_draft"
     | "request_alternate_quote"
-    | "submit_alternate_quote";
+    | "submit_alternate_quote"
+    | "cancel_alternate_quote";
   remarks?: string;
   [key: string]: unknown;
 };
@@ -639,6 +644,33 @@ export async function PATCH(
       });
     }
     return NextResponse.json({ ok: true, status: ticket.status, alternateQuoteState: "SUBMITTED" });
+  }
+
+  if (body.action === "cancel_alternate_quote") {
+    if (
+      ticket.status !== "PENDING_FINANCE_APPROVAL" ||
+      ticket.alternateQuoteState !== "REQUESTED" ||
+      (activeRole !== "FINANCE_APPROVER" && activeRole !== "SUPER_ADMIN")
+    ) {
+      return NextResponse.json(
+        { error: "Only Finance Approval or an admin can cancel a pending alternate quote request." },
+        { status: 403 }
+      );
+    }
+    await query(
+      `UPDATE tickets SET alternate_quote_state = NULL,
+       alternate_quote_requested_at = NULL, alternate_quote_requested_by = NULL,
+       alternate_quote_submitted_at = NULL, alternate_quote_submitted_by = NULL, alternate_quote_remarks = NULL,
+       updated_at = now() WHERE id = $1`,
+      [id]
+    );
+    await logApproval({
+      ticketId: id,
+      userEmail: session.user.email,
+      userId: session.user.id,
+      action: "cancel_alternate_quote",
+    });
+    return NextResponse.json({ ok: true, status: ticket.status, alternateQuoteState: null });
   }
 
   const status = ticket.status as TicketStatus;
