@@ -40,6 +40,63 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   }
 }
 
+// Microsoft Graph sender (HTTPS/443). Used when GRAPH_MAIL_SENDER is set; needs an app registration
+// with the Mail.Send *application* permission (admin consented). Falls back to AZURE_AD_* credentials.
+function getGraphConfig() {
+  const sender = process.env.GRAPH_MAIL_SENDER || "";
+  const tenant = process.env.GRAPH_TENANT_ID || process.env.AZURE_AD_TENANT_ID || "";
+  const clientId = process.env.GRAPH_CLIENT_ID || process.env.AZURE_AD_CLIENT_ID || "";
+  const clientSecret = process.env.GRAPH_CLIENT_SECRET || process.env.AZURE_AD_CLIENT_SECRET || "";
+  if (!sender || !tenant || !clientId || !clientSecret) return null;
+  return { sender, tenant, clientId, clientSecret };
+}
+
+let graphToken: { value: string; expiresAt: number } | null = null;
+
+async function getGraphToken(cfg: NonNullable<ReturnType<typeof getGraphConfig>>) {
+  if (graphToken && graphToken.expiresAt > Date.now() + 60_000) return graphToken.value;
+  const res = await fetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: cfg.clientId,
+      client_secret: cfg.clientSecret,
+      scope: "https://graph.microsoft.com/.default",
+      grant_type: "client_credentials",
+    }),
+  });
+  if (!res.ok) throw new Error(`Graph token request failed: ${res.status} ${await res.text()}`);
+  const json = (await res.json()) as { access_token: string; expires_in: number };
+  graphToken = { value: json.access_token, expiresAt: Date.now() + json.expires_in * 1000 };
+  return graphToken.value;
+}
+
+async function sendViaGraph(
+  cfg: NonNullable<ReturnType<typeof getGraphConfig>>,
+  { to, subject, text, html, attachments }: { to: string[]; subject: string; text: string; html?: string; attachments?: EmailAttachment[] }
+) {
+  const token = await getGraphToken(cfg);
+  const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.sender)}/sendMail`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: {
+        subject,
+        body: { contentType: "HTML", content: html ?? text.replace(/\n/g, "<br>") },
+        toRecipients: to.map((address) => ({ emailAddress: { address } })),
+        attachments: attachments?.map((a) => ({
+          "@odata.type": "#microsoft.graph.fileAttachment",
+          name: a.filename,
+          contentType: a.contentType ?? "application/octet-stream",
+          contentBytes: a.content.toString("base64"),
+        })),
+      },
+      saveToSentItems: true,
+    }),
+  });
+  if (!res.ok) throw new Error(`Graph sendMail failed: ${res.status} ${await res.text()}`);
+}
+
 const NOTIFICATION_TYPE_TO_TRIGGER: Record<string, string> = {
   on_creation: "request_created",
   assignment: "request_submitted_to_l1",
@@ -138,6 +195,12 @@ export async function sendPlatformEmail({
   const finalTo = dedupeEmails(to);
   if (finalTo.length === 0) return { sent: false, reason: "No recipients" };
 
+  const graph = getGraphConfig();
+  if (graph) {
+    await sendViaGraph(graph, { to: finalTo, subject, text, html, attachments });
+    return { sent: true, recipients: finalTo };
+  }
+
   const cfg = await getSmtpConfig();
   if (cfg) {
     const numPort = parseInt(cfg.port, 10) || 587;
@@ -199,6 +262,16 @@ export async function getTemplateForTrigger(
 
 async function sendEmail(to: string, subject: string, body: string): Promise<void> {
   if (!to || !to.includes("@")) return;
+
+  const graph = getGraphConfig();
+  if (graph) {
+    try {
+      await sendViaGraph(graph, { to: [to], subject, text: body });
+      return;
+    } catch (e) {
+      console.error("[sendEmail] Graph failed", e);
+    }
+  }
 
   const cfg = await getSmtpConfig();
   if (cfg) {
