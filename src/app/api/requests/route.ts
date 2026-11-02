@@ -18,7 +18,7 @@ const lineItemSchema = z.object({
   slNo: z.number().int().min(0).optional(),
   componentName: z.string().trim().min(1, "Component name is required"),
   bomId: z.string().optional(),
-  costPerItem: z.number().min(0).max(10_000_000),
+  costPerItem: z.number().min(0),
   quantity: z.number().int().min(1),
   itemDescription: z.string().optional(),
   manufacturer: z.string().optional(),

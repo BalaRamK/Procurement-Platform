@@ -179,6 +179,57 @@ function ensureMentionCommentText(body: string, commentText?: string) {
   return `${body.trimEnd()}\n\n${section.trimEnd()}`;
 }
 
+// Exchange Online caps concurrent SMTP connections per mailbox (432 4.3.2), so SMTP mail goes through one
+// queue and is sent strictly one at a time, with a short gap and retries on temporary (4xx/network) errors.
+const SMTP_SEND_GAP_MS = 500;
+const SMTP_RETRY_DELAYS_MS = [3_000, 10_000, 30_000];
+let smtpQueue: Promise<void> = Promise.resolve();
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function isTransientSmtpError(e: unknown) {
+  const err = e as { responseCode?: number; code?: string };
+  return (
+    (typeof err.responseCode === "number" && err.responseCode >= 400 && err.responseCode < 500) ||
+    err.code === "ETIMEDOUT" ||
+    err.code === "ECONNECTION" ||
+    err.code === "ESOCKET"
+  );
+}
+
+function sendSmtp(
+  cfg: SmtpConfig,
+  mail: { to: string; subject: string; text: string; html: string; attachments?: EmailAttachment[] }
+): Promise<void> {
+  const task = async () => {
+    const numPort = parseInt(cfg.port, 10) || 587;
+    const nodemailer = await import("nodemailer");
+    const transportOptions: Record<string, unknown> = {
+      host: cfg.host,
+      port: numPort,
+      secure: numPort === 465,
+      auth: { user: cfg.user, pass: cfg.pass },
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
+    };
+    if (cfg.proxy) transportOptions.proxy = cfg.proxy;
+    const transporter = nodemailer.default.createTransport(transportOptions);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await transporter.sendMail({ from: cfg.from, ...mail });
+        return;
+      } catch (e) {
+        if (attempt >= SMTP_RETRY_DELAYS_MS.length || !isTransientSmtpError(e)) throw e;
+        await sleep(SMTP_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+  };
+  const result = smtpQueue.then(task);
+  smtpQueue = result.then(() => sleep(SMTP_SEND_GAP_MS), () => sleep(SMTP_SEND_GAP_MS));
+  return result;
+}
+
 export async function sendPlatformEmail({
   to,
   subject,
@@ -203,21 +254,7 @@ export async function sendPlatformEmail({
 
   const cfg = await getSmtpConfig();
   if (cfg) {
-    const numPort = parseInt(cfg.port, 10) || 587;
-    const nodemailer = await import("nodemailer");
-    const transportOptions: Record<string, unknown> = {
-      host: cfg.host,
-      port: numPort,
-      secure: numPort === 465,
-      auth: { user: cfg.user, pass: cfg.pass },
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 15_000,
-    };
-    if (cfg.proxy) transportOptions.proxy = cfg.proxy;
-    const transporter = nodemailer.default.createTransport(transportOptions);
-    await transporter.sendMail({
-      from: cfg.from,
+    await sendSmtp(cfg, {
       to: finalTo.join(", "),
       subject,
       text,
@@ -276,26 +313,7 @@ async function sendEmail(to: string, subject: string, body: string): Promise<voi
   const cfg = await getSmtpConfig();
   if (cfg) {
     try {
-      const numPort = parseInt(cfg.port, 10) || 587;
-      const nodemailer = await import("nodemailer");
-      const transportOptions: Record<string, unknown> = {
-        host: cfg.host,
-        port: numPort,
-        secure: numPort === 465,
-        auth: { user: cfg.user, pass: cfg.pass },
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 15_000,
-      };
-      if (cfg.proxy) transportOptions.proxy = cfg.proxy;
-      const transporter = nodemailer.default.createTransport(transportOptions);
-      await transporter.sendMail({
-        from: cfg.from,
-        to,
-        subject,
-        text: body,
-        html: body.replace(/\n/g, "<br>"),
-      });
+      await sendSmtp(cfg, { to, subject, text: body, html: body.replace(/\n/g, "<br>") });
       return;
     } catch (e) {
       console.error("[sendEmail] SMTP failed", e);
