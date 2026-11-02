@@ -501,13 +501,29 @@ export function PurchaseRequestForm({
       });
       if (!res.ok) {
         const errorPayload = (await res.json().catch(() => null)) as
-          | { error?: string; details?: string; message?: string }
+          | {
+              error?: string;
+              details?: string | { formErrors?: string[]; fieldErrors?: Record<string, string[] | undefined> };
+              message?: string;
+            }
           | null;
+        // Validation failures send zod's flattened errors as an object, not a string.
+        let detailsText: string | undefined;
+        if (typeof errorPayload?.details === "string") {
+          detailsText = errorPayload.details;
+        } else if (errorPayload?.details) {
+          const { formErrors = [], fieldErrors: perField = {} } = errorPayload.details;
+          const parts = [
+            ...formErrors,
+            ...Object.entries(perField).map(([field, msgs]) => `${field}: ${(msgs ?? []).join(", ")}`),
+          ];
+          detailsText = parts.length > 0 ? `Please check: ${parts.join("; ")}` : undefined;
+        }
         throw new Error(
-          errorPayload?.details ??
+          detailsText ??
             errorPayload?.message ??
             errorPayload?.error ??
-            "Failed to create request."
+            `Failed to create request (HTTP ${res.status}).`
         );
       }
       const ticket = await res.json();
@@ -1457,6 +1473,12 @@ export function PurchaseRequestForm({
             )}
           </div>
         </SectionCard>
+
+        {submitError && (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+            {submitError}
+          </p>
+        )}
 
         {/* Action buttons */}
         <div className="flex flex-col gap-3 sm:flex-row">
