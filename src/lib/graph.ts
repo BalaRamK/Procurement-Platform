@@ -1,5 +1,7 @@
+import { proxiedFetch } from "@/lib/proxied-fetch";
+
 /**
- * Microsoft Graph app-only (client credentials) access over HTTPS.
+ * Microsoft Graph app-only (client credentials) access over HTTPS, through the VM's proxy.
  * Uses GRAPH_* env vars, falling back to the AZURE_AD_* sign-in app registration.
  */
 function getGraphAppConfig() {
@@ -16,7 +18,7 @@ export async function getGraphAppToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) return cachedToken.value;
   const cfg = getGraphAppConfig();
   if (!cfg) throw new Error("Graph credentials are not set (GRAPH_* or AZURE_AD_* env vars).");
-  const res = await fetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
+  const res = await proxiedFetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -36,5 +38,5 @@ export async function getGraphAppToken(): Promise<string> {
 export async function graphGet(pathOrUrl: string, userToken?: string): Promise<Response> {
   const token = userToken ?? (await getGraphAppToken());
   const url = pathOrUrl.startsWith("http") ? pathOrUrl : `https://graph.microsoft.com/v1.0${pathOrUrl}`;
-  return fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  return proxiedFetch(url, { headers: { Authorization: `Bearer ${token}` } });
 }

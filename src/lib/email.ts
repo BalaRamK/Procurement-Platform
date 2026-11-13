@@ -1,6 +1,7 @@
 import { queryOne, query } from "@/lib/db";
 import { SUBJECT_PREFIX } from "@/lib/email-template-catalog";
 import { ensureDefaultEmailTemplates } from "@/lib/email-template-defaults";
+import { proxiedFetch } from "@/lib/proxied-fetch";
 
 type SmtpConfig = { host: string; port: string; from: string; user: string; pass: string; proxy: string };
 export type EmailAttachment = {
@@ -55,7 +56,7 @@ let graphToken: { value: string; expiresAt: number } | null = null;
 
 async function getGraphToken(cfg: NonNullable<ReturnType<typeof getGraphConfig>>) {
   if (graphToken && graphToken.expiresAt > Date.now() + 60_000) return graphToken.value;
-  const res = await fetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
+  const res = await proxiedFetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -76,7 +77,7 @@ async function sendViaGraph(
   { to, subject, text, html, attachments }: { to: string[]; subject: string; text: string; html?: string; attachments?: EmailAttachment[] }
 ) {
   const token = await getGraphToken(cfg);
-  const res = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.sender)}/sendMail`, {
+  const res = await proxiedFetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(cfg.sender)}/sendMail`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({

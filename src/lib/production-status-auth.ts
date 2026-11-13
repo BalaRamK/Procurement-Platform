@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { query, queryOne } from "@/lib/db";
+import { proxiedFetch } from "@/lib/proxied-fetch";
 
 /**
  * Delegated Microsoft Graph access for the Production Status sync: a Super Admin connects the workbook
@@ -70,7 +71,7 @@ type TokenResponse = {
 
 async function requestToken(params: Record<string, string>) {
   const cfg = getAppConfig();
-  const res = await fetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
+  const res = await proxiedFetch(`https://login.microsoftonline.com/${cfg.tenant}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: cfg.clientId, client_secret: cfg.clientSecret, scope: SCOPE, ...params }),
@@ -102,7 +103,7 @@ export async function connectWithAuthCode(code: string, connectedBy: string | nu
   const token = await requestToken({ grant_type: "authorization_code", code, redirect_uri: getRedirectUri() });
   if (!token.refresh_token) throw new Error("Microsoft did not return a refresh token (offline_access missing).");
 
-  const driveRes = await fetch("https://graph.microsoft.com/v1.0/me/drive?$select=owner", {
+  const driveRes = await proxiedFetch("https://graph.microsoft.com/v1.0/me/drive?$select=owner", {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
   if (!driveRes.ok) throw new Error(`Could not read the account's OneDrive: ${driveRes.status} ${await driveRes.text()}`);
