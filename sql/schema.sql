@@ -197,6 +197,36 @@ CREATE TABLE IF NOT EXISTS zoho_books_items (
 CREATE INDEX IF NOT EXISTS idx_zoho_books_items_sku ON zoho_books_items(sku);
 CREATE INDEX IF NOT EXISTS idx_zoho_books_items_name ON zoho_books_items(name);
 
+-- Production Status workbook sync (rows stored as JSON by column header; see src/lib/production-status-sync.ts)
+CREATE TABLE IF NOT EXISTS production_status_rows (
+  sheet_name TEXT NOT NULL,
+  row_number INTEGER NOT NULL,
+  data JSONB NOT NULL,
+  synced_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (sheet_name, row_number)
+);
+
+CREATE TABLE IF NOT EXISTS production_status_sync (
+  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  last_attempt_at TIMESTAMPTZ,
+  last_success_at TIMESTAMPTZ,
+  last_status TEXT,
+  last_error TEXT,
+  row_count INTEGER,
+  sheet_name TEXT,
+  source_modified_at TIMESTAMPTZ
+);
+
+-- Connected Microsoft account for the Production Status sync (refresh token stored encrypted)
+CREATE TABLE IF NOT EXISTS production_status_auth (
+  id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  refresh_token_enc TEXT NOT NULL,
+  account_name TEXT,
+  connected_by TEXT,
+  connected_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  refreshed_at TIMESTAMPTZ
+);
+
 -- App settings (key-value store for admin-configurable values)
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
