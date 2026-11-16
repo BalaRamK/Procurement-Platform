@@ -69,7 +69,7 @@ function send(url: string, init: { method?: string; headers: Record<string, stri
         res.on("error", reject);
       }
     );
-    req.setTimeout(TIMEOUT_MS, () => req.destroy(new Error("Request timed out")));
+    req.setTimeout(TIMEOUT_MS, () => req.destroy(new Error(`Request to ${u.host} timed out`)));
     req.on("error", reject);
     if (init.body !== undefined) req.write(init.body);
     req.end();

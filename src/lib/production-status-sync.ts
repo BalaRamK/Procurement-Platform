@@ -104,12 +104,17 @@ async function recordResult(
 
 export async function syncProductionStatusToDb(): Promise<ProductionStatusSyncResult> {
   try {
+    const startedAt = Date.now();
+    const step = (name: string) => console.log(`[production-status sync] ${name} (+${Date.now() - startedAt} ms)`);
     await ensureProductionStatusTables();
     const userToken = await getDelegatedAccessToken(); // null when no account is connected
+    step(userToken ? "got delegated token" : "no connected account; using app-only access");
     const { downloadPath, modifiedAt } = await locateWorkbook(userToken);
+    step("workbook located");
     const fileRes = await graphGet(downloadPath, userToken ?? undefined);
     if (!fileRes.ok) throw new Error(`Workbook download failed: ${fileRes.status} ${await fileRes.text()}`);
     const buffer = Buffer.from(await fileRes.arrayBuffer());
+    step(`workbook downloaded (${buffer.length} bytes)`);
 
     const XLSX = await import("xlsx");
     const workbook = XLSX.read(buffer, { type: "buffer", cellDates: true });
