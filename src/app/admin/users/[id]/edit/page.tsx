@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { queryOne } from "@/lib/db";
+import { ensureProductionStatusAccessColumn } from "@/lib/production-status-access";
 import { EditUserFormEnhanced } from "@/components/admin/EditUserFormEnhanced";
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/constants";
@@ -30,8 +31,9 @@ export default async function EditUserPage({
   if (!session.user.roles?.includes("SUPER_ADMIN")) redirect("/dashboard");
 
   const { id } = await params;
+  await ensureProductionStatusAccessColumn();
   const user = await queryOne<User>(
-    "SELECT id, email, name, roles, team, status FROM users WHERE id = $1",
+    "SELECT id, email, name, roles, team, status, production_status_access FROM users WHERE id = $1",
     [id]
   );
   if (!user) notFound();

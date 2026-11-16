@@ -50,6 +50,8 @@ export interface User {
   roles: UserRole[];
   team: TeamName | null;
   status: boolean;
+  /** Can open the Production Status dashboard (Super Admins always can). */
+  productionStatusAccess?: boolean;
 }
 
 /** Primary role for dashboard view (highest privilege in list) */

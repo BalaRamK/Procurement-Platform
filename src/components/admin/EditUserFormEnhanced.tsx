@@ -30,6 +30,7 @@ type UserForEdit = {
   roles: UserRole[];
   team: TeamName | null;
   status: boolean;
+  productionStatusAccess?: boolean;
 };
 
 type EditUserFormProps = {
@@ -86,6 +87,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
   const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(asRolesArray(user.roles));
   const [team, setTeam] = useState<TeamName | "">(user.team ?? "");
   const [status, setStatus] = useState(user.status);
+  const [productionStatusAccess, setProductionStatusAccess] = useState(!!user.productionStatusAccess);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -119,6 +121,7 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
           roles: selectedRoles,
           team: needsTeam && team ? team : null,
           status,
+          productionStatusAccess,
         }),
       });
       const data = await res.json();
@@ -213,6 +216,23 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
           )}
         </SectionCard>
 
+        <SectionCard title="Additional access" description="Optional pages this profile can open, on top of its roles.">
+          <label className="flex items-start gap-3 rounded-2xl border border-white/30 bg-white/35 p-4 text-sm dark:border-white/10 dark:bg-white/5">
+            <input
+              type="checkbox"
+              checked={productionStatusAccess}
+              onChange={(e) => setProductionStatusAccess(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-white/50 text-primary-600 focus:ring-primary-500/30"
+            />
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Production Status dashboard</p>
+              <p className="mt-1 text-slate-500 dark:text-slate-300">
+                Can open the Production Status page, which lists systems, customers and delivery dates from the production sheet. Super Admins always have access.
+              </p>
+            </div>
+          </label>
+        </SectionCard>
+
         {error ? <p className="text-sm font-medium text-red-600 dark:text-red-300">{error}</p> : null}
 
         <div className="flex flex-wrap gap-3">
@@ -246,6 +266,12 @@ export function EditUserFormEnhanced({ user, roleLabels, roles }: EditUserFormPr
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Routing</p>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
                 {needsTeam && team ? `Vertical-scoped access for ${TEAMS.find((item) => item.value === team)?.label}` : needsTeam ? "Vertical assignment still needed" : "No vertical routing required"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/30 bg-white/35 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">Production Status</p>
+              <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                {selectedRoles.includes("SUPER_ADMIN") ? "Always (Super Admin)" : productionStatusAccess ? "Can open the dashboard" : "No access"}
               </p>
             </div>
           </div>

@@ -7,6 +7,7 @@ type MobileLayoutShellProps = {
   userEmail?: string | null;
   userRoles?: string[] | null;
   currentUserId?: string | null;
+  canViewProductionStatus?: boolean;
   headerSlot: React.ReactNode;
   children: React.ReactNode;
 };
@@ -15,6 +16,7 @@ export function MobileLayoutShell({
   userEmail,
   userRoles,
   currentUserId,
+  canViewProductionStatus,
   headerSlot,
   children,
 }: MobileLayoutShellProps) {
@@ -26,6 +28,7 @@ export function MobileLayoutShell({
         userEmail={userEmail}
         userRoles={userRoles}
         currentUserId={currentUserId}
+        canViewProductionStatus={canViewProductionStatus}
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
       />

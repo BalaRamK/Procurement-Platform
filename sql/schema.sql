@@ -28,10 +28,13 @@ CREATE TABLE IF NOT EXISTS users (
   roles "UserRole"[] NOT NULL DEFAULT ARRAY['REQUESTER']::"UserRole"[],
   team "TeamName",
   status BOOLEAN NOT NULL DEFAULT true,
+  production_status_access BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(email, profile_name)
 );
+-- For databases created before the Production Status dashboard (the app also adds this on first use):
+ALTER TABLE users ADD COLUMN IF NOT EXISTS production_status_access BOOLEAN NOT NULL DEFAULT false;
 
 -- Tickets
 CREATE TABLE IF NOT EXISTS tickets (

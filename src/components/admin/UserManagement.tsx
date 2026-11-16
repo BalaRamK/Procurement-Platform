@@ -6,7 +6,7 @@ import type { User, UserRole, TeamName } from "@/types/db";
 import { asRolesArray } from "@/types/db";
 
 type UserManagementProps = {
-  users: (Pick<User, "id" | "email" | "profileName" | "name" | "roles" | "team" | "status">)[];
+  users: (Pick<User, "id" | "email" | "profileName" | "name" | "roles" | "team" | "status" | "productionStatusAccess">)[];
   roleLabels: Record<UserRole, string>;
   currentUserId?: string;
   initialQuery?: string;
@@ -266,6 +266,11 @@ export function UserManagement({ users: initialUsers, roleLabels, currentUserId,
                       ))
                     ) : (
                       <span>-</span>
+                    )}
+                    {user.productionStatusAccess && (
+                      <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 ring-1 ring-slate-200 dark:bg-slate-500/15 dark:text-slate-100 dark:ring-slate-400/20">
+                        Production Status
+                      </span>
                     )}
                   </div>
                 </td>

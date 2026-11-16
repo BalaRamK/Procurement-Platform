@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { query } from "@/lib/db";
+import { ensureProductionStatusAccessColumn } from "@/lib/production-status-access";
 import type { User } from "@/types/db";
 import { asRolesArray } from "@/types/db";
 import { UserManagement } from "@/components/admin/UserManagement";
@@ -19,8 +20,9 @@ export default async function AdminUsersPage({
   const q = (resolved.q ?? "").trim();
   const where = q ? `WHERE (email ILIKE $1 OR name ILIKE $1)` : "";
   const args = q ? [`%${q}%`] : [];
+  await ensureProductionStatusAccessColumn();
   const rows = await query<User & { roles?: unknown; profile_name?: string }>(
-    `SELECT id, email, profile_name AS "profile_name", name, roles, team, status, created_at AS "createdAt", updated_at AS "updatedAt"
+    `SELECT id, email, profile_name AS "profile_name", name, roles, team, status, production_status_access, created_at AS "createdAt", updated_at AS "updatedAt"
      FROM users ${where} ORDER BY created_at DESC`,
     args
   );

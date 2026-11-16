@@ -5,6 +5,7 @@ import { query, queryOne } from "@/lib/db";
 import type { UserRole, TeamName } from "@/types/db";
 import { USER_ROLES, TEAM_NAMES } from "@/types/db";
 import { z } from "zod";
+import { ensureProductionStatusAccessColumn } from "@/lib/production-status-access";
 
 const ROLES_REQUIRING_TEAM: UserRole[] = ["REQUESTER", "VERTICAL_OWNER", "FUNCTIONAL_HEAD", "L1_APPROVER"];
 const ROLES_WITHOUT_TEAM: UserRole[] = ["FINANCE_APPROVER", "CFO", "CDO", "PRODUCTION", "SUPER_ADMIN"];
@@ -27,12 +28,14 @@ const createSchema = z.object({
   name: z.string().optional(),
   roles: z.array(z.enum(USER_ROLES)).min(1),
   team: z.enum(TEAM_NAMES).nullable().optional(),
+  productionStatusAccess: z.boolean().optional(),
 });
 
 const bulkCreateSchema = z.object({
   emails: z.array(z.string().email()).min(1).max(200),
   roles: z.array(z.enum(USER_ROLES)).min(1),
   team: z.enum(TEAM_NAMES).nullable().optional(),
+  productionStatusAccess: z.boolean().optional(),
 });
 
 const patchSchema = z.object({
@@ -42,6 +45,7 @@ const patchSchema = z.object({
   roles: z.union([z.array(z.enum(USER_ROLES)).min(1), z.enum(USER_ROLES)]).optional().transform((v) => (Array.isArray(v) ? v : v ? [v] : undefined)),
   team: z.union([z.enum(TEAM_NAMES), z.literal(""), z.null()]).optional().transform((v) => (v === "" ? null : v ?? undefined)),
   status: z.boolean().optional(),
+  productionStatusAccess: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -51,10 +55,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
+  await ensureProductionStatusAccessColumn();
 
   const bulkParsed = bulkCreateSchema.safeParse(body);
   if (bulkParsed.success) {
-    const { emails, roles, team } = bulkParsed.data;
+    const { emails, roles, team, productionStatusAccess } = bulkParsed.data;
     const roleTeamError = validateRoleTeamCombination(roles, team);
     if (roleTeamError) return NextResponse.json({ error: roleTeamError }, { status: 400 });
     const results: { email: string; created: boolean; updated: boolean }[] = [];
@@ -74,6 +79,12 @@ export async function POST(req: NextRequest) {
         );
         results.push({ email: normalizedEmail, created: true, updated: false });
       }
+      if (productionStatusAccess !== undefined) {
+        await query(
+          "UPDATE users SET production_status_access = $1 WHERE email = $2 AND profile_name = 'Default'",
+          [productionStatusAccess, normalizedEmail]
+        );
+      }
     }
     return NextResponse.json({ ok: true, bulk: true, results });
   }
@@ -86,7 +97,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { email, profileName, name, roles, team } = parsed.data;
+  const { email, profileName, name, roles, team, productionStatusAccess } = parsed.data;
   const roleTeamError = validateRoleTeamCombination(roles, team);
   if (roleTeamError) return NextResponse.json({ error: roleTeamError }, { status: 400 });
   const normalizedEmail = email.trim().toLowerCase();
@@ -101,6 +112,9 @@ export async function POST(req: NextRequest) {
       "UPDATE users SET name = COALESCE($1, name), roles = $2, team = $3, status = true, updated_at = now() WHERE id = $4",
       [name ?? existing.name, roles, team ?? existing.team, existing.id]
     );
+    if (productionStatusAccess !== undefined) {
+      await query("UPDATE users SET production_status_access = $1 WHERE id = $2", [productionStatusAccess, existing.id]);
+    }
     return NextResponse.json({ ok: true, user: { ...existing, roles, team, profileName: profile }, updated: true });
   }
 
@@ -110,6 +124,9 @@ export async function POST(req: NextRequest) {
   );
   const user = rows[0];
   if (!user) return NextResponse.json({ error: "Insert failed" }, { status: 500 });
+  if (productionStatusAccess !== undefined) {
+    await query("UPDATE users SET production_status_access = $1 WHERE id = $2", [productionStatusAccess, user.id]);
+  }
   return NextResponse.json({ ok: true, user: { ...user, profileName: profile } });
 }
 
@@ -128,7 +145,8 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, email, name, roles, team, status } = parsed.data;
+  const { userId, email, name, roles, team, status, productionStatusAccess } = parsed.data;
+  if (productionStatusAccess !== undefined) await ensureProductionStatusAccessColumn();
 
   // Validate role/team combination when either is changing
   if (roles !== undefined || team !== undefined) {
@@ -174,6 +192,10 @@ export async function PATCH(req: NextRequest) {
   if (status !== undefined) {
     update.push(`status = $${i++}`);
     params.push(status);
+  }
+  if (productionStatusAccess !== undefined) {
+    update.push(`production_status_access = $${i++}`);
+    params.push(productionStatusAccess);
   }
 
   if (update.length === 0) {
